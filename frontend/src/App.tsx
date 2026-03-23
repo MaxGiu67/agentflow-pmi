@@ -1,0 +1,137 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+import ProtectedRoute from './components/ui/ProtectedRoute'
+import AppLayout from './components/layout/AppLayout'
+
+// Auth pages
+import LoginPage from './pages/auth/LoginPage'
+import RegisterPage from './pages/auth/RegisterPage'
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+
+// Onboarding
+import OnboardingPage from './pages/onboarding/OnboardingPage'
+
+// Main pages
+import DashboardPage from './pages/DashboardPage'
+import ScadenzarioPage from './pages/ScadenzarioPage'
+import ReportPage from './pages/ReportPage'
+import ImpostazioniPage from './pages/ImpostazioniPage'
+
+// Fatture
+import FattureListPage from './pages/fatture/FattureListPage'
+import FatturaDetailPage from './pages/fatture/FatturaDetailPage'
+import VerificaPage from './pages/fatture/VerificaPage'
+import UploadPage from './pages/fatture/UploadPage'
+
+// Contabilita
+import ScrittureListPage from './pages/contabilita/ScrittureListPage'
+import ScritturaDetailPage from './pages/contabilita/ScritturaDetailPage'
+import PianoContiPage from './pages/contabilita/PianoContiPage'
+import BilancioPage from './pages/contabilita/BilancioPage'
+
+// Fisco
+import FiscoIndexPage from './pages/fisco/FiscoIndexPage'
+import F24Page from './pages/fisco/F24Page'
+import LiquidazionePage from './pages/fisco/LiquidazionePage'
+import RitenutePage from './pages/fisco/RitenutePage'
+import CUPage from './pages/fisco/CUPage'
+import ConservazionePage from './pages/fisco/ConservazionePage'
+import BolloPage from './pages/fisco/BolloPage'
+
+// Banca
+import BankAccountsPage from './pages/banca/BankAccountsPage'
+import MovimentiPage from './pages/banca/MovimentiPage'
+import RiconciliazionePage from './pages/banca/RiconciliazionePage'
+import CashFlowPage from './pages/banca/CashFlowPage'
+
+// Spese
+import SpesePage from './pages/spese/SpesePage'
+
+// Cespiti
+import CespitiPage from './pages/cespiti/CespitiPage'
+
+// CEO
+import CeoDashboardPage from './pages/ceo/CeoDashboardPage'
+import BudgetPage from './pages/ceo/BudgetPage'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: 1,
+    },
+  },
+})
+
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+
+          {/* Protected routes */}
+          <Route element={<ProtectedRoute />}>
+            {/* Onboarding (no sidebar layout) */}
+            <Route path="/onboarding" element={<OnboardingPage />} />
+
+            {/* Main app layout */}
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<DashboardPage />} />
+
+              {/* Fatture */}
+              <Route path="/fatture" element={<FattureListPage />} />
+              <Route path="/fatture/verifica" element={<VerificaPage />} />
+              <Route path="/fatture/upload" element={<UploadPage />} />
+              <Route path="/fatture/:id" element={<FatturaDetailPage />} />
+
+              {/* Contabilita */}
+              <Route path="/contabilita" element={<ScrittureListPage />} />
+              <Route path="/contabilita/piano-conti" element={<PianoContiPage />} />
+              <Route path="/contabilita/bilancio" element={<BilancioPage />} />
+              <Route path="/contabilita/:id" element={<ScritturaDetailPage />} />
+
+              {/* Spese */}
+              <Route path="/spese" element={<SpesePage />} />
+
+              {/* Cespiti */}
+              <Route path="/cespiti" element={<CespitiPage />} />
+
+              {/* Banca */}
+              <Route path="/banca" element={<BankAccountsPage />} />
+              <Route path="/banca/movimenti/:accountId" element={<MovimentiPage />} />
+              <Route path="/banca/riconciliazione" element={<RiconciliazionePage />} />
+              <Route path="/banca/cashflow" element={<CashFlowPage />} />
+
+              {/* Scadenzario */}
+              <Route path="/scadenze" element={<ScadenzarioPage />} />
+
+              {/* Fisco */}
+              <Route path="/fisco" element={<FiscoIndexPage />} />
+              <Route path="/fisco/f24" element={<F24Page />} />
+              <Route path="/fisco/liquidazione" element={<LiquidazionePage />} />
+              <Route path="/fisco/ritenute" element={<RitenutePage />} />
+              <Route path="/fisco/cu" element={<CUPage />} />
+              <Route path="/fisco/conservazione" element={<ConservazionePage />} />
+              <Route path="/fisco/bollo" element={<BolloPage />} />
+
+              {/* CEO */}
+              <Route path="/ceo" element={<CeoDashboardPage />} />
+              <Route path="/ceo/budget" element={<BudgetPage />} />
+
+              {/* Report */}
+              <Route path="/report" element={<ReportPage />} />
+
+              {/* Impostazioni */}
+              <Route path="/impostazioni" element={<ImpostazioniPage />} />
+            </Route>
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
+  )
+}
