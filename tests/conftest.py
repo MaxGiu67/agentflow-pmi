@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta, UTC
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from passlib.context import CryptContext
+import bcrypt as _bcrypt
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from api.db.models import (
@@ -27,7 +27,8 @@ TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 engine = create_async_engine(TEST_DATABASE_URL, echo=False)
 test_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+def _hash_pw(password: str) -> str:
+    return _bcrypt.hashpw(password.encode("utf-8"), _bcrypt.gensalt()).decode("utf-8")
 
 
 @pytest.fixture(autouse=True)
@@ -87,7 +88,7 @@ async def verified_user(db_session: AsyncSession, tenant: Tenant) -> User:
     """A verified user ready to login."""
     user = User(
         email="mario.rossi@example.com",
-        password_hash=pwd_context.hash("Password1"),
+        password_hash=_hash_pw("Password1"),
         name="Mario Rossi",
         role="owner",
         email_verified=True,
@@ -103,7 +104,7 @@ async def unverified_user(db_session: AsyncSession, tenant: Tenant) -> User:
     """An unverified user (email not yet confirmed)."""
     user = User(
         email="luigi.bianchi@example.com",
-        password_hash=pwd_context.hash("Password1"),
+        password_hash=_hash_pw("Password1"),
         name="Luigi Bianchi",
         role="owner",
         email_verified=False,
@@ -120,7 +121,7 @@ async def verified_user_no_tenant(db_session: AsyncSession) -> User:
     """A verified user without a tenant (new registration, no company setup)."""
     user = User(
         email="nuova.utente@example.com",
-        password_hash=pwd_context.hash("Password1"),
+        password_hash=_hash_pw("Password1"),
         name="Nuova Utente",
         role="owner",
         email_verified=True,
@@ -151,7 +152,7 @@ async def user_with_odoo(db_session: AsyncSession, tenant_with_odoo: Tenant) -> 
     """A verified user whose tenant has Odoo DB (piano conti exists)."""
     user = User(
         email="paolo.conti@example.com",
-        password_hash=pwd_context.hash("Password1"),
+        password_hash=_hash_pw("Password1"),
         name="Paolo Conti",
         role="owner",
         email_verified=True,
@@ -318,7 +319,7 @@ async def spid_user(db_session: AsyncSession, tenant: Tenant) -> User:
     """A verified user with SPID token connected to cassetto fiscale."""
     user = User(
         email="spid.user@example.com",
-        password_hash=pwd_context.hash("Password1"),
+        password_hash=_hash_pw("Password1"),
         name="SPID User",
         role="owner",
         email_verified=True,
@@ -496,7 +497,7 @@ async def onboarding_user(db_session: AsyncSession, tenant: Tenant) -> User:
     """A user for onboarding tests."""
     user = User(
         email="onboarding.user@example.com",
-        password_hash=pwd_context.hash("Password1"),
+        password_hash=_hash_pw("Password1"),
         name="Onboarding User",
         role="owner",
         email_verified=True,

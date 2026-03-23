@@ -46,8 +46,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="ContaBot API",
-    description="AgentFlow PMI — L'agente contabile AI per PMI italiane",
+    title="AgentFlow API",
+    description="AgentFlow — L'agente contabile AI per PMI italiane",
     version="1.0.0",
     lifespan=lifespan,
 )

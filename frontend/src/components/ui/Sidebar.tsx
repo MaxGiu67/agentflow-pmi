@@ -57,7 +57,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white">
               CB
             </div>
-            <span className="text-lg font-semibold text-gray-900">ContaBot</span>
+            <span className="text-lg font-semibold text-gray-900">AgentFlow</span>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 lg:hidden">
             <X className="h-5 w-5" />

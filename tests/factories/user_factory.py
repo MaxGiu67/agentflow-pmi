@@ -1,10 +1,12 @@
 import uuid
 
-from passlib.context import CryptContext
+import bcrypt as _bcrypt
 
 from api.db.models import User
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def _hash_pw(password: str) -> str:
+    return _bcrypt.hashpw(password.encode("utf-8"), _bcrypt.gensalt()).decode("utf-8")
 
 
 def build_user(
@@ -18,7 +20,7 @@ def build_user(
     """Build a User instance without persisting."""
     return User(
         email=email,
-        password_hash=pwd_context.hash(password),
+        password_hash=_hash_pw(password),
         name=name,
         role=role,
         email_verified=email_verified,

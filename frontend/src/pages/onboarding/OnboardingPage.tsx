@@ -55,7 +55,7 @@ export default function OnboardingPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-2xl">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-gray-900">Configurazione ContaBot</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Configurazione AgentFlow</h1>
           <p className="mt-2 text-sm text-gray-500">Completa la configurazione per iniziare</p>
         </div>
 
@@ -164,7 +164,7 @@ export default function OnboardingPage() {
               <RefreshCw className="mx-auto mb-4 h-16 w-16 text-green-500" />
               <h2 className="mb-2 text-lg font-semibold text-gray-900">Sincronizzazione</h2>
               <p className="text-sm text-gray-500">
-                ContaBot sincronizzera automaticamente le tue fatture dal cassetto fiscale,
+                AgentFlow sincronizzera automaticamente le tue fatture dal cassetto fiscale,
                 le categorizzera con l'intelligenza artificiale e le registrera in contabilita.
               </p>
             </div>

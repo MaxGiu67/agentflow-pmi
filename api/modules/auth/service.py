@@ -3,8 +3,8 @@ import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import bcrypt as _bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,18 +13,16 @@ from api.db.models import User
 
 logger = logging.getLogger(__name__)
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 class AuthService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
     def _hash_password(self, password: str) -> str:
-        return pwd_context.hash(password)
+        return _bcrypt.hashpw(password.encode("utf-8"), _bcrypt.gensalt()).decode("utf-8")
 
     def _verify_password(self, plain: str, hashed: str) -> bool:
-        return pwd_context.verify(plain, hashed)
+        return _bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
 
     def _create_access_token(self, user_id: uuid.UUID, email: str) -> str:
         expire = datetime.now(UTC) + timedelta(minutes=settings.jwt_access_token_expire_minutes)

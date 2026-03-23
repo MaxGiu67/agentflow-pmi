@@ -34,7 +34,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-lg font-bold text-white">
             CB
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Accedi a ContaBot</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Accedi a AgentFlow</h1>
           <p className="mt-2 text-sm text-gray-500">
             Il tuo agente contabile AI per PMI italiane
           </p>

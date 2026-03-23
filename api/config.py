@@ -24,9 +24,9 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_user: str = ""
     smtp_password: str = ""
-    smtp_from: str = "noreply@contabot.it"
+    smtp_from: str = "noreply@agentflow.it"
 
-    app_name: str = "ContaBot"
+    app_name: str = "AgentFlow"
     app_url: str = "http://localhost:8000"
     frontend_url: str = "http://localhost:3000"
 
