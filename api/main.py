@@ -1,4 +1,7 @@
+import os
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from api.modules.auth.router import router as auth_router
 from api.modules.profile.router import router as profile_router
@@ -29,10 +32,33 @@ from api.modules.normativo.router import router as normativo_router
 from api.modules.f24.router import router as f24_router
 from api.modules.ceo.router import router as ceo_router
 
+from contextlib import asynccontextmanager
+
+from api.db.models import Base
+from api.db.session import engine
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+
+
 app = FastAPI(
     title="ContaBot API",
     description="AgentFlow PMI — L'agente contabile AI per PMI italiane",
-    version="0.9.0",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[frontend_url, "http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(auth_router, prefix="/api/v1")
