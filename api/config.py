@@ -3,17 +3,16 @@ import os
 from pydantic_settings import BaseSettings
 
 
-def _get_async_db_url() -> str:
-    """Convert Railway DATABASE_URL (postgresql://) to asyncpg format."""
-    url = os.getenv("DATABASE_URL", "postgresql+asyncpg://contabot:contabot@localhost:5432/contabot")
-    if url.startswith("postgresql://"):
-        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-    return url
-
-
 class Settings(BaseSettings):
-    database_url: str = _get_async_db_url()
-    database_url_sync: str = os.getenv("DATABASE_URL", "postgresql://contabot:contabot@localhost:5432/contabot")
+    database_url: str = "postgresql+asyncpg://contabot:contabot@localhost:5432/contabot"
+
+    @property
+    def async_database_url(self) -> str:
+        """Return asyncpg-compatible URL, converting Railway's postgresql:// if needed."""
+        url = self.database_url
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
     redis_url: str = "redis://localhost:6379/0"
 
     jwt_secret_key: str = "change-me-in-production"
