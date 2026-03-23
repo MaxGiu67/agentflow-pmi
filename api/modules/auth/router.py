@@ -34,10 +34,14 @@ async def register(
             name=request.name,
         )
     except ValueError as e:
-        # Generic message to avoid email enumeration (AC-01.3)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Email gia registrata",
+            detail=str(e),
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Errore registrazione: {type(e).__name__}: {e}",
         ) from e
 
     return RegisterResponse(
