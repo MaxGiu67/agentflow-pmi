@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     jwt_refresh_token_expire_days: int = 7
 
     resend_api_key: str = ""
-    email_from: str = "AgentFlow <onboarding@resend.dev>"
+    email_from: str = "AgentFlow <noreply@nexadata.it>"
 
     app_name: str = "AgentFlow"
     app_url: str = "http://localhost:8000"
