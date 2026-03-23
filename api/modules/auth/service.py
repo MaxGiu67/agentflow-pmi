@@ -74,9 +74,8 @@ class AuthService:
         return user
 
     async def _send_verification_email(self, email: str, token: str) -> None:
-        # In production: send via SMTP
-        # For now: log the token (test can check this)
-        logger.info("Verification email sent to %s with token %s", email, token)
+        from api.adapters.email import send_verification_email
+        await send_verification_email(email, token)
 
     async def verify_email(self, token: str) -> User:
         result = await self.db.execute(
@@ -146,7 +145,8 @@ class AuthService:
         }
 
     async def _send_lockout_notification(self, email: str) -> None:
-        logger.warning("Lockout notification sent to %s", email)
+        from api.adapters.email import send_lockout_notification
+        await send_lockout_notification(email)
 
     async def refresh_token(self, refresh_token_str: str) -> dict:
         try:
@@ -190,7 +190,8 @@ class AuthService:
         await self._send_password_reset_email(email, reset_token)
 
     async def _send_password_reset_email(self, email: str, token: str) -> None:
-        logger.info("Password reset email sent to %s with token %s", email, token)
+        from api.adapters.email import send_password_reset_email
+        await send_password_reset_email(email, token)
 
     async def reset_password(self, token: str, new_password: str) -> None:
         result = await self.db.execute(

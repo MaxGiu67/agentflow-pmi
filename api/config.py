@@ -20,11 +20,8 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 1440  # 24h
     jwt_refresh_token_expire_days: int = 7
 
-    smtp_host: str = "smtp.gmail.com"
-    smtp_port: int = 587
-    smtp_user: str = ""
-    smtp_password: str = ""
-    smtp_from: str = "noreply@agentflow.it"
+    resend_api_key: str = ""
+    email_from: str = "AgentFlow <onboarding@resend.dev>"
 
     app_name: str = "AgentFlow"
     app_url: str = "http://localhost:8000"
