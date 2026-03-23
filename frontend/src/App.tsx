@@ -8,6 +8,7 @@ import AppLayout from './components/layout/AppLayout'
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import VerifyEmailPage from './pages/auth/VerifyEmailPage'
 
 // Onboarding
 import OnboardingPage from './pages/onboarding/OnboardingPage'
@@ -73,6 +74,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
 
           {/* Protected routes */}
           <Route element={<ProtectedRoute />}>
