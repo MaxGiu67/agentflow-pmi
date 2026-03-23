@@ -3,6 +3,11 @@ import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 
+
+def _utcnow() -> datetime:
+    """Return current UTC time without timezone info (for TIMESTAMP WITHOUT TIME ZONE)."""
+    return datetime.now(UTC).replace(tzinfo=None)
+
 import bcrypt as _bcrypt
 from jose import JWTError, jwt
 from sqlalchemy import select
@@ -98,14 +103,14 @@ class AuthService:
             raise ValueError("Credenziali non valide")
 
         # Check lockout
-        if user.locked_until and user.locked_until > datetime.now(UTC):
-            remaining = int((user.locked_until - datetime.now(UTC)).total_seconds() / 60) + 1
+        if user.locked_until and user.locked_until > _utcnow():
+            remaining = int((user.locked_until - _utcnow()).total_seconds() / 60) + 1
             raise ValueError(
                 f"Account bloccato per troppi tentativi. Riprova tra {remaining} minuti"
             )
 
         # Reset lockout if expired
-        if user.locked_until and user.locked_until <= datetime.now(UTC):
+        if user.locked_until and user.locked_until <= _utcnow():
             user.failed_login_attempts = 0
             user.locked_until = None
 
@@ -113,7 +118,7 @@ class AuthService:
             user.failed_login_attempts += 1
 
             if user.failed_login_attempts >= settings.max_login_attempts:
-                user.locked_until = datetime.now(UTC) + timedelta(minutes=settings.lockout_minutes)
+                user.locked_until = _utcnow() + timedelta(minutes=settings.lockout_minutes)
                 await self.db.flush()
                 logger.warning("Account locked due to brute force: %s", email)
                 await self._send_lockout_notification(email)
@@ -182,7 +187,7 @@ class AuthService:
 
         reset_token = secrets.token_urlsafe(32)
         user.password_reset_token = reset_token
-        user.password_reset_expires = datetime.now(UTC) + timedelta(
+        user.password_reset_expires = _utcnow() + timedelta(
             minutes=settings.password_reset_expire_minutes
         )
         await self.db.flush()
@@ -201,7 +206,7 @@ class AuthService:
         if not user:
             raise ValueError("Token di reset non valido")
 
-        if user.password_reset_expires and user.password_reset_expires < datetime.now(UTC):
+        if user.password_reset_expires and user.password_reset_expires < _utcnow():
             raise ValueError("Token di reset scaduto")
 
         user.password_hash = self._hash_password(new_password)
