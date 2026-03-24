@@ -84,6 +84,14 @@ export function useSyncStatus() {
   })
 }
 
+export function useCassettoStatus() {
+  return useQuery({
+    queryKey: ['cassetto-status'],
+    queryFn: () => api.get('/cassetto/status').then((r) => r.data),
+    retry: false,
+  })
+}
+
 export function useUploadInvoice() {
   const qc = useQueryClient()
   return useMutation({
