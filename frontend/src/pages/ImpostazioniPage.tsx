@@ -26,8 +26,8 @@ export default function ImpostazioniPage() {
   const [_spidSessionId, setSpidSessionId] = useState('')
   const [spidMessage, setSpidMessage] = useState('')
   const [spidPolling, setSpidPolling] = useState(false)
-  const [spidProvider, setSpidProvider] = useState('poste')
-  const [showSpidSelector, setShowSpidSelector] = useState(false)
+  const [spidProvider] = useState('poste')
+  
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [bankIban, setBankIban] = useState('')
   const [bankName, setBankName] = useState('')
