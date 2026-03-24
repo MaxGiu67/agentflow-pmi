@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     fiscoapi_secret_key: str = ""
     fiscoapi_base_url: str = "https://api.fiscoapi.com/api_esterne"
+    fiscoapi_link_code: str = ""  # codice link FiscoAPI (es. vRMMZPep55Q)
 
     saltedge_app_id: str = ""
     saltedge_secret: str = ""

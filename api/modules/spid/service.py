@@ -31,6 +31,15 @@ class SpidService:
         If FiscoAPI real key is configured, creates a real session.
         Otherwise falls back to mock.
         """
+        # If FiscoAPI link code is configured, redirect to FiscoAPI portal
+        if settings.fiscoapi_link_code:
+            redirect_url = f"https://app.fiscoapi.com/link?codice={settings.fiscoapi_link_code}"
+            logger.info("SPID redirect to FiscoAPI link for user %s: %s", user.email, redirect_url)
+            return {
+                "redirect_url": redirect_url,
+                "message": "Redirect al portale FiscoAPI per autenticazione SPID",
+            }
+
         if self.real_api:
             try:
                 session = await self.real_api.create_session(tipo_login="poste")
@@ -38,7 +47,6 @@ class SpidService:
                 stato = session.get("stato", "")
                 logger.info("FiscoAPI session created for %s: id=%s stato=%s", user.email, session_id, stato)
 
-                # Save session_id in user's spid_token field for tracking
                 user.spid_token = f"fiscoapi_session:{session_id}"
                 await self.db.flush()
 
