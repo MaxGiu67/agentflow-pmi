@@ -67,7 +67,7 @@ export default function ImpostazioniPage() {
     setSpidLoading(true)
     setSpidMessage('')
     setSpidQrCode('')
-    setShowSpidSelector(false)
+
     try {
       const { data } = await api.post('/auth/spid/init', { tipo_login: spidProvider })
 
