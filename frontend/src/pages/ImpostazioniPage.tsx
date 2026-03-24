@@ -26,7 +26,7 @@ export default function ImpostazioniPage() {
   const [_spidSessionId, setSpidSessionId] = useState('')
   const [spidMessage, setSpidMessage] = useState('')
   const [spidPolling, setSpidPolling] = useState(false)
-  const [spidProvider] = useState('poste')
+  const [spidProvider, setSpidProvider] = useState('')
   
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [bankIban, setBankIban] = useState('')
@@ -64,6 +64,10 @@ export default function ImpostazioniPage() {
   }
 
   const handleConnectSpid = async () => {
+    if (!spidProvider) {
+      showToast('Seleziona il tuo provider SPID', 'error')
+      return
+    }
     setSpidLoading(true)
     setSpidMessage('')
     setSpidQrCode('')
@@ -308,20 +312,35 @@ export default function ImpostazioniPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {spidConnected && <StatusBadge status="active" />}
-                <button
-                  onClick={handleConnectSpid}
-                  disabled={spidLoading}
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  {spidConnected && <StatusBadge status="active" />}
+                  <button
+                    onClick={handleConnectSpid}
+                    disabled={spidLoading || !spidProvider}
+                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {spidLoading ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ExternalLink className="h-4 w-4" />
+                    )}
+                    {spidConnected ? 'Ricollega' : 'Collega SPID'}
+                  </button>
+                </div>
+                <select
+                  value={spidProvider}
+                  onChange={(e) => setSpidProvider(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                 >
-                  {spidLoading ? (
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <ExternalLink className="h-4 w-4" />
-                  )}
-                  {spidConnected ? 'Ricollega' : 'Collega SPID'}
-                </button>
+                  <option value="">Scegli provider SPID...</option>
+                  <option value="poste">PosteID</option>
+                  <option value="aruba">Aruba SPID</option>
+                  <option value="cie">CIE (Carta d'Identita Elettronica)</option>
+                  <option value="namirial">Namirial SPID</option>
+                  <option value="teamsystem">TeamSystem SPID</option>
+                  <option value="lepida">Lepida SPID</option>
+                </select>
               </div>
             </div>
           </Card>
