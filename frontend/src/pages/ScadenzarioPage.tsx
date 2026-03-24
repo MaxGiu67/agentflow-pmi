@@ -15,7 +15,7 @@ export default function ScadenzarioPage() {
 
   if (isLoading) return <LoadingSpinner className="mt-20" size="lg" />
 
-  const items = deadlines?.deadlines ?? []
+  const items = deadlines?.deadlines ?? deadlines?.items ?? []
   const alertsList = alerts?.alerts ?? []
 
   const getCountdownColor = (daysLeft: number) => {
@@ -25,11 +25,11 @@ export default function ScadenzarioPage() {
     return 'text-green-600 bg-green-50'
   }
 
-  const getDaysLeft = (dateStr: string) => {
-    const target = new Date(dateStr)
-    const today = new Date()
-    return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-  }
+  // Filter: show only future deadlines or recently past (< 30 days)
+  const visibleItems = items.filter((item: Record<string, unknown>) => {
+    const days = item.days_remaining as number
+    return days >= -30
+  })
 
   return (
     <div>
@@ -59,8 +59,8 @@ export default function ScadenzarioPage() {
             >
               <Bell className="mt-0.5 h-5 w-5 text-amber-500" />
               <div>
-                <p className="text-sm font-medium text-amber-800">{alert.title as string}</p>
-                <p className="mt-1 text-sm text-amber-700">{alert.message as string}</p>
+                <p className="text-sm font-medium text-amber-800">{alert.title as string ?? alert.name as string}</p>
+                <p className="mt-1 text-sm text-amber-700">{alert.message as string ?? alert.description as string}</p>
                 {alert.estimated_amount != null && (
                   <p className="mt-1 text-sm font-semibold text-amber-900">
                     Importo stimato: {formatCurrency(alert.estimated_amount as number)}
@@ -73,16 +73,16 @@ export default function ScadenzarioPage() {
       )}
 
       {/* Deadlines list */}
-      {items.length === 0 ? (
+      {visibleItems.length === 0 ? (
         <EmptyState
           title="Nessuna scadenza"
-          description="Non ci sono scadenze per l'anno selezionato."
+          description="Non ci sono scadenze imminenti per l'anno selezionato."
           icon={<CalendarClock className="h-12 w-12" />}
         />
       ) : (
         <div className="space-y-3">
-          {items.map((item: Record<string, unknown>, idx: number) => {
-            const daysLeft = getDaysLeft(item.date as string)
+          {visibleItems.map((item: Record<string, unknown>, idx: number) => {
+            const daysLeft = item.days_remaining as number
             return (
               <Card key={idx} className="flex items-center gap-4">
                 <div
@@ -97,20 +97,15 @@ export default function ScadenzarioPage() {
                   </span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-gray-900">{item.description as string}</p>
+                  <p className="text-sm font-semibold text-gray-900">{item.name as string}</p>
                   <p className="mt-0.5 text-xs text-gray-500">
-                    Scadenza: {formatDate(item.date as string)}
-                    {item.codice_tributo != null ? ` - Codice: ${String(item.codice_tributo)}` : ''}
+                    {item.description as string}
+                  </p>
+                  <p className="mt-0.5 text-xs text-gray-400">
+                    Scadenza: {formatDate(item.effective_date as string)}
+                    {item.category ? ` — ${String(item.category).toUpperCase()}` : ''}
                   </p>
                 </div>
-                {item.estimated_amount != null && (
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-gray-900">
-                      {formatCurrency(item.estimated_amount as number)}
-                    </p>
-                    <p className="text-xs text-gray-500">stimato</p>
-                  </div>
-                )}
                 {daysLeft < 0 && (
                   <AlertTriangle className="h-5 w-5 shrink-0 text-red-500" />
                 )}
