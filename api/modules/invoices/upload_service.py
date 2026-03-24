@@ -206,3 +206,61 @@ class UploadService:
             "processing_status": "pending",
             "message": f"File {ext.upper()} caricato. In attesa di elaborazione OCR.",
         }
+
+    async def import_folder(self, tenant_id: uuid.UUID, folder_path: str) -> dict:
+        """Import all XML invoices from a local folder.
+
+        Scans the folder for *.xml files (excluding *metaDato* files),
+        parses each one, deduplicates, and imports.
+        """
+        import os
+
+        if not os.path.isdir(folder_path):
+            raise ValueError(f"Cartella non trovata: {folder_path}")
+
+        xml_files = sorted([
+            f for f in os.listdir(folder_path)
+            if f.endswith(".xml") and "metaDato" not in f
+        ])
+
+        if not xml_files:
+            raise ValueError(f"Nessun file XML trovato in: {folder_path}")
+
+        imported = 0
+        duplicates = 0
+        errors = 0
+        details = []
+
+        for filename in xml_files:
+            filepath = os.path.join(folder_path, filename)
+            try:
+                with open(filepath, "rb") as f:
+                    content = f.read()
+
+                # Try different encodings
+                try:
+                    xml_string = content.decode("utf-8")
+                except UnicodeDecodeError:
+                    xml_string = content.decode("windows-1252")
+
+                result = await self._process_xml_upload(tenant_id, filename, xml_string.encode("utf-8"))
+
+                if "duplicata" in result.get("message", "").lower():
+                    duplicates += 1
+                    details.append({"file": filename, "status": "duplicata", "message": result["message"]})
+                else:
+                    imported += 1
+                    details.append({"file": filename, "status": "importata", "invoice_id": str(result.get("invoice_id", ""))})
+
+            except Exception as e:
+                errors += 1
+                details.append({"file": filename, "status": "errore", "message": str(e)})
+                logger.error("Errore importazione %s: %s", filename, e)
+
+        return {
+            "total_files": len(xml_files),
+            "imported": imported,
+            "duplicates": duplicates,
+            "errors": errors,
+            "details": details,
+        }
