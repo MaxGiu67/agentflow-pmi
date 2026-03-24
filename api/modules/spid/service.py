@@ -11,17 +11,42 @@ from api.db.models import User
 logger = logging.getLogger(__name__)
 
 
+def _get_real_fiscoapi():
+    """Get real FiscoAPI client if configured, else mock."""
+    if settings.fiscoapi_secret_key:
+        from api.adapters.fiscoapi_real import FiscoAPIReal
+        return FiscoAPIReal()
+    return None
+
+
 class SpidService:
     def __init__(self, db: AsyncSession, fiscoapi: FiscoAPIClient | None = None) -> None:
         self.db = db
         self.fiscoapi = fiscoapi or FiscoAPIClient()
+        self.real_api = _get_real_fiscoapi()
 
     async def init_spid_auth(self, user: User) -> dict:
-        """Start SPID authentication flow."""
+        """Start SPID authentication flow.
+
+        If FiscoAPI real key is configured, creates a real session.
+        Otherwise falls back to mock.
+        """
+        if self.real_api:
+            try:
+                session = await self.real_api.create_session()
+                logger.info("FiscoAPI real session created for user %s: %s", user.email, session.get("_id"))
+                return {
+                    "redirect_url": session.get("url_login", session.get("redirect_url", "")),
+                    "session_id": session.get("_id", ""),
+                    "message": "Redirect al portale Agenzia delle Entrate per autenticazione SPID",
+                }
+            except Exception as e:
+                logger.error("FiscoAPI real session failed: %s, falling back to mock", e)
+
         callback_url = f"{settings.app_url}/api/v1/auth/spid/callback"
         result = await self.fiscoapi.init_spid_auth(callback_url)
 
-        logger.info("SPID auth initiated for user %s", user.email)
+        logger.info("SPID auth initiated for user %s (mock)", user.email)
         return {
             "redirect_url": result.redirect_url,
             "message": "Redirect al provider SPID per l'autenticazione",

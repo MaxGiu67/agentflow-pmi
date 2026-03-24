@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     jwt_refresh_token_expire_days: int = 7
 
     resend_api_key: str = ""
+    fiscoapi_secret_key: str = ""
+    fiscoapi_base_url: str = "https://api.fiscoapi.com/api_esterne"
     email_from: str = "AgentFlow <noreply@nexadata.it>"
 
     app_name: str = "AgentFlow"
