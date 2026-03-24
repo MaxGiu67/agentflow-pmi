@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { FileText, AlertTriangle, CalendarClock, RefreshCw } from 'lucide-react'
+import { FileText, AlertTriangle, CalendarClock, RefreshCw, MessageSquare } from 'lucide-react'
 import { useDashboard, useAgentStatuses, useSyncCassetto } from '../api/hooks'
 import { formatCurrency, formatDate } from '../lib/utils'
 import PageHeader from '../components/ui/PageHeader'
@@ -35,14 +35,23 @@ export default function DashboardPage() {
         title="Dashboard"
         subtitle="Panoramica della tua contabilita"
         actions={
-          <button
-            onClick={() => syncCassetto.mutate({})}
-            disabled={syncCassetto.isPending}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${syncCassetto.isPending ? 'animate-spin' : ''}`} />
-            Sincronizza
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/chat')}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              <MessageSquare className="h-4 w-4" />
+              Apri Chat
+            </button>
+            <button
+              onClick={() => syncCassetto.mutate({})}
+              disabled={syncCassetto.isPending}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncCassetto.isPending ? 'animate-spin' : ''}`} />
+              Sincronizza
+            </button>
+          </div>
         }
       />
 

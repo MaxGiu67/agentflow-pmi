@@ -56,6 +56,12 @@ import CespitiPage from './pages/cespiti/CespitiPage'
 import CeoDashboardPage from './pages/ceo/CeoDashboardPage'
 import BudgetPage from './pages/ceo/BudgetPage'
 
+// Chat
+import ChatPage from './pages/chat/ChatPage'
+
+// Agent Config
+import AgentConfigPage from './pages/impostazioni/AgentConfigPage'
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -84,6 +90,10 @@ export default function App() {
             {/* Main app layout */}
             <Route element={<AppLayout />}>
               <Route path="/" element={<DashboardPage />} />
+
+              {/* Chat */}
+              <Route path="/chat" element={<ChatPage />} />
+              <Route path="/chat/:conversationId" element={<ChatPage />} />
 
               {/* Fatture */}
               <Route path="/fatture" element={<FattureListPage />} />
@@ -130,6 +140,7 @@ export default function App() {
 
               {/* Impostazioni */}
               <Route path="/impostazioni" element={<ImpostazioniPage />} />
+              <Route path="/impostazioni/agenti" element={<AgentConfigPage />} />
             </Route>
           </Route>
         </Routes>

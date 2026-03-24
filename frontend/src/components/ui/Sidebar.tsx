@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
+  MessageSquare,
   FileText,
   BookOpen,
   Receipt,
@@ -21,6 +22,7 @@ interface SidebarProps {
 }
 
 const navItems = [
+  { to: '/chat', label: 'Chat', icon: MessageSquare },
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/fatture', label: 'Fatture', icon: FileText },
   { to: '/contabilita', label: 'Contabilita', icon: BookOpen },

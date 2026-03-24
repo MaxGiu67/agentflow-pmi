@@ -34,6 +34,7 @@ from api.modules.f24.router import router as f24_router
 from api.modules.ceo.router import router as ceo_router
 from api.modules.webhooks_fiscoapi import router as fiscoapi_webhook_router
 from api.modules.chat.router import router as chat_router
+from api.modules.agent_config.router import router as agent_config_router
 
 from contextlib import asynccontextmanager
 
@@ -95,3 +96,4 @@ app.include_router(f24_router, prefix="/api/v1")
 app.include_router(ceo_router, prefix="/api/v1")
 app.include_router(fiscoapi_webhook_router, prefix="/api/v1")
 app.include_router(chat_router, prefix="/api/v1")
+app.include_router(agent_config_router, prefix="/api/v1")

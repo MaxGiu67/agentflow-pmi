@@ -1,8 +1,8 @@
-"""Router for chat module (US-A01, US-A02)."""
+"""Router for chat module (US-A01, US-A02, US-A05)."""
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import User
@@ -16,12 +16,19 @@ from api.modules.chat.schemas import (
     ConversationResponse,
 )
 from api.modules.chat.service import ChatService
+from api.modules.chat.websocket import chat_websocket
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 def get_service(db: AsyncSession = Depends(get_db)) -> ChatService:
     return ChatService(db)
+
+
+@router.websocket("/ws")
+async def ws_endpoint(websocket: WebSocket) -> None:
+    """WebSocket endpoint for real-time chat (US-A05)."""
+    await chat_websocket(websocket)
 
 
 @router.post("/send", response_model=ChatSendResponse)

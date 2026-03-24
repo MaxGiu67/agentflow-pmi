@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Save, Bell, Shield, CreditCard, ExternalLink, RefreshCw } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Save, Bell, Shield, CreditCard, ExternalLink, RefreshCw, Bot } from 'lucide-react'
 import { useProfile, useUpdateProfile, useNotificationConfigs, useCreateNotificationConfig, useCassettoStatus } from '../api/hooks'
 import api from '../api/client'
 import PageHeader from '../components/ui/PageHeader'
@@ -8,6 +9,7 @@ import StatusBadge from '../components/ui/StatusBadge'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 export default function ImpostazioniPage() {
+  const navigate = useNavigate()
   const { data: profile, isLoading } = useProfile()
   const updateProfile = useUpdateProfile()
   const { data: notifConfigs } = useNotificationConfigs()
@@ -454,6 +456,24 @@ export default function ImpostazioniPage() {
                 )
               })}
             </div>
+          </Card>
+
+          {/* Agent Configuration */}
+          <Card>
+            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <Bot className="h-5 w-5" />
+              Agenti AI
+            </h2>
+            <p className="mb-3 text-sm text-gray-500">
+              Personalizza i nomi e le impostazioni degli agenti AI di AgentFlow.
+            </p>
+            <button
+              onClick={() => navigate('/impostazioni/agenti')}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              <Bot className="h-4 w-4" />
+              Configura Agenti
+            </button>
           </Card>
         </div>
       </div>

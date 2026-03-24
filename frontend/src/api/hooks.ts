@@ -481,6 +481,85 @@ export function useCreateNotificationConfig() {
   })
 }
 
+// ── Chat ──
+export function useConversations() {
+  return useQuery({
+    queryKey: ['conversations'],
+    queryFn: () => api.get('/chat/conversations').then((r) => r.data),
+  })
+}
+
+export function useConversation(id: string) {
+  return useQuery({
+    queryKey: ['conversation', id],
+    queryFn: () => api.get(`/chat/conversations/${id}`).then((r) => r.data),
+    enabled: !!id,
+  })
+}
+
+export function useSendMessage() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ message, conversationId }: { message: string; conversationId?: string }) =>
+      api.post('/chat/send', {
+        message,
+        conversation_id: conversationId ?? null,
+      }).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['conversations'] })
+    },
+  })
+}
+
+export function useCreateConversation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post('/chat/conversations/new').then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['conversations'] })
+    },
+  })
+}
+
+export function useDeleteConversation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/chat/conversations/${id}`).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['conversations'] })
+    },
+  })
+}
+
+// ── Agent Config ──
+export function useAgentConfigs() {
+  return useQuery({
+    queryKey: ['agent-configs'],
+    queryFn: () => api.get('/agents/config').then((r) => r.data),
+  })
+}
+
+export function useUpdateAgentConfig() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ agentType, data }: { agentType: string; data: Record<string, unknown> }) =>
+      api.patch(`/agents/config/${agentType}`, data).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['agent-configs'] })
+    },
+  })
+}
+
+export function useResetAgentConfigs() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post('/agents/config/reset').then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['agent-configs'] })
+    },
+  })
+}
+
 // ── Onboarding ──
 export function useOnboardingStatus() {
   return useQuery({
