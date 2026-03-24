@@ -12,6 +12,7 @@ from api.modules.invoices.upload_router import router as upload_router
 from api.modules.dashboard.router import router as dashboard_router
 from api.modules.journal.router import router as journal_router
 from api.modules.onboarding.router import router as onboarding_router
+from api.modules.onboarding.conto_economico_router import router as conto_economico_router
 from api.modules.fiscal.router import router as fiscal_router
 from api.modules.sdi.router import router as sdi_router
 from api.modules.email_connector.router import router as email_router
@@ -71,6 +72,7 @@ app.include_router(upload_router, prefix="/api/v1")
 app.include_router(dashboard_router, prefix="/api/v1")
 app.include_router(journal_router, prefix="/api/v1")
 app.include_router(onboarding_router, prefix="/api/v1")
+app.include_router(conto_economico_router, prefix="/api/v1")
 app.include_router(fiscal_router, prefix="/api/v1")
 app.include_router(sdi_router, prefix="/api/v1")
 app.include_router(email_router, prefix="/api/v1")

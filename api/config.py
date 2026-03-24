@@ -27,12 +27,14 @@ class Settings(BaseSettings):
 
     saltedge_app_id: str = ""
     saltedge_secret: str = ""
-    saltedge_base_url: str = "https://www.saltedge.com/api/v5"
+    saltedge_base_url: str = "https://www.saltedge.com/api/v6"
     email_from: str = "AgentFlow <noreply@nexadata.it>"
 
     app_name: str = "AgentFlow"
     app_url: str = "http://localhost:8000"
     frontend_url: str = "http://localhost:3000"
+
+    anthropic_api_key: str = ""
 
     aes_key: str = "change-me-32-bytes-hex-encoded-key"
 
