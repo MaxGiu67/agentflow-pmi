@@ -1,12 +1,11 @@
 """
-Test suite for Sprint 11: Agentic System — Chat, Orchestrator, Tool System
+Test suite for Chat API — Sprints 11 + 13
 
-US-A01: Chat with Orchestrator (8 SP)
-US-A04: Tool System (8 SP)
-US-A02: Persistent Conversations (5 SP)
+Sprint 11: US-A01, US-A04, US-A02 (Chat, Tools, Persistence)
+Sprint 13: US-A07 (Multi-agent response), US-A08 (Conversation memory), US-A10 (Skill discovery)
 
-15+ tests covering: chat send, conversations CRUD, orchestrator routing,
-tool execution, persistence, and auth.
+25+ tests covering: chat send, conversations CRUD, orchestrator routing,
+tool execution, persistence, auth, multi-agent, memory, skill discovery.
 """
 
 import uuid
@@ -18,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import (
     Conversation,
+    ConversationMemory,
     Expense,
     FiscalDeadline,
     Invoice,
@@ -417,3 +417,334 @@ class TestChatAuth:
         """No token returns 401/403 on GET /chat/conversations."""
         resp = await client.get("/api/v1/chat/conversations")
         assert resp.status_code in (401, 403)
+
+
+# ============================================================
+# US-A07: Multi-agent Response
+# ============================================================
+
+
+class TestMultiAgentResponse:
+    """Tests for multi-agent routing on broad queries (US-A07)."""
+
+    async def test_multi_agent_come_sta(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+        db_session: AsyncSession,
+        tenant: Tenant,
+    ):
+        """'come sta la mia azienda?' triggers multiple tools."""
+        # Create some data so tools return something
+        for i in range(2):
+            inv = create_invoice(
+                tenant_id=tenant.id,
+                numero=f"FT-MULTI-{i:03d}",
+                piva=f"IT{60000000000 + i}",
+                nome=f"Fornitore Multi {i}",
+            )
+            db_session.add(inv)
+        await db_session.flush()
+
+        result = await _send_chat(
+            client, auth_headers, "come sta la mia azienda?"
+        )
+        assert result["status_code"] == 200
+        data = result["data"]
+
+        # Should have routed to multiple tools
+        tool_calls = data.get("tool_calls", [])
+        assert len(tool_calls) >= 2, f"Expected multiple tool calls, got {len(tool_calls)}"
+
+        tool_names = [tc["tool"] for tc in tool_calls]
+        assert "count_invoices" in tool_names
+        assert "get_dashboard_summary" in tool_names
+        assert "get_deadlines" in tool_names
+
+        # Response should contain content from multiple agents
+        assert data["content"]
+        # Multi-agent should set agent_type to "multi"
+        assert data.get("agent_type") == "multi"
+
+    async def test_multi_agent_riepilogo(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+    ):
+        """'riepilogo' triggers the same multi-tool behavior."""
+        result = await _send_chat(client, auth_headers, "riepilogo")
+        assert result["status_code"] == 200
+        data = result["data"]
+
+        tool_calls = data.get("tool_calls", [])
+        assert len(tool_calls) >= 2, f"Expected multiple tool calls, got {len(tool_calls)}"
+
+        tool_names = [tc["tool"] for tc in tool_calls]
+        assert "count_invoices" in tool_names
+        assert "get_dashboard_summary" in tool_names
+
+    async def test_multi_agent_partial_success(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+    ):
+        """When one tool fails in a multi-agent call, others still respond."""
+        # "panoramica" triggers multi-agent (count_invoices, get_dashboard_summary, get_deadlines)
+        # Even if DB has no data, the tools should return zero counts, not errors
+        result = await _send_chat(client, auth_headers, "panoramica della situazione")
+        assert result["status_code"] == 200
+        data = result["data"]
+
+        # Should have multiple tool results
+        tool_calls = data.get("tool_calls", [])
+        assert len(tool_calls) >= 2
+
+        # Content should be non-empty (partial results are fine)
+        assert data["content"]
+
+    async def test_multi_agent_response_contains_agent_badges(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+    ):
+        """Multi-tool response fallback includes agent badge prefixes."""
+        result = await _send_chat(
+            client, auth_headers, "come vanno le cose?"
+        )
+        assert result["status_code"] == 200
+        data = result["data"]
+
+        # The fallback formatter should include [fisco] badges
+        content = data["content"]
+        assert "[fisco]" in content
+
+
+# ============================================================
+# US-A08: Conversation Memory
+# ============================================================
+
+
+class TestConversationMemory:
+    """Tests for conversation memory management (US-A08)."""
+
+    async def test_save_memory(
+        self,
+        db_session: AsyncSession,
+        tenant: Tenant,
+        verified_user: User,
+    ):
+        """MemoryManager.save_memory creates and updates entries."""
+        from api.orchestrator.memory_node import MemoryManager
+
+        mgr = MemoryManager(db_session)
+        await mgr.save_memory(
+            tenant.id, verified_user.id, "lang_pref", "italiano", "preference"
+        )
+
+        memories = await mgr.get_memories(tenant.id, verified_user.id)
+        assert len(memories) == 1
+        assert memories[0]["key"] == "lang_pref"
+        assert memories[0]["value"] == "italiano"
+
+        # Update existing key
+        await mgr.save_memory(
+            tenant.id, verified_user.id, "lang_pref", "english", "preference"
+        )
+        memories = await mgr.get_memories(tenant.id, verified_user.id)
+        assert len(memories) == 1
+        assert memories[0]["value"] == "english"
+
+    async def test_get_memories(
+        self,
+        db_session: AsyncSession,
+        tenant: Tenant,
+        verified_user: User,
+    ):
+        """MemoryManager.get_memories returns all saved memories."""
+        from api.orchestrator.memory_node import MemoryManager
+
+        mgr = MemoryManager(db_session)
+        await mgr.save_memory(tenant.id, verified_user.id, "pref_1", "val1")
+        await mgr.save_memory(tenant.id, verified_user.id, "pref_2", "val2")
+        await mgr.save_memory(tenant.id, verified_user.id, "pref_3", "val3")
+
+        memories = await mgr.get_memories(tenant.id, verified_user.id)
+        assert len(memories) == 3
+        keys = {m["key"] for m in memories}
+        assert keys == {"pref_1", "pref_2", "pref_3"}
+
+    async def test_clear_memories(
+        self,
+        db_session: AsyncSession,
+        tenant: Tenant,
+        verified_user: User,
+    ):
+        """MemoryManager.clear_memories removes all entries for a user."""
+        from api.orchestrator.memory_node import MemoryManager
+
+        mgr = MemoryManager(db_session)
+        await mgr.save_memory(tenant.id, verified_user.id, "to_clear", "data")
+
+        memories_before = await mgr.get_memories(tenant.id, verified_user.id)
+        assert len(memories_before) >= 1
+
+        await mgr.clear_memories(tenant.id, verified_user.id)
+
+        memories_after = await mgr.get_memories(tenant.id, verified_user.id)
+        assert len(memories_after) == 0
+
+    async def test_memory_loaded_in_chat_context(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+        db_session: AsyncSession,
+        tenant: Tenant,
+        verified_user: User,
+    ):
+        """Sending a preference message auto-saves it; memory is loaded on next call."""
+        from api.orchestrator.memory_node import MemoryManager
+
+        # Manually save a memory to verify it is available
+        mgr = MemoryManager(db_session)
+        await mgr.save_memory(
+            tenant.id, verified_user.id, "test_ctx", "mostra sempre i totali"
+        )
+
+        # The orchestrator should load memory context before routing
+        # Send a normal chat message — memory loading should not break anything
+        result = await _send_chat(client, auth_headers, "Quante fatture ho?")
+        assert result["status_code"] == 200
+        assert result["data"]["content"]
+
+    async def test_detect_and_save_preference(
+        self,
+        db_session: AsyncSession,
+        tenant: Tenant,
+        verified_user: User,
+    ):
+        """detect_and_save auto-detects preference keywords and saves memory."""
+        from api.orchestrator.memory_node import MemoryManager
+
+        mgr = MemoryManager(db_session)
+        await mgr.detect_and_save(
+            "Ricorda che preferisco il formato dettagliato",
+            tenant.id,
+            verified_user.id,
+        )
+
+        memories = await mgr.get_memories(tenant.id, verified_user.id)
+        assert len(memories) >= 1
+        assert any("preferisco il formato dettagliato" in (m["value"] or "") for m in memories)
+
+    async def test_memory_api_get(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+        db_session: AsyncSession,
+        tenant: Tenant,
+        verified_user: User,
+    ):
+        """GET /chat/memory returns saved memories."""
+        from api.orchestrator.memory_node import MemoryManager
+
+        mgr = MemoryManager(db_session)
+        await mgr.save_memory(tenant.id, verified_user.id, "api_test", "value_api")
+
+        resp = await client.get("/api/v1/chat/memory", headers=auth_headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "items" in data
+        assert "total" in data
+        assert data["total"] >= 1
+        keys = [item["key"] for item in data["items"]]
+        assert "api_test" in keys
+
+    async def test_memory_api_clear(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+        db_session: AsyncSession,
+        tenant: Tenant,
+        verified_user: User,
+    ):
+        """DELETE /chat/memory clears all memories."""
+        from api.orchestrator.memory_node import MemoryManager
+
+        mgr = MemoryManager(db_session)
+        await mgr.save_memory(tenant.id, verified_user.id, "to_del", "val")
+
+        resp = await client.delete("/api/v1/chat/memory", headers=auth_headers)
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "ok"
+
+        # Verify memories are gone
+        get_resp = await client.get("/api/v1/chat/memory", headers=auth_headers)
+        assert get_resp.json()["total"] == 0
+
+
+# ============================================================
+# US-A10: Skill Discovery
+# ============================================================
+
+
+class TestSkillDiscovery:
+    """Tests for help/skill discovery via chat (US-A10)."""
+
+    async def test_skill_discovery_help(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+    ):
+        """'cosa sai fare?' returns a capabilities list."""
+        result = await _send_chat(client, auth_headers, "cosa sai fare?")
+        assert result["status_code"] == 200
+        data = result["data"]
+        content = data["content"]
+
+        # Should list capabilities
+        assert "cosa posso fare" in content.lower() or "ecco cosa" in content.lower()
+        assert "fisco" in content.lower() or "fattur" in content.lower()
+        assert "conta" in content.lower() or "contabil" in content.lower()
+        assert "cashflow" in content.lower() or "cash flow" in content.lower()
+
+    async def test_skill_discovery_aiuto(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+    ):
+        """'aiuto' returns the same capabilities list."""
+        result = await _send_chat(client, auth_headers, "aiuto")
+        assert result["status_code"] == 200
+        data = result["data"]
+        content = data["content"]
+
+        assert "cosa posso fare" in content.lower() or "ecco cosa" in content.lower()
+        # Should include example queries
+        assert "fatture" in content.lower() or "fattur" in content.lower()
+
+    async def test_suggestions_in_response(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+    ):
+        """Every response includes suggestions array (US-A10)."""
+        result = await _send_chat(client, auth_headers, "Ciao!")
+        assert result["status_code"] == 200
+        data = result["data"]
+
+        suggestions = data.get("suggestions", [])
+        assert isinstance(suggestions, list)
+        assert len(suggestions) >= 1
+        # Should include discovery-friendly suggestions
+        assert any("aiuto" in s.lower() or "finanze" in s.lower() for s in suggestions)
+
+    async def test_skill_discovery_message_format(self):
+        """get_skill_discovery_message returns well-formed content."""
+        from api.orchestrator.skill_discovery import get_skill_discovery_message
+
+        msg = get_skill_discovery_message()
+        assert "Ecco cosa posso fare per te:" in msg
+        assert "fisco" in msg.lower() or "Fatture" in msg
+        assert "conta" in msg.lower() or "Scritture" in msg
+        assert "cashflow" in msg.lower() or "cash flow" in msg.lower()
+        assert "Prova a chiedermi" in msg

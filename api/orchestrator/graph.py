@@ -1,4 +1,4 @@
-"""Orchestrator graph — routes messages, executes tools, generates responses (US-A01).
+"""Orchestrator graph — routes messages, executes tools, generates responses (US-A01, US-A07, US-A08, US-A10).
 
 Uses a simple custom approach:
 - Router node: calls Claude API (or keyword fallback) to decide which tools to call
@@ -6,6 +6,11 @@ Uses a simple custom approach:
 - Respond node: calls Claude API (or fallback) to generate a response from tool results
 
 No LangGraph/LangChain tool binding — just direct httpx calls to Claude API.
+
+Sprint 13 additions:
+- US-A07: Multi-agent response — broad questions route to multiple tools
+- US-A08: Conversation memory — preferences loaded into context, auto-detect & save
+- US-A10: Skill discovery — help/aiuto queries return capabilities list
 """
 
 import json
@@ -16,7 +21,9 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.config import settings
+from api.orchestrator.memory_node import MemoryManager
 from api.orchestrator.prompts import ORCHESTRATOR_SYSTEM_PROMPT, RESPONSE_SYSTEM_PROMPT
+from api.orchestrator.skill_discovery import get_skill_discovery_message
 from api.orchestrator.state import OrchestratorState
 from api.orchestrator.tool_registry import TOOLS, get_tools_by_name, get_tools_description
 
@@ -24,6 +31,28 @@ logger = logging.getLogger(__name__)
 
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 CLAUDE_MODEL = "claude-sonnet-4-20250514"
+
+
+# ============================================================
+# Tool → Agent mapping (US-A07)
+# ============================================================
+
+TOOL_AGENT_MAP: dict[str, str] = {
+    "count_invoices": "fisco",
+    "list_invoices": "fisco",
+    "get_invoice_detail": "fisco",
+    "get_dashboard_summary": "fisco",
+    "get_deadlines": "fisco",
+    "get_fiscal_alerts": "fisco",
+    "get_journal_entries": "conta",
+    "get_balance_sheet_summary": "conta",
+    "predict_cashflow": "cashflow",
+    "get_pending_review": "conta",
+    "list_expenses": "conta",
+    "list_assets": "conta",
+    "get_ceo_kpi": "conta",
+    "sync_cassetto": "fisco",
+}
 
 
 # ============================================================
@@ -35,6 +64,20 @@ def keyword_route(message: str) -> list[dict]:
     """Simple keyword-matching router for when Claude API is not available."""
     msg_lower = message.lower()
 
+    # US-A10: Help / skill discovery (check first)
+    help_keywords = ["cosa sai fare", "aiuto", "help", "cosa puoi", "come funziona", "cosa fai"]
+    if any(k in msg_lower for k in help_keywords):
+        return [{"tool": "direct_response", "args": {"message": get_skill_discovery_message()}}]
+
+    # US-A07: Multi-agent detection — broad questions
+    broad_keywords = ["come sta", "panoramica", "riepilogo", "situazione", "come vanno"]
+    if any(k in msg_lower for k in broad_keywords):
+        return [
+            {"tool": "count_invoices", "args": {}},
+            {"tool": "get_dashboard_summary", "args": {}},
+            {"tool": "get_deadlines", "args": {}},
+        ]
+
     if any(kw in msg_lower for kw in ["fattur", "invoice"]):
         if any(kw in msg_lower for kw in ["quant", "cont", "numer"]):
             return [{"tool": "count_invoices", "args": {}}]
@@ -45,7 +88,7 @@ def keyword_route(message: str) -> list[dict]:
     if any(kw in msg_lower for kw in ["scadenz", "deadline"]):
         return [{"tool": "get_deadlines", "args": {}}]
 
-    if any(kw in msg_lower for kw in ["dashboard", "come sta", "riepilogo", "panoramica", "situazione"]):
+    if any(kw in msg_lower for kw in ["dashboard"]):
         return [{"tool": "get_dashboard_summary", "args": {}}]
 
     if any(kw in msg_lower for kw in ["alert", "ritardo", "scadut"]):
@@ -77,7 +120,7 @@ def keyword_route(message: str) -> list[dict]:
 
     # Greetings / generic
     if any(kw in msg_lower for kw in ["ciao", "buongiorno", "salve", "hello", "hey"]):
-        return [{"tool": "direct_response", "args": {"message": "Ciao! Come posso aiutarti con la contabilità oggi?"}}]
+        return [{"tool": "direct_response", "args": {"message": "Ciao! Come posso aiutarti con la contabilit\u00e0 oggi?"}}]
 
     return [{"tool": "direct_response", "args": {"message": "Non ho capito la richiesta. Puoi riprovare specificando meglio cosa ti serve?"}}]
 
@@ -259,53 +302,62 @@ async def respond_node(state: OrchestratorState) -> OrchestratorState:
 
 
 def _format_results_fallback(tool_results: list[dict]) -> str:
-    """Format tool results into a simple text response without LLM."""
+    """Format tool results into a simple text response without LLM.
+
+    US-A07: When multiple tools are present, prepend agent badges.
+    """
+    is_multi = len(tool_results) > 1
     parts: list[str] = []
+
     for tr in tool_results:
         tool_name = tr.get("tool", "unknown")
         result = tr.get("result", {})
 
+        # US-A07: Agent badge prefix for multi-tool responses
+        agent_badge = ""
+        if is_multi:
+            agent_type = TOOL_AGENT_MAP.get(tool_name, "orchestrator")
+            agent_badge = f"[{agent_type}] "
+
         if "error" in result:
-            parts.append(f"Errore ({tool_name}): {result['error']}")
+            parts.append(f"{agent_badge}Errore ({tool_name}): {result['error']}")
             continue
 
         if "message" in result:
-            parts.append(result["message"])
+            parts.append(f"{agent_badge}{result['message']}")
 
-        if "count" in result and "items" not in result:
-            parts.append(f"{result['count']} risultati trovati.")
+        if "count" in result and "items" not in result and "message" not in result:
+            parts.append(f"{agent_badge}{result['count']} risultati trovati.")
 
         if "items" in result:
-            items = result["items"]
-            parts.append(f"Trovati {len(items)} risultati:")
-            for item in items[:5]:
+            parts.append(f"{agent_badge}Trovati {len(result['items'])} risultati:")
+            for item in result["items"][:5]:
                 # Format item as key-value pairs
                 formatted = ", ".join(
                     f"{k}: {v}" for k, v in item.items()
                     if v is not None and k != "id"
                 )
                 parts.append(f"  - {formatted}")
-            if len(items) > 5:
-                parts.append(f"  ... e altri {len(items) - 5}")
+            if len(result["items"]) > 5:
+                parts.append(f"  ... e altri {len(result['items']) - 5}")
 
         if "counters" in result:
-            counters = result["counters"]
-            parts.append(f"Totale: {counters.get('total', 0)} fatture")
-            for k, v in counters.items():
+            parts.append(f"{agent_badge}Totale: {result['counters'].get('total', 0)} fatture")
+            for k, v in result["counters"].items():
                 if k != "total":
                     parts.append(f"  {k}: {v}")
 
         # Handle KPI-specific fields
         if "fatturato_ytd" in result:
-            parts.append(f"Fatturato YTD: €{result['fatturato_ytd']:,.2f}")
-            parts.append(f"Costi YTD: €{result.get('costi_ytd', 0):,.2f}")
-            parts.append(f"EBITDA: €{result.get('ebitda', 0):,.2f}")
+            parts.append(f"{agent_badge}Fatturato YTD: \u20ac{result['fatturato_ytd']:,.2f}")
+            parts.append(f"Costi YTD: \u20ac{result.get('costi_ytd', 0):,.2f}")
+            parts.append(f"EBITDA: \u20ac{result.get('ebitda', 0):,.2f}")
 
         # Handle balance sheet
         if "total_debit" in result and "total_credit" in result and "balanced" in result:
-            parts.append(f"Totale dare: €{result['total_debit']:,.2f}")
-            parts.append(f"Totale avere: €{result['total_credit']:,.2f}")
-            balanced_text = "Sì" if result["balanced"] else "No"
+            parts.append(f"{agent_badge}Totale dare: \u20ac{result['total_debit']:,.2f}")
+            parts.append(f"Totale avere: \u20ac{result['total_credit']:,.2f}")
+            balanced_text = "S\u00ec" if result["balanced"] else "No"
             parts.append(f"Bilanciato: {balanced_text}")
 
     if not parts:
@@ -338,10 +390,18 @@ async def run_orchestrator(
     Returns:
         dict with keys: content, tool_calls, tool_results, agent_name, agent_type
     """
+    # US-A08: Memory — load context and detect preferences
+    memory_mgr = MemoryManager(db)
+    memory_context = await memory_mgr.get_memory_context(tenant_id, user_id)
+    await memory_mgr.detect_and_save(user_message, tenant_id, user_id)
+
     # Build initial state
     messages = []
     if conversation_messages:
         messages.extend(conversation_messages)
+    # Inject memory context if present (as a system-style context message)
+    if memory_context:
+        messages.append({"role": "system", "content": memory_context})
     messages.append({"role": "user", "content": user_message})
 
     state: OrchestratorState = {
@@ -366,7 +426,7 @@ async def run_orchestrator(
     assistant_messages = [m for m in state["messages"] if m.get("role") == "assistant"]
     content = assistant_messages[-1]["content"] if assistant_messages else "Operazione completata."
 
-    # Determine agent info
+    # Determine agent info (US-A07: multi-agent aware)
     agent_name = "orchestrator"
     agent_type = "orchestrator"
     tool_calls_list = state.get("tool_calls", [])
@@ -374,6 +434,10 @@ async def run_orchestrator(
         first_tool = tool_calls_list[0].get("tool", "")
         if first_tool != "direct_response":
             agent_name = first_tool
+        # Multi-agent: set agent_type to "multi" when multiple non-direct tools used
+        non_direct_tools = [tc for tc in tool_calls_list if tc.get("tool") != "direct_response"]
+        if len(non_direct_tools) > 1:
+            agent_type = "multi"
 
     return {
         "content": content,

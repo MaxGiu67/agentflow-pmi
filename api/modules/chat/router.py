@@ -1,4 +1,4 @@
-"""Router for chat module (US-A01, US-A02, US-A05)."""
+"""Router for chat module (US-A01, US-A02, US-A05, US-A08)."""
 
 from uuid import UUID
 
@@ -14,9 +14,11 @@ from api.modules.chat.schemas import (
     ConversationDetailResponse,
     ConversationListResponse,
     ConversationResponse,
+    MemoryListResponse,
 )
 from api.modules.chat.service import ChatService
 from api.modules.chat.websocket import chat_websocket
+from api.orchestrator.memory_node import MemoryManager
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -130,3 +132,48 @@ async def new_conversation(
         ) from e
 
     return ConversationDetailResponse(**result)
+
+
+# ============================================================
+# US-A08: Memory endpoints
+# ============================================================
+
+
+@router.get("/memory", response_model=MemoryListResponse)
+async def get_memory(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> MemoryListResponse:
+    """Get user's conversation memories.
+
+    US-A08: Conversation memory.
+    """
+    if not user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Profilo azienda non configurato",
+        )
+
+    mgr = MemoryManager(db)
+    memories = await mgr.get_memories(user.tenant_id, user.id)
+    return MemoryListResponse(items=memories, total=len(memories))
+
+
+@router.delete("/memory")
+async def clear_memory(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Clear all conversation memories for the current user.
+
+    US-A08: Conversation memory.
+    """
+    if not user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Profilo azienda non configurato",
+        )
+
+    mgr = MemoryManager(db)
+    await mgr.clear_memories(user.tenant_id, user.id)
+    return {"message": "Memorie cancellate", "status": "ok"}

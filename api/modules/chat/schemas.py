@@ -60,3 +60,16 @@ class ConversationDetailResponse(BaseModel):
     messages: list[MessageResponse]
     created_at: datetime
     updated_at: datetime
+
+
+class MemoryItemResponse(BaseModel):
+    """A single memory entry."""
+    key: str
+    value: str | None = None
+    type: str = "preference"
+
+
+class MemoryListResponse(BaseModel):
+    """List of memory entries (US-A08)."""
+    items: list[MemoryItemResponse]
+    total: int

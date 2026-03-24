@@ -268,10 +268,22 @@ class ChatService:
         ]
 
     def _generate_suggestions(self, tool_calls: list | None) -> list[str]:
-        """Generate follow-up suggestions based on tool calls."""
+        """Generate follow-up suggestions based on tool calls.
+
+        US-A10: Always include a base set of suggestions so users can discover
+        available capabilities.
+        """
+        # Default suggestions (US-A10)
+        default_suggestions = [
+            "Come stanno le mie finanze?",
+            "Fatture da verificare",
+            "Prossime scadenze",
+            "Aiuto",
+        ]
+
         suggestions: list[str] = []
         if not tool_calls:
-            return suggestions
+            return default_suggestions
 
         for call in tool_calls:
             tool_name = call.get("tool", "")
@@ -291,11 +303,11 @@ class ChatService:
                     "Mostra la dashboard",
                 ])
             elif tool_name == "direct_response":
-                suggestions.extend([
-                    "Quante fatture ho?",
-                    "Come sta la mia azienda?",
-                    "Ci sono scadenze?",
-                ])
+                suggestions.extend(default_suggestions)
+
+        # If no specific suggestions were generated, use defaults
+        if not suggestions:
+            suggestions = list(default_suggestions)
 
         # Deduplicate and limit
         seen: set[str] = set()
@@ -304,4 +316,4 @@ class ChatService:
             if s not in seen:
                 seen.add(s)
                 unique.append(s)
-        return unique[:3]
+        return unique[:4]
