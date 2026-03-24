@@ -106,7 +106,7 @@ class MockBankingAdapter(BankingAdapter):
             )
 
         consent_token = f"consent-{uuid.uuid4().hex[:12]}"
-        expires_at = datetime.now(UTC) + timedelta(days=90)
+        expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=90)
 
         logger.info("Mock SCA flow initiated for IBAN %s", iban)
 

@@ -82,7 +82,7 @@ class SpidService:
 
         # Save encrypted token
         user.spid_token = result.access_token  # In production: encrypt with AES-256
-        user.spid_token_expires_at = datetime.now(UTC) + timedelta(
+        user.spid_token_expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(
             seconds=result.token_expires_in
         )
         await self.db.flush()
@@ -108,7 +108,7 @@ class SpidService:
         token_valid = await self.fiscoapi.check_token_validity(user.spid_token)
 
         # Check expiration
-        if user.spid_token_expires_at and user.spid_token_expires_at < datetime.now(UTC):
+        if user.spid_token_expires_at and user.spid_token_expires_at < datetime.now(UTC).replace(tzinfo=None):
             token_valid = False
 
         if not token_valid:

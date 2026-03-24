@@ -130,7 +130,7 @@ class OnboardingService:
         ])
         state.step_completed = completed_count
         state.completed = completed_count == 4
-        state.updated_at = datetime.now(UTC)
+        state.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
         await self.db.flush()
 

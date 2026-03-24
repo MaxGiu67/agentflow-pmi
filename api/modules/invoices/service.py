@@ -148,7 +148,7 @@ class InvoiceService:
         invoice.category = category
         invoice.verified = True
         invoice.category_confidence = 1.0
-        invoice.updated_at = datetime.now(UTC)
+        invoice.updated_at = datetime.now(UTC).replace(tzinfo=None)
         await self.db.flush()
 
         if was_correct:
@@ -230,7 +230,7 @@ class InvoiceService:
         connected = bool(user.spid_token)
         token_valid = connected and (
             not user.spid_token_expires_at
-            or user.spid_token_expires_at > datetime.now(UTC)
+            or user.spid_token_expires_at > datetime.now(UTC).replace(tzinfo=None)
         )
 
         # Count invoices
