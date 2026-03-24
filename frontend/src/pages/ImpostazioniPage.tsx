@@ -22,6 +22,10 @@ export default function ImpostazioniPage() {
   const [regimeFiscale, setRegimeFiscale] = useState('')
   const [saved, setSaved] = useState(false)
   const [spidLoading, setSpidLoading] = useState(false)
+  const [spidQrCode, setSpidQrCode] = useState('')
+  const [spidSessionId, setSpidSessionId] = useState('')
+  const [spidMessage, setSpidMessage] = useState('')
+  const [spidPolling, setSpidPolling] = useState(false)
   const [bankIban, setBankIban] = useState('')
   const [bankName, setBankName] = useState('')
   const [bankLoading, setBankLoading] = useState(false)
@@ -53,16 +57,65 @@ export default function ImpostazioniPage() {
 
   const handleConnectSpid = async () => {
     setSpidLoading(true)
+    setSpidMessage('')
+    setSpidQrCode('')
     try {
       const { data } = await api.post('/auth/spid/init')
-      if (data.redirect_url) {
+
+      if (data.qr_code) {
+        setSpidQrCode(data.qr_code)
+        setSpidSessionId(data.session_id)
+        setSpidMessage(data.message || 'Scansiona il QR code con l\'app PosteID')
+        startSpidPolling(data.session_id)
+      } else if (data.redirect_url) {
         window.open(data.redirect_url, '_blank')
+      } else {
+        setSpidMessage(data.message || 'Sessione SPID creata')
       }
     } catch (err) {
       console.error('SPID init failed:', err)
+      setSpidMessage('Errore nella connessione SPID')
     } finally {
       setSpidLoading(false)
     }
+  }
+
+  const startSpidPolling = (sessionId: string) => {
+    setSpidPolling(true)
+    const interval = setInterval(async () => {
+      try {
+        const { data } = await api.get(`/auth/spid/session/${sessionId}`)
+        const session = data.sessione ?? data
+        const stato = session.stato ?? data.stato
+
+        if (stato === 'sessione_attiva' || stato === 'autenticato') {
+          clearInterval(interval)
+          setSpidPolling(false)
+          setSpidQrCode('')
+          setSpidMessage('SPID collegato con successo!')
+        } else if (stato === 'sessione_in_errore' || stato === 'sessione_scaduta' || stato === 'credenziali_errate') {
+          clearInterval(interval)
+          setSpidPolling(false)
+          setSpidQrCode('')
+          setSpidMessage(`Autenticazione fallita: ${stato.replace(/_/g, ' ')}`)
+        } else if (session.qr_code && !spidQrCode) {
+          setSpidQrCode(session.qr_code)
+        }
+        // else keep polling (richiesta_accesso, richiesta_app_otp, etc.)
+      } catch {
+        // ignore polling errors
+      }
+    }, 3000) // poll every 3 seconds
+
+    // Stop after 5 minutes
+    setTimeout(() => {
+      clearInterval(interval)
+      setSpidPolling(false)
+      if (spidQrCode) {
+        setSpidMessage('QR code scaduto. Riprova.')
+        setSpidQrCode('')
+      }
+    }, 300000)
   }
 
   const handleConnectBank = async () => {
@@ -241,6 +294,36 @@ export default function ImpostazioniPage() {
               </div>
             </div>
           </Card>
+
+          {/* SPID QR Code Modal */}
+          {(spidQrCode || spidMessage) && (
+            <Card>
+              <div className="text-center">
+                {spidQrCode && (
+                  <>
+                    <h3 className="mb-2 text-lg font-semibold text-gray-900">Scansiona con PosteID</h3>
+                    <p className="mb-4 text-sm text-gray-500">
+                      Apri l'app PosteID sul tuo telefono e scansiona questo QR code
+                    </p>
+                    <div className="mx-auto mb-4 inline-block rounded-xl border-2 border-blue-100 bg-white p-4">
+                      <img src={spidQrCode} alt="QR Code SPID" className="h-48 w-48" />
+                    </div>
+                    {spidPolling && (
+                      <div className="flex items-center justify-center gap-2 text-sm text-blue-600">
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        In attesa dell'autenticazione...
+                      </div>
+                    )}
+                  </>
+                )}
+                {spidMessage && !spidQrCode && (
+                  <p className={`text-sm font-medium ${spidMessage.includes('successo') ? 'text-green-600' : spidMessage.includes('fallita') || spidMessage.includes('scaduto') ? 'text-red-600' : 'text-blue-600'}`}>
+                    {spidMessage}
+                  </p>
+                )}
+              </div>
+            </Card>
+          )}
 
           {/* Bank Connection */}
           <Card>

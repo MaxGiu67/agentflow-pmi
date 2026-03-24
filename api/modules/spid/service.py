@@ -31,31 +31,35 @@ class SpidService:
         If FiscoAPI real key is configured, creates a real session.
         Otherwise falls back to mock.
         """
-        # If FiscoAPI link code is configured, redirect to FiscoAPI portal
-        if settings.fiscoapi_link_code:
-            redirect_url = f"https://app.fiscoapi.com/link?codice={settings.fiscoapi_link_code}"
-            logger.info("SPID redirect to FiscoAPI link for user %s: %s", user.email, redirect_url)
-            return {
-                "redirect_url": redirect_url,
-                "message": "Redirect al portale FiscoAPI per autenticazione SPID",
-            }
-
         if self.real_api:
             try:
-                session = await self.real_api.create_session(tipo_login="poste")
-                session_id = session.get("_id", "")
-                stato = session.get("stato", "")
-                logger.info("FiscoAPI session created for %s: id=%s stato=%s", user.email, session_id, stato)
+                raw = await self.real_api.create_session(tipo_login="poste")
+                session_data = raw.get("sessione", raw)
+                session_id = session_data.get("_id", "")
+                stato = session_data.get("stato", "")
+                qr_code = session_data.get("qr_code", "")
+
+                logger.info("FiscoAPI session for %s: id=%s stato=%s qr=%s",
+                            user.email, session_id, stato, "yes" if qr_code else "no")
 
                 user.spid_token = f"fiscoapi_session:{session_id}"
                 await self.db.flush()
+
+                # Poll once to get QR code if not in initial response
+                if not qr_code and session_id:
+                    import asyncio
+                    await asyncio.sleep(2)
+                    status_data = await self.real_api.get_session_status(session_id)
+                    session_detail = status_data.get("sessione", status_data)
+                    qr_code = session_detail.get("qr_code", "")
+                    stato = session_detail.get("stato", stato)
 
                 return {
                     "redirect_url": "",
                     "session_id": session_id,
                     "stato": stato,
-                    "session_data": session,
-                    "message": "Sessione FiscoAPI creata. Completa l'autenticazione SPID.",
+                    "qr_code": qr_code,
+                    "message": "Scansiona il QR code con l'app PosteID per autenticarti.",
                 }
             except Exception as e:
                 logger.error("FiscoAPI real session failed: %s, falling back to mock", e)

@@ -21,14 +21,16 @@ def get_spid_service(db: AsyncSession = Depends(get_db)) -> SpidService:
     return SpidService(db)
 
 
-@router.post("/auth/spid/init", response_model=SpidInitResponse)
+@router.post("/auth/spid/init")
 async def init_spid_auth(
     user: User = Depends(get_current_user),
     service: SpidService = Depends(get_spid_service),
-) -> SpidInitResponse:
-    """Start SPID/CIE authentication for cassetto fiscale."""
-    data = await service.init_spid_auth(user)
-    return SpidInitResponse(**data)
+) -> dict:
+    """Start SPID/CIE authentication for cassetto fiscale.
+
+    Returns session_id + QR code (for PosteID) or redirect_url (for mock).
+    """
+    return await service.init_spid_auth(user)
 
 
 @router.get("/auth/spid/callback", response_model=SpidCallbackResponse)
