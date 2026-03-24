@@ -66,23 +66,39 @@ export default function ImpostazioniPage() {
   }
 
   const handleConnectBank = async () => {
-    if (!bankIban) return
     setBankLoading(true)
     setBankMessage('')
     try {
-      const { data } = await api.post('/bank-accounts/connect', {
-        iban: bankIban,
-        bank_name: bankName || undefined,
-      })
-      if (data.supported === false) {
-        setBankMessage(data.message)
+      // Try Salt Edge connect session first (opens bank selection page)
+      const { data } = await api.post('/bank-accounts/connect-session')
+      if (data.connect_url) {
+        window.open(data.connect_url, '_blank')
+        setBankMessage('Completa l\'autenticazione nella finestra della banca.')
       } else {
-        setBankMessage('Conto collegato con successo!')
-        setBankIban('')
-        setBankName('')
+        setBankMessage(data.error || 'Errore creazione sessione')
       }
-    } catch (err: any) {
-      setBankMessage(err.response?.data?.detail || 'Errore collegamento')
+    } catch {
+      // Fallback: manual IBAN connection
+      if (!bankIban) {
+        setBankMessage('Inserisci l\'IBAN per collegare manualmente')
+        setBankLoading(false)
+        return
+      }
+      try {
+        const { data } = await api.post('/bank-accounts/connect', {
+          iban: bankIban,
+          bank_name: bankName || undefined,
+        })
+        if (data.supported === false) {
+          setBankMessage(data.message)
+        } else {
+          setBankMessage('Conto collegato con successo!')
+          setBankIban('')
+          setBankName('')
+        }
+      } catch (err: any) {
+        setBankMessage(err.response?.data?.detail || 'Errore collegamento')
+      }
     } finally {
       setBankLoading(false)
     }
