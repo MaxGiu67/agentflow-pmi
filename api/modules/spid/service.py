@@ -25,7 +25,7 @@ class SpidService:
         self.fiscoapi = fiscoapi or FiscoAPIClient()
         self.real_api = _get_real_fiscoapi()
 
-    async def init_spid_auth(self, user: User) -> dict:
+    async def init_spid_auth(self, user: User, tipo_login: str = "poste") -> dict:
         """Start SPID authentication flow.
 
         If FiscoAPI real key is configured, creates a real session.
@@ -33,7 +33,7 @@ class SpidService:
         """
         if self.real_api:
             try:
-                raw = await self.real_api.create_session(tipo_login="poste")
+                raw = await self.real_api.create_session(tipo_login=tipo_login)
                 session_data = raw.get("sessione", raw)
                 session_id = session_data.get("_id", "")
                 stato = session_data.get("stato", "")

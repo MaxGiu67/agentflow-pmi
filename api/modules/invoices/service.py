@@ -28,13 +28,122 @@ class InvoiceService:
     async def sync_cassetto(self, user: User, force: bool = False, from_date: date | None = None) -> dict:
         """Sync invoices from cassetto fiscale.
 
-        Delegates to FiscoAgent for actual sync logic.
+        Requires active SPID session. Returns error if not connected.
         """
         if not user.tenant_id:
             raise ValueError("Profilo azienda non configurato. Completa il profilo prima.")
 
-        agent = FiscoAgent(self.db, fiscoapi=self.fiscoapi)
-        return await agent.sync_cassetto(user, user.tenant_id, force=force, from_date=from_date)
+        # Check if user has active SPID connection
+        if not user.spid_token:
+            raise ValueError("Cassetto fiscale non collegato. Collega SPID dalle Impostazioni.")
+
+        # Try real FiscoAPI sync
+        from api.config import settings
+        if settings.fiscoapi_secret_key:
+            try:
+                from api.adapters.fiscoapi_real import FiscoAPIReal
+                real_api = FiscoAPIReal()
+
+                # Extract session ID if stored
+                session_id = ""
+                if user.spid_token and user.spid_token.startswith("fiscoapi_session:"):
+                    session_id = user.spid_token.replace("fiscoapi_session:", "")
+
+                if not session_id:
+                    raise ValueError("Sessione SPID non attiva. Ricollega SPID dalle Impostazioni.")
+
+                # Check session status
+                status = await real_api.get_session_status(session_id)
+                session_data = status.get("sessione", status)
+                stato = session_data.get("stato", "")
+
+                if stato != "sessione_attiva":
+                    raise ValueError(
+                        f"Sessione SPID in stato '{stato}'. "
+                        "Completa l'autenticazione SPID dalle Impostazioni."
+                    )
+
+                # Session active — request invoices
+                piva = None
+                if user.tenant_id:
+                    from sqlalchemy import select as sel
+                    from api.db.models import Tenant
+                    result = await self.db.execute(sel(Tenant).where(Tenant.id == user.tenant_id))
+                    tenant = result.scalar_one_or_none()
+                    if tenant:
+                        piva = tenant.piva
+
+                if not piva:
+                    raise ValueError("P.IVA non configurata nel profilo azienda.")
+
+                invoices_data = await real_api.request_invoices(
+                    utente_lavoro=piva,
+                    tipo="ricevute",
+                )
+
+                # Process response
+                fatture = invoices_data.get("fatture", [])
+                if not fatture and invoices_data.get("stato") == "in_corso":
+                    return {
+                        "downloaded": 0,
+                        "new": 0,
+                        "duplicates": 0,
+                        "errors": 0,
+                        "message": "Richiesta fatture in corso. Riprova tra qualche secondo.",
+                    }
+
+                # Save invoices to DB
+                new_count = 0
+                dup_count = 0
+                for f in fatture:
+                    # Dedup check
+                    existing = await self.db.execute(
+                        select(Invoice).where(
+                            and_(
+                                Invoice.tenant_id == user.tenant_id,
+                                Invoice.numero_fattura == f.get("numeroFattura", ""),
+                                Invoice.emittente_piva == f.get("pivaEmittente", ""),
+                            )
+                        )
+                    )
+                    if existing.scalar_one_or_none():
+                        dup_count += 1
+                        continue
+
+                    invoice = Invoice(
+                        tenant_id=user.tenant_id,
+                        type="passiva",
+                        document_type=f.get("tipoDocumento", "TD01"),
+                        source="cassetto_fiscale",
+                        numero_fattura=f.get("numeroFattura", ""),
+                        emittente_piva=f.get("pivaEmittente", ""),
+                        emittente_nome=f.get("denominazioneEmittente", ""),
+                        data_fattura=date.fromisoformat(f["dataFattura"]) if f.get("dataFattura") else None,
+                        importo_netto=f.get("imponibile"),
+                        importo_iva=f.get("imposta"),
+                        importo_totale=(f.get("imponibile", 0) or 0) + (f.get("imposta", 0) or 0),
+                        processing_status="pending",
+                    )
+                    self.db.add(invoice)
+                    new_count += 1
+
+                await self.db.flush()
+
+                return {
+                    "downloaded": len(fatture),
+                    "new": new_count,
+                    "duplicates": dup_count,
+                    "errors": 0,
+                    "message": f"Sync completato: {new_count} nuove fatture scaricate dal cassetto fiscale.",
+                }
+
+            except ValueError:
+                raise
+            except Exception as e:
+                logger.error("FiscoAPI real sync failed: %s", e)
+                raise ValueError(f"Errore sync cassetto fiscale: {e}") from e
+
+        raise ValueError("FiscoAPI non configurato. Contatta il supporto.")
 
     async def get_invoices(
         self,

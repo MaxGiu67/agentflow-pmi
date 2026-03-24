@@ -26,6 +26,9 @@ export default function ImpostazioniPage() {
   const [_spidSessionId, setSpidSessionId] = useState('')
   const [spidMessage, setSpidMessage] = useState('')
   const [spidPolling, setSpidPolling] = useState(false)
+  const [spidProvider, setSpidProvider] = useState('poste')
+  const [showSpidSelector, setShowSpidSelector] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [bankIban, setBankIban] = useState('')
   const [bankName, setBankName] = useState('')
   const [bankLoading, setBankLoading] = useState(false)
@@ -55,26 +58,38 @@ export default function ImpostazioniPage() {
     setTimeout(() => setSaved(false), 3000)
   }
 
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 5000)
+  }
+
   const handleConnectSpid = async () => {
+    if (!showSpidSelector) {
+      setShowSpidSelector(true)
+      return
+    }
+    setShowSpidSelector(false)
     setSpidLoading(true)
     setSpidMessage('')
     setSpidQrCode('')
     try {
-      const { data } = await api.post('/auth/spid/init')
+      const { data } = await api.post('/auth/spid/init', { tipo_login: spidProvider })
 
-      if (data.qr_code) {
-        setSpidQrCode(data.qr_code)
+      if (data.session_id) {
         setSpidSessionId(data.session_id)
-        setSpidMessage(data.message || 'Scansiona il QR code con l\'app PosteID')
+        if (data.qr_code) {
+          setSpidQrCode(data.qr_code)
+        }
+        setSpidMessage('Preparazione autenticazione SPID...')
         startSpidPolling(data.session_id)
       } else if (data.redirect_url) {
         window.open(data.redirect_url, '_blank')
       } else {
         setSpidMessage(data.message || 'Sessione SPID creata')
       }
-    } catch (err) {
-      console.error('SPID init failed:', err)
-      setSpidMessage('Errore nella connessione SPID')
+    } catch (err: any) {
+      const msg = err.response?.data?.detail || 'Errore nella connessione SPID'
+      showToast(msg, 'error')
     } finally {
       setSpidLoading(false)
     }
@@ -168,6 +183,15 @@ export default function ImpostazioniPage() {
 
   return (
     <div>
+      {/* Toast notification */}
+      {toast && (
+        <div className={`fixed right-4 top-4 z-50 rounded-lg px-4 py-3 shadow-lg ${
+          toast.type === 'error' ? 'bg-red-600 text-white' : 'bg-green-600 text-white'
+        }`}>
+          {toast.message}
+        </div>
+      )}
+
       <PageHeader title="Impostazioni" subtitle="Configurazione profilo e connessioni" />
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -277,20 +301,36 @@ export default function ImpostazioniPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {spidConnected && <StatusBadge status="active" />}
-                <button
-                  onClick={handleConnectSpid}
-                  disabled={spidLoading}
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {spidLoading ? (
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <ExternalLink className="h-4 w-4" />
-                  )}
-                  {spidConnected ? 'Ricollega' : 'Collega SPID'}
-                </button>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  {spidConnected && <StatusBadge status="active" />}
+                  <button
+                    onClick={handleConnectSpid}
+                    disabled={spidLoading}
+                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {spidLoading ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ExternalLink className="h-4 w-4" />
+                    )}
+                    {showSpidSelector ? 'Conferma' : spidConnected ? 'Ricollega' : 'Collega SPID'}
+                  </button>
+                </div>
+                {showSpidSelector && (
+                  <select
+                    value={spidProvider}
+                    onChange={(e) => setSpidProvider(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="poste">PosteID</option>
+                    <option value="aruba">Aruba SPID</option>
+                    <option value="cie">CIE (Carta d'Identita)</option>
+                    <option value="namirial">Namirial</option>
+                    <option value="teamsystem">TeamSystem</option>
+                    <option value="lepida">Lepida</option>
+                  </select>
+                )}
               </div>
             </div>
           </Card>
@@ -301,9 +341,9 @@ export default function ImpostazioniPage() {
               <div className="text-center">
                 {spidQrCode && (
                   <>
-                    <h3 className="mb-2 text-lg font-semibold text-gray-900">Scansiona con PosteID</h3>
+                    <h3 className="mb-2 text-lg font-semibold text-gray-900">Autenticazione SPID</h3>
                     <p className="mb-4 text-sm text-gray-500">
-                      Apri l'app PosteID sul tuo telefono e scansiona questo QR code
+                      Scansiona il QR code con la tua app SPID (Aruba, PosteID, etc.)
                     </p>
                     <div className="mx-auto mb-4 inline-block rounded-xl border-2 border-blue-100 bg-white p-4">
                       <img src={spidQrCode} alt="QR Code SPID" className="h-48 w-48" />

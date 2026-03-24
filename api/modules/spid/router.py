@@ -23,14 +23,17 @@ def get_spid_service(db: AsyncSession = Depends(get_db)) -> SpidService:
 
 @router.post("/auth/spid/init")
 async def init_spid_auth(
+    body: dict = {},
     user: User = Depends(get_current_user),
     service: SpidService = Depends(get_spid_service),
 ) -> dict:
     """Start SPID/CIE authentication for cassetto fiscale.
 
-    Returns session_id + QR code (for PosteID) or redirect_url (for mock).
+    Body: { "tipo_login": "aruba" | "poste" | "cie" | "namirial" | "teamsystem" | "lepida" }
+    Returns session_id + QR code or login form data.
     """
-    return await service.init_spid_auth(user)
+    tipo_login = body.get("tipo_login", "poste")
+    return await service.init_spid_auth(user, tipo_login=tipo_login)
 
 
 @router.get("/auth/spid/callback", response_model=SpidCallbackResponse)
