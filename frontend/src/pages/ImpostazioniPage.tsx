@@ -224,9 +224,8 @@ export default function ImpostazioniPage() {
                   </p>
                 </div>
               </div>
-              {spidConnected ? (
-                <StatusBadge status="active" />
-              ) : (
+              <div className="flex items-center gap-2">
+                {spidConnected && <StatusBadge status="active" />}
                 <button
                   onClick={handleConnectSpid}
                   disabled={spidLoading}
@@ -237,9 +236,9 @@ export default function ImpostazioniPage() {
                   ) : (
                     <ExternalLink className="h-4 w-4" />
                   )}
-                  Collega SPID
+                  {spidConnected ? 'Ricollega' : 'Collega SPID'}
                 </button>
-              )}
+              </div>
             </div>
           </Card>
 
