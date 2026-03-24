@@ -11,7 +11,7 @@ import Card from '../components/ui/Card'
 export default function DashboardPage() {
   const navigate = useNavigate()
   const { data: dashboard, isLoading, error } = useDashboard()
-  const { data: agents } = useAgentStatuses()
+  const { data: agentsData } = useAgentStatuses()
   const syncCassetto = useSyncCassetto()
 
   if (isLoading) return <LoadingSpinner className="mt-20" size="lg" />
@@ -25,7 +25,9 @@ export default function DashboardPage() {
     )
   }
 
-  const summary = dashboard ?? { invoices_this_month: 0, pending_review: 0, next_deadline: null, recent_invoices: [] }
+  const counters = dashboard?.counters ?? { total: 0, pending: 0, categorized: 0, registered: 0, error: 0 }
+  const recentInvoices = dashboard?.recent_invoices ?? []
+  const agents = agentsData?.agents ?? agentsData ?? []
 
   return (
     <div>
@@ -45,23 +47,27 @@ export default function DashboardPage() {
       />
 
       {/* Stat cards */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Fatture questo mese"
-          value={summary.invoices_this_month}
+          title="Fatture totali"
+          value={counters.total}
           icon={<FileText className="h-6 w-6" />}
         />
         <StatCard
-          title="Da verificare"
-          value={summary.pending_review}
+          title="In attesa"
+          value={counters.pending}
           icon={<AlertTriangle className="h-6 w-6" />}
-          subtitle={summary.pending_review > 0 ? 'Richiede attenzione' : ''}
+          subtitle={counters.pending > 0 ? 'Da elaborare' : ''}
         />
         <StatCard
-          title="Prossima scadenza"
-          value={summary.next_deadline ? formatDate(summary.next_deadline.date) : 'Nessuna'}
+          title="Categorizzate"
+          value={counters.categorized}
+          icon={<FileText className="h-6 w-6" />}
+        />
+        <StatCard
+          title="Registrate"
+          value={counters.registered}
           icon={<CalendarClock className="h-6 w-6" />}
-          subtitle={summary.next_deadline?.description}
         />
       </div>
 
@@ -76,33 +82,39 @@ export default function DashboardPage() {
             Vedi tutte
           </button>
         </div>
-        {summary.recent_invoices?.length > 0 ? (
+        {recentInvoices.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead>
                 <tr>
                   <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Data</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Numero</th>
                   <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Emittente</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Importo</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Importo</th>
                   <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Stato</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {summary.recent_invoices.map((inv: Record<string, unknown>) => (
+                {recentInvoices.map((inv: Record<string, unknown>) => (
                   <tr
                     key={inv.id as string}
                     className="cursor-pointer hover:bg-gray-50"
                     onClick={() => navigate(`/fatture/${inv.id}`)}
                   >
                     <td className="whitespace-nowrap px-4 py-2 text-sm text-gray-700">
-                      {formatDate(inv.date as string)}
+                      {formatDate(inv.data_fattura as string)}
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-700">{inv.emittente as string}</td>
-                    <td className="whitespace-nowrap px-4 py-2 text-sm font-medium text-gray-900">
-                      {formatCurrency(inv.total_amount as number)}
+                    <td className="whitespace-nowrap px-4 py-2 text-sm text-gray-700">
+                      {inv.numero_fattura as string}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-gray-700">
+                      {inv.emittente_nome as string}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-2 text-right text-sm font-medium text-gray-900">
+                      {formatCurrency(inv.importo_totale as number)}
                     </td>
                     <td className="px-4 py-2">
-                      <StatusBadge status={inv.status as string} />
+                      <StatusBadge status={inv.processing_status as string} />
                     </td>
                   </tr>
                 ))}
@@ -115,7 +127,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* Agent statuses */}
-      {agents && agents.length > 0 && (
+      {Array.isArray(agents) && agents.length > 0 && (
         <Card>
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Stato Agenti</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
