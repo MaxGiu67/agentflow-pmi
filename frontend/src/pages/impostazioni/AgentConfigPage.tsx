@@ -1,6 +1,13 @@
-import { useState } from 'react'
-import { RotateCcw, Check, X, Pencil } from 'lucide-react'
-import { useAgentConfigs, useUpdateAgentConfig, useResetAgentConfigs } from '../../api/hooks'
+import { useState, useEffect } from 'react'
+import { RotateCcw, Check, X, Pencil, Save } from 'lucide-react'
+import {
+  useAgentConfigs,
+  useUpdateAgentConfig,
+  useResetAgentConfigs,
+  useLLMSettings,
+  useUpdateLLMSettings,
+} from '../../api/hooks'
+import type { LLMProvider, LLMModel } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import Card from '../../components/ui/Card'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -21,15 +28,34 @@ export default function AgentConfigPage() {
   const { data, isLoading } = useAgentConfigs()
   const updateConfig = useUpdateAgentConfig()
   const resetConfigs = useResetAgentConfigs()
+  const { data: llmData, isLoading: llmLoading } = useLLMSettings()
+  const updateLLM = useUpdateLLMSettings()
 
   const [editingType, setEditingType] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [resetConfirm, setResetConfirm] = useState(false)
 
-  if (isLoading) return <LoadingSpinner className="mt-20" size="lg" />
+  // LLM state
+  const [selectedProvider, setSelectedProvider] = useState('')
+  const [selectedModel, setSelectedModel] = useState('')
+  const [llmDirty, setLlmDirty] = useState(false)
+
+  useEffect(() => {
+    if (llmData) {
+      setSelectedProvider(llmData.current_provider)
+      setSelectedModel(llmData.current_model)
+      setLlmDirty(false)
+    }
+  }, [llmData])
+
+  if (isLoading || llmLoading) return <LoadingSpinner className="mt-20" size="lg" />
 
   const configs: AgentConfig[] = data?.items ?? []
   const visibleConfigs = configs.filter((c) => c.visible)
+
+  const providers: LLMProvider[] = llmData?.available_providers ?? []
+  const currentProviderObj = providers.find((p) => p.id === selectedProvider)
+  const models: LLMModel[] = currentProviderObj?.models ?? []
 
   const handleStartEdit = (config: AgentConfig) => {
     setEditingType(config.agent_type)
@@ -58,6 +84,30 @@ export default function AgentConfigPage() {
   const handleReset = async () => {
     await resetConfigs.mutateAsync()
     setResetConfirm(false)
+  }
+
+  const handleProviderChange = (newProvider: string) => {
+    setSelectedProvider(newProvider)
+    const provObj = providers.find((p) => p.id === newProvider)
+    if (provObj) {
+      setSelectedModel(provObj.default_model)
+    }
+    setLlmDirty(true)
+  }
+
+  const handleModelChange = (newModel: string) => {
+    setSelectedModel(newModel)
+    setLlmDirty(true)
+  }
+
+  const handleSaveLLM = async () => {
+    await updateLLM.mutateAsync({ provider: selectedProvider, model: selectedModel })
+    setLlmDirty(false)
+  }
+
+  const formatContext = (ctx: number): string => {
+    if (ctx >= 1000000) return `${(ctx / 1000000).toFixed(ctx % 1000000 === 0 ? 0 : 1)}M`
+    return `${(ctx / 1000).toFixed(0)}k`
   }
 
   return (
@@ -97,6 +147,73 @@ export default function AgentConfigPage() {
         }
       />
 
+      {/* LLM Settings Section */}
+      <Card className="mb-6">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">Modello AI</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Scegli il provider e il modello AI per l&apos;assistente
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="llm-provider" className="mb-1 block text-sm font-medium text-gray-700">
+              Provider
+            </label>
+            <select
+              id="llm-provider"
+              value={selectedProvider}
+              onChange={(e) => handleProviderChange(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              {providers.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                  {!p.configured ? ' (non configurato)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="llm-model" className="mb-1 block text-sm font-medium text-gray-700">
+              Modello
+            </label>
+            <select
+              id="llm-model"
+              value={selectedModel}
+              onChange={(e) => handleModelChange(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              {models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} — {formatContext(m.context)} ctx, ${m.price_input}/${m.price_output} per 1M tok
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {llmDirty && (
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={handleSaveLLM}
+              disabled={updateLLM.isPending}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              <Save className="h-4 w-4" />
+              {updateLLM.isPending ? 'Salvataggio...' : 'Salva'}
+            </button>
+          </div>
+        )}
+
+        {updateLLM.isSuccess && !llmDirty && (
+          <p className="mt-3 text-sm text-green-600">Impostazioni salvate con successo.</p>
+        )}
+      </Card>
+
+      {/* Agent Config Section */}
       <Card>
         <div className="divide-y divide-gray-100">
           {visibleConfigs.map((config) => (

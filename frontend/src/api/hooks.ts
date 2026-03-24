@@ -560,6 +560,48 @@ export function useResetAgentConfigs() {
   })
 }
 
+// ── LLM Settings ──
+export interface LLMModel {
+  id: string
+  name: string
+  context: number
+  max_output: number
+  price_input: number
+  price_output: number
+}
+
+export interface LLMProvider {
+  id: string
+  name: string
+  configured: boolean
+  default_model: string
+  models: LLMModel[]
+}
+
+export interface LLMSettings {
+  current_provider: string
+  current_model: string
+  available_providers: LLMProvider[]
+}
+
+export function useLLMSettings() {
+  return useQuery<LLMSettings>({
+    queryKey: ['llm-settings'],
+    queryFn: () => api.get('/agents/llm-settings').then((r) => r.data),
+  })
+}
+
+export function useUpdateLLMSettings() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { provider: string; model: string }) =>
+      api.patch('/agents/llm-settings', data).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['llm-settings'] })
+    },
+  })
+}
+
 // ── Onboarding ──
 export function useOnboardingStatus() {
   return useQuery({

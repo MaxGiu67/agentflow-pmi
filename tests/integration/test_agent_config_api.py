@@ -1,11 +1,14 @@
 """
-Test suite for Sprint 12: Agent Configuration API
+Test suite for Sprint 12: Agent Configuration API + LLM Settings
 
 US-A03: Agent Config — CRUD for agent display names, personalities, enabled/disabled.
+LLM Settings — GET/PATCH for provider/model selection.
 
-9 tests covering: list with auto-defaults, update name, update enabled,
+14 tests covering: list with auto-defaults, update name, update enabled,
 disable agent, reset defaults, invalid agent_type, unauthorized access,
-update personality, idempotent defaults.
+update personality, idempotent defaults,
+LLM get settings, LLM update settings, invalid provider, invalid model,
+LLM adapter unit test.
 """
 
 import pytest
@@ -14,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import AgentConfig, Tenant, User
 from api.modules.agent_config.defaults import DEFAULT_AGENTS
+from api.orchestrator.llm_adapter import LLMAdapter, LLM_PROVIDERS
 from tests.conftest import get_auth_token
 
 
@@ -187,3 +191,126 @@ class TestAgentConfigAuth:
 
         resp3 = await client.post("/api/v1/agents/config/reset")
         assert resp3.status_code in (401, 403)
+
+
+# ============================================================
+# LLM Settings
+# ============================================================
+
+
+class TestLLMSettings:
+    """Tests for GET/PATCH /agents/llm-settings."""
+
+    async def test_get_llm_settings(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+    ):
+        """GET /agents/llm-settings returns providers list with models."""
+        resp = await client.get("/api/v1/agents/llm-settings", headers=auth_headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "current_provider" in data
+        assert "current_model" in data
+        assert "available_providers" in data
+        assert len(data["available_providers"]) >= 2
+
+        # Check each provider has models
+        for provider in data["available_providers"]:
+            assert "id" in provider
+            assert "name" in provider
+            assert "models" in provider
+            assert len(provider["models"]) > 0
+            for model in provider["models"]:
+                assert "id" in model
+                assert "name" in model
+                assert "context" in model
+                assert "price_input" in model
+                assert "price_output" in model
+
+    async def test_update_llm_settings(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+    ):
+        """PATCH /agents/llm-settings changes provider/model."""
+        resp = await client.patch(
+            "/api/v1/agents/llm-settings",
+            json={"provider": "openai", "model": "gpt-4o-mini"},
+            headers=auth_headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["current_provider"] == "openai"
+        assert data["current_model"] == "gpt-4o-mini"
+
+        # Verify it persists
+        resp2 = await client.get("/api/v1/agents/llm-settings", headers=auth_headers)
+        assert resp2.status_code == 200
+        data2 = resp2.json()
+        assert data2["current_provider"] == "openai"
+        assert data2["current_model"] == "gpt-4o-mini"
+
+    async def test_invalid_provider(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+    ):
+        """PATCH with invalid provider returns 400."""
+        resp = await client.patch(
+            "/api/v1/agents/llm-settings",
+            json={"provider": "nonexistent_provider", "model": "some-model"},
+            headers=auth_headers,
+        )
+        assert resp.status_code == 400
+        assert "non supportato" in resp.json()["detail"]
+
+    async def test_invalid_model(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+    ):
+        """PATCH with invalid model for valid provider returns 400."""
+        resp = await client.patch(
+            "/api/v1/agents/llm-settings",
+            json={"provider": "anthropic", "model": "nonexistent-model"},
+            headers=auth_headers,
+        )
+        assert resp.status_code == 400
+        assert "non disponibile" in resp.json()["detail"]
+
+    async def test_llm_settings_unauthorized(
+        self,
+        client: AsyncClient,
+    ):
+        """No token returns 401/403 on LLM settings endpoints."""
+        resp = await client.get("/api/v1/agents/llm-settings")
+        assert resp.status_code in (401, 403)
+
+        resp2 = await client.patch(
+            "/api/v1/agents/llm-settings",
+            json={"provider": "anthropic", "model": "claude-sonnet-4-6"},
+        )
+        assert resp2.status_code in (401, 403)
+
+
+class TestLLMAdapterUnit:
+    """Unit tests for LLMAdapter."""
+
+    async def test_get_providers(self):
+        """LLMAdapter.get_available_providers returns all providers."""
+        providers = LLMAdapter.get_available_providers()
+        assert len(providers) >= 2
+
+        provider_ids = {p["id"] for p in providers}
+        assert "anthropic" in provider_ids
+        assert "openai" in provider_ids
+
+        for provider in providers:
+            assert "id" in provider
+            assert "name" in provider
+            assert "configured" in provider
+            assert "default_model" in provider
+            assert "models" in provider
+            assert isinstance(provider["models"], list)
+            assert len(provider["models"]) > 0

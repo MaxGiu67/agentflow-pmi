@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:3000"
 
     anthropic_api_key: str = ""
+    openai_api_key: str = ""
+    default_llm_provider: str = "anthropic"
+    default_llm_model: str = "claude-sonnet-4-6"
 
     aes_key: str = "change-me-32-bytes-hex-encoded-key"
 

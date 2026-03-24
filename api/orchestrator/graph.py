@@ -15,12 +15,14 @@ Sprint 13 additions:
 
 import json
 import logging
+import os
 import uuid
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.config import settings
+from api.orchestrator.llm_adapter import LLMAdapter, LLM_PROVIDERS
 from api.orchestrator.memory_node import MemoryManager
 from api.orchestrator.prompts import ORCHESTRATOR_SYSTEM_PROMPT, RESPONSE_SYSTEM_PROMPT
 from api.orchestrator.skill_discovery import get_skill_discovery_message
@@ -28,9 +30,6 @@ from api.orchestrator.state import OrchestratorState
 from api.orchestrator.tool_registry import TOOLS, get_tools_by_name, get_tools_description
 
 logger = logging.getLogger(__name__)
-
-ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
-CLAUDE_MODEL = "claude-sonnet-4-20250514"
 
 
 # ============================================================
@@ -126,39 +125,39 @@ def keyword_route(message: str) -> list[dict]:
 
 
 def _has_api_key() -> bool:
-    """Check whether a usable Anthropic API key is configured."""
-    key = settings.anthropic_api_key
-    return bool(key and key.strip() and key != "")
+    """Check whether a usable LLM API key is configured (Anthropic or OpenAI)."""
+    provider = os.getenv("DEFAULT_LLM_PROVIDER", settings.default_llm_provider)
+    provider_config = LLM_PROVIDERS.get(provider)
+    if not provider_config:
+        # Fallback: check Anthropic key
+        key = settings.anthropic_api_key
+        return bool(key and key.strip() and key != "")
+    key = os.getenv(provider_config["api_key_env"], "")
+    return bool(key and key.strip())
+
+
+def _get_llm_settings() -> tuple[str, str]:
+    """Return (provider, model) from env / config defaults."""
+    provider = os.getenv("DEFAULT_LLM_PROVIDER", settings.default_llm_provider)
+    model = os.getenv("DEFAULT_LLM_MODEL", settings.default_llm_model)
+    return provider, model
 
 
 # ============================================================
-# Claude API helpers
+# LLM API helper (via LLMAdapter)
 # ============================================================
 
 
-async def _call_claude(system_prompt: str, user_message: str) -> str:
-    """Call Claude API and return the text response."""
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(
-            ANTHROPIC_API_URL,
-            headers={
-                "x-api-key": settings.anthropic_api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            json={
-                "model": CLAUDE_MODEL,
-                "max_tokens": 1024,
-                "system": system_prompt,
-                "messages": [{"role": "user", "content": user_message}],
-            },
-        )
-        response.raise_for_status()
-        data = response.json()
-        # Extract text from content blocks
-        content_blocks = data.get("content", [])
-        text_parts = [b["text"] for b in content_blocks if b.get("type") == "text"]
-        return "\n".join(text_parts)
+async def _call_llm(system_prompt: str, user_message: str) -> str:
+    """Call the configured LLM provider and return the text response."""
+    provider, model = _get_llm_settings()
+    return await LLMAdapter.call(
+        provider=provider,
+        model=model,
+        system_prompt=system_prompt,
+        user_message=user_message,
+        max_tokens=1024,
+    )
 
 
 # ============================================================
@@ -185,7 +184,7 @@ async def router_node(state: OrchestratorState) -> OrchestratorState:
         try:
             tools_desc = get_tools_description()
             system_prompt = ORCHESTRATOR_SYSTEM_PROMPT.format(tools_description=tools_desc)
-            raw_response = await _call_claude(system_prompt, latest_message)
+            raw_response = await _call_llm(system_prompt, latest_message)
 
             # Parse JSON response
             # Claude might wrap in ```json ... ``` — strip that
@@ -287,7 +286,7 @@ async def respond_node(state: OrchestratorState) -> OrchestratorState:
             system_prompt = RESPONSE_SYSTEM_PROMPT.format(tool_results=results_str)
             user_messages = [m for m in state["messages"] if m.get("role") == "user"]
             user_msg = user_messages[-1]["content"] if user_messages else ""
-            response_text = await _call_claude(system_prompt, user_msg)
+            response_text = await _call_llm(system_prompt, user_msg)
         except Exception as e:
             logger.warning("Claude API call failed in respond, using fallback: %s", e)
             response_text = _format_results_fallback(tool_results)

@@ -37,3 +37,40 @@ class AgentConfigResetResponse(BaseModel):
     """Response after resetting agent configurations."""
     message: str
     total: int
+
+
+# ============================================================
+# LLM Settings schemas
+# ============================================================
+
+
+class LLMModelInfo(BaseModel):
+    """Single model info."""
+    id: str
+    name: str
+    context: int
+    max_output: int
+    price_input: float
+    price_output: float
+
+
+class LLMProviderInfo(BaseModel):
+    """Provider info with its models."""
+    id: str
+    name: str
+    configured: bool
+    default_model: str
+    models: list[LLMModelInfo]
+
+
+class LLMSettingsResponse(BaseModel):
+    """Current LLM settings and available providers."""
+    current_provider: str
+    current_model: str
+    available_providers: list[LLMProviderInfo]
+
+
+class LLMSettingsUpdate(BaseModel):
+    """Request to update LLM settings."""
+    provider: str
+    model: str
