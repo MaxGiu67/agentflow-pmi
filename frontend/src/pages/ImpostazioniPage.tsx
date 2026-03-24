@@ -64,32 +64,39 @@ export default function ImpostazioniPage() {
   }
 
   const handleConnectSpid = async () => {
-    if (!showSpidSelector) {
-      setShowSpidSelector(true)
-      return
-    }
-    setShowSpidSelector(false)
     setSpidLoading(true)
     setSpidMessage('')
     setSpidQrCode('')
+    setShowSpidSelector(false)
     try {
       const { data } = await api.post('/auth/spid/init', { tipo_login: spidProvider })
 
-      if (data.session_id) {
+      if (data.session_id && data.qr_code) {
+        // QR code flow (PosteID)
         setSpidSessionId(data.session_id)
-        if (data.qr_code) {
-          setSpidQrCode(data.qr_code)
-        }
+        setSpidQrCode(data.qr_code)
+        setSpidMessage('Scansiona il QR code con l\'app SPID')
+        startSpidPolling(data.session_id)
+      } else if (data.session_id) {
+        // Session created but no QR yet — start polling
+        setSpidSessionId(data.session_id)
         setSpidMessage('Preparazione autenticazione SPID...')
         startSpidPolling(data.session_id)
-      } else if (data.redirect_url) {
-        window.open(data.redirect_url, '_blank')
       } else {
         setSpidMessage(data.message || 'Sessione SPID creata')
       }
     } catch (err: any) {
-      const msg = err.response?.data?.detail || 'Errore nella connessione SPID'
-      showToast(msg, 'error')
+      // Fallback: open FiscoAPI link in popup
+      const popup = window.open(
+        'https://app.fiscoapi.com/link?codice=vRMMZPep55Q',
+        'spid_auth',
+        'width=800,height=700,scrollbars=yes'
+      )
+      if (popup) {
+        setSpidMessage('Completa l\'autenticazione SPID nella finestra aperta. Chiudi quando hai finito.')
+      } else {
+        showToast('Popup bloccato. Consenti i popup per questo sito.', 'error')
+      }
     } finally {
       setSpidLoading(false)
     }
@@ -301,36 +308,20 @@ export default function ImpostazioniPage() {
                   </p>
                 </div>
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  {spidConnected && <StatusBadge status="active" />}
-                  <button
-                    onClick={handleConnectSpid}
-                    disabled={spidLoading}
-                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {spidLoading ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <ExternalLink className="h-4 w-4" />
-                    )}
-                    {showSpidSelector ? 'Conferma' : spidConnected ? 'Ricollega' : 'Collega SPID'}
-                  </button>
-                </div>
-                {showSpidSelector && (
-                  <select
-                    value={spidProvider}
-                    onChange={(e) => setSpidProvider(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  >
-                    <option value="poste">PosteID</option>
-                    <option value="aruba">Aruba SPID</option>
-                    <option value="cie">CIE (Carta d'Identita)</option>
-                    <option value="namirial">Namirial</option>
-                    <option value="teamsystem">TeamSystem</option>
-                    <option value="lepida">Lepida</option>
-                  </select>
-                )}
+              <div className="flex items-center gap-2">
+                {spidConnected && <StatusBadge status="active" />}
+                <button
+                  onClick={handleConnectSpid}
+                  disabled={spidLoading}
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {spidLoading ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ExternalLink className="h-4 w-4" />
+                  )}
+                  {spidConnected ? 'Ricollega' : 'Collega SPID'}
+                </button>
               </div>
             </div>
           </Card>
