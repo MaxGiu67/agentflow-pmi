@@ -23,7 +23,7 @@ export default function ImpostazioniPage() {
   const [saved, setSaved] = useState(false)
   const [spidLoading, setSpidLoading] = useState(false)
   const [spidQrCode, setSpidQrCode] = useState('')
-  const [spidSessionId, setSpidSessionId] = useState('')
+  const [_spidSessionId, setSpidSessionId] = useState('')
   const [spidMessage, setSpidMessage] = useState('')
   const [spidPolling, setSpidPolling] = useState(false)
   const [bankIban, setBankIban] = useState('')
