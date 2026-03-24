@@ -29,6 +29,26 @@ def get_service(db: AsyncSession = Depends(get_db)) -> BankingService:
     return BankingService(db)
 
 
+@router.post("/connect-session")
+async def create_connect_session(
+    user: User = Depends(get_current_user),
+    service: BankingService = Depends(get_service),
+) -> dict:
+    """Create a Salt Edge connect session — returns URL to authenticate with bank.
+
+    User opens the URL, selects bank, completes SCA, and the account is linked.
+    """
+    if not user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Profilo azienda non configurato",
+        )
+    result = await service.create_connect_session(user.tenant_id)
+    if "error" in result and not result.get("connect_url"):
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=result["error"])
+    return result
+
+
 @router.post("/connect", status_code=status.HTTP_201_CREATED)
 async def connect_bank_account(
     request: BankAccountConnectRequest,

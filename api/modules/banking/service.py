@@ -8,9 +8,18 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.adapters.banking import MockBankingAdapter
+from api.config import settings
 from api.db.models import BankAccount, BankTransaction
 
 logger = logging.getLogger(__name__)
+
+
+def _get_saltedge():
+    """Get Salt Edge client if configured."""
+    if settings.saltedge_app_id and settings.saltedge_secret:
+        from api.adapters.saltedge import SaltEdgeClient
+        return SaltEdgeClient()
+    return None
 
 
 class BankingService:
@@ -19,6 +28,37 @@ class BankingService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
         self.adapter = MockBankingAdapter()
+        self.saltedge = _get_saltedge()
+
+    async def create_connect_session(self, tenant_id: uuid.UUID) -> dict:
+        """Create a Salt Edge connect session — returns URL for bank auth.
+
+        The user opens the URL, selects their bank, authenticates via SCA,
+        and Salt Edge creates the connection automatically.
+        """
+        if not self.saltedge:
+            return {"error": "Salt Edge non configurato", "connect_url": ""}
+
+        try:
+            # Create or get customer
+            customer = await self.saltedge.create_customer(str(tenant_id))
+            customer_id = customer["id"]
+
+            # Create connect session
+            session = await self.saltedge.create_connect_session(
+                customer_id=customer_id,
+                country_code="IT",
+            )
+
+            logger.info("Salt Edge connect session created for tenant %s: %s", tenant_id, session.get("connect_url", "")[:50])
+            return {
+                "connect_url": session.get("connect_url", ""),
+                "expires_at": session.get("expires_at", ""),
+                "message": "Apri il link per collegare il tuo conto bancario",
+            }
+        except Exception as e:
+            logger.error("Salt Edge connect session failed: %s", e)
+            return {"error": str(e), "connect_url": ""}
 
     async def connect_account(
         self,

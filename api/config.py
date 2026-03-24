@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     fiscoapi_secret_key: str = ""
     fiscoapi_base_url: str = "https://api.fiscoapi.com/api_esterne"
+
+    saltedge_app_id: str = ""
+    saltedge_secret: str = ""
+    saltedge_base_url: str = "https://www.saltedge.com/api/v5"
     email_from: str = "AgentFlow <noreply@nexadata.it>"
 
     app_name: str = "AgentFlow"
