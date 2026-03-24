@@ -33,12 +33,21 @@ class SpidService:
         """
         if self.real_api:
             try:
-                session = await self.real_api.create_session()
-                logger.info("FiscoAPI real session created for user %s: %s", user.email, session.get("_id"))
+                session = await self.real_api.create_session(tipo_login="poste")
+                session_id = session.get("_id", "")
+                stato = session.get("stato", "")
+                logger.info("FiscoAPI session created for %s: id=%s stato=%s", user.email, session_id, stato)
+
+                # Save session_id in user's spid_token field for tracking
+                user.spid_token = f"fiscoapi_session:{session_id}"
+                await self.db.flush()
+
                 return {
-                    "redirect_url": session.get("url_login", session.get("redirect_url", "")),
-                    "session_id": session.get("_id", ""),
-                    "message": "Redirect al portale Agenzia delle Entrate per autenticazione SPID",
+                    "redirect_url": "",
+                    "session_id": session_id,
+                    "stato": stato,
+                    "session_data": session,
+                    "message": "Sessione FiscoAPI creata. Completa l'autenticazione SPID.",
                 }
             except Exception as e:
                 logger.error("FiscoAPI real session failed: %s, falling back to mock", e)

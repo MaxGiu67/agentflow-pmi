@@ -62,6 +62,37 @@ async def no_spid_info(
     return SpidErrorResponse(**data)
 
 
+@router.get("/auth/spid/session/{session_id}")
+async def get_spid_session(
+    session_id: str,
+    user: User = Depends(get_current_user),
+    service: SpidService = Depends(get_spid_service),
+) -> dict:
+    """Check FiscoAPI session status (SPID auth progress)."""
+    if not service.real_api:
+        return {"stato": "mock", "message": "FiscoAPI non configurata"}
+    try:
+        return await service.real_api.get_session_status(session_id)
+    except Exception as e:
+        return {"stato": "errore", "message": str(e)}
+
+
+@router.post("/auth/spid/session/{session_id}/otp")
+async def send_spid_otp(
+    session_id: str,
+    body: dict,
+    user: User = Depends(get_current_user),
+    service: SpidService = Depends(get_spid_service),
+) -> dict:
+    """Send OTP code for SPID authentication."""
+    if not service.real_api:
+        return {"stato": "mock", "message": "FiscoAPI non configurata"}
+    try:
+        return await service.real_api.send_otp(session_id, body.get("codice_otp", ""))
+    except Exception as e:
+        return {"stato": "errore", "message": str(e)}
+
+
 @router.post("/auth/spid/delegate", response_model=SpidInitResponse)
 async def init_delegate_auth(
     request: SpidDelegateRequest,

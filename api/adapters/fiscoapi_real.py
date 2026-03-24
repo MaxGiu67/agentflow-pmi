@@ -82,16 +82,24 @@ class FiscoAPIReal:
 
     # ── Session (SPID login) ─────────────────────────────
 
-    async def create_session(self) -> dict:
-        """Create a new SPID authentication session.
+    async def create_session(self, tipo_login: str = "poste") -> dict:
+        """Start a new SPID authentication session.
 
-        Returns session object with state and login URL.
+        Args:
+            tipo_login: poste | cie | lepida | namirial | aruba | teamsystem
+
+        Returns session object with _id, stato, tipo_login.
+        States: creazione_form_login → richiesta_accesso → autenticato → sessione_attiva
         """
         headers = await self._headers()
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                f"{self.base_url}/sessione/crea",
+                f"{self.base_url}/avvia_sessione",
                 headers=headers,
+                json={
+                    "ente": "agenzia_entrate",
+                    "tipo_login": tipo_login,
+                },
                 timeout=30,
             )
             resp.raise_for_status()
@@ -104,6 +112,41 @@ class FiscoAPIReal:
             resp = await client.get(
                 f"{self.base_url}/sessione/{session_id}",
                 headers=headers,
+                timeout=30,
+            )
+            resp.raise_for_status()
+            return resp.json()
+
+    async def init_user(self, session_id: str, piva: str, servizio: str = "iva_servizi") -> dict:
+        """Initialize work user on a service after SPID auth.
+
+        Args:
+            session_id: active session ID
+            piva: P.IVA or codice fiscale
+            servizio: iva_servizi | cassetto_fiscale
+        """
+        headers = await self._headers()
+        async with httpx.AsyncClient() as client:
+            resp = await client.patch(
+                f"{self.base_url}/inizializza_utente_lavoro/{session_id}",
+                headers=headers,
+                json={
+                    "servizio": servizio,
+                    "utente_lavoro": piva,
+                },
+                timeout=30,
+            )
+            resp.raise_for_status()
+            return resp.json()
+
+    async def send_otp(self, session_id: str, otp_code: str) -> dict:
+        """Send OTP code during SPID authentication."""
+        headers = await self._headers()
+        async with httpx.AsyncClient() as client:
+            resp = await client.patch(
+                f"{self.base_url}/invia_codice_otp/{session_id}",
+                headers=headers,
+                json={"codice_otp": otp_code},
                 timeout=30,
             )
             resp.raise_for_status()
