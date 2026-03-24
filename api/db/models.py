@@ -613,3 +613,67 @@ class Budget(Base):
     actual_amount: Mapped[float] = mapped_column(Float, default=0.0)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# ============================================================
+# Sprint 11: US-A01/A02/A04 — Agentic System (Chat, Orchestrator)
+# ============================================================
+
+
+class Conversation(Base):
+    """Chat conversation (US-A02)."""
+    __tablename__ = "conversations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active, archived, deleted
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class Message(Base):
+    """Chat message within a conversation (US-A02)."""
+    __tablename__ = "messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    role: Mapped[str] = mapped_column(String(20), nullable=False)  # user, assistant, system, tool
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    agent_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    agent_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    tool_calls: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    tool_results: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    tokens_used: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class AgentConfig(Base):
+    """Agent configuration per tenant (US-A01)."""
+    __tablename__ = "agent_configs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    agent_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    personality: Mapped[str | None] = mapped_column(Text, nullable=True)
+    system_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    icon: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class ConversationMemory(Base):
+    """Cross-conversation memory (user preferences etc.) (US-A02)."""
+    __tablename__ = "conversation_memories"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    key: Mapped[str] = mapped_column(String(255), nullable=False)
+    value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    memory_type: Mapped[str] = mapped_column(String(30), default="preference")  # preference, fact, context
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

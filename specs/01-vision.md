@@ -1,18 +1,72 @@
 # Vision — AgentFlow PMI (ContaBot → Piattaforma)
 
 **Progetto:** AgentFlow PMI
-**MVP:** ContaBot — "L'agente contabile che impara da te"
-**Data:** 2026-03-22
-**Stato:** Aggiornato post analisi gap CEO
+**MVP:** AgentFlow — "L'agente contabile con cui parli"
+**Data:** 2026-03-24
+**Stato:** Aggiornato post Pivot 3 (Sistema Agentico Conversazionale)
 **Fonte:** brainstorm/02-problem-framing.md, brainstorm/01-brainstorm.md
 
 ---
 
 ## Vision Statement
 
-Creare il primo agente contabile AI per le PMI italiane che lavora autonomamente — sincronizza le fatture dal cassetto fiscale dell'Agenzia delle Entrate, le categorizza imparando dallo stile dell'utente, registra le scritture in partita doppia, e prevede il cash flow a 90 giorni. Non è un software che usi: è un agente che lavora per te.
+Creare il primo **agente contabile AI conversazionale** per le PMI italiane — non un gestionale da navigare, ma un assistente con cui parlare. L'utente apre una chat, dice "come stanno le mie finanze?" e l'orchestratore chiama gli agenti specializzati (fisco, contabilita, cash flow, cespiti) per assemblare la risposta. Sincronizza le fatture dal cassetto fiscale, le categorizza imparando dallo stile dell'utente, registra le scritture in partita doppia, e prevede il cash flow a 90 giorni. **Non e un software che usi: e un agente con cui parli.**
 
-**Visione evolutiva:** Da ContaBot (singolo agente contabile) a **AgentFlow Pro** — piattaforma multi-tenant SaaS con marketplace di agenti AI specializzati (fisco, cash flow, commerciale, HR, legale) venduti a PMI italiane tramite commercialisti.
+**Visione evolutiva:** Da AgentFlow (sistema agentico contabile) a **AgentFlow Pro** — piattaforma multi-tenant SaaS con marketplace di agenti AI specializzati (fisco, cash flow, commerciale, HR, legale) venduti a PMI italiane tramite commercialisti. Ogni agente ha un nome, una personalita, e tools specifici — personalizzabili dall'utente.
+
+---
+
+## Sistema Agentico Conversazionale (Pivot 3)
+
+### Architettura
+
+```
+Utente ↔ Chat Interface ↔ Orchestratore
+                              ↓
+              ┌───────────────┼───────────────┐
+              ↓               ↓               ↓
+        FiscoAgent      ContaAgent      CashFlowAgent
+        (fatture,       (scritture,     (previsioni,
+         SPID, F24)     categorie)      riconciliazione)
+              ↓               ↓               ↓
+           Tools           Tools           Tools
+        (sync_fatture,  (registra,      (calcola_cashflow,
+         scarica_xml)    verifica)       alert_soglia)
+```
+
+### Principi
+
+1. **L'utente parla, non naviga** — la chat e l'interfaccia principale
+2. **L'orchestratore decide** quale agente chiamare basandosi sul contesto
+3. **Gli agenti sono specialisti** — ognuno ha competenze e tools specifici
+4. **I nomi sono personalizzabili** — l'utente puo chiamare l'agente fisco "Mario"
+5. **Le conversazioni sono persistenti** — ripresa dal punto lasciato
+6. **I tools sono modulari** — aggiungibili senza modificare gli agenti
+
+### Esempi di conversazione
+
+```
+Utente: "Quante fatture ho ricevuto questo mese?"
+Orchestratore: → chiama FiscoAgent.count_invoices(mese=corrente)
+AgentFlow: "Hai ricevuto 12 fatture passive questo mese per un totale di €15.430."
+
+Utente: "Quali non sono ancora registrate?"
+Orchestratore: → chiama ContaAgent.get_unregistered()
+AgentFlow: "3 fatture sono in attesa di verifica categoria. Vuoi che te le mostri?"
+
+Utente: "Si, e dimmi anche come sta il cash flow"
+Orchestratore: → chiama ContaAgent.show_pending() + CashFlowAgent.predict(90d)
+AgentFlow: "Ecco le 3 fatture da verificare: [lista].
+           Il cash flow previsto a 90 giorni mostra un saldo di €45.200,
+           con un calo previsto a marzo per l'IVA trimestrale (€898)."
+```
+
+### Ipotesi (H5) — Chat = engagement driver
+
+- **Ipotesi:** Gli utenti che usano la chat come interfaccia principale tornano 3x piu spesso di chi naviga le pagine.
+- **Soglia GO:** Weekly engagement chat ≥60% vs ≥20% navigazione
+- **Soglia NO-GO:** <30% usa la chat dopo 2 settimane
+- **Esperimento:** A/B test chat vs dashboard, 50 utenti, 4 settimane
 
 ---
 
@@ -132,7 +186,7 @@ ContaBot rompe questo ciclo automatizzando il tempo perso (H1), prevenendo le di
 
 ### Vincoli Tecnici
 - Data residency EU obbligatoria (GDPR) — AWS eu-south-1 Milano
-- Odoo Community 18 come dipendenza pesante ma necessaria per partita doppia italiana
+- AccountingEngine interno (ADR-007: Odoo rimosso) — partita doppia gestita internamente
 - Dipendenza da provider terzi per dati critici (FiscoAPI, A-Cube) — serve fallback
 
 ### Vincoli di Budget

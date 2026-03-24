@@ -8,6 +8,7 @@ Ultimo aggiornamento: 2026-03-22
 - **Metodologia**: SDD (Spec-Driven Development)
 - **Pivot 1**: Cassetto fiscale come fonte primaria (non email)
 - **Pivot 2**: Integrazione analisi gap CEO (gap contabili, adempimenti, cruscotto CEO, roadmap v1.0-v2.0)
+- **Pivot 3**: Sistema Agentico Conversazionale — orchestratore OpenClaw-like, chat persistente, agent naming, tools/skills
 
 ## Fasi Dev-Methodology
 | Fase | File | Status | Progresso |

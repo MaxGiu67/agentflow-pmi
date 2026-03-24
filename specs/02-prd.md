@@ -1,9 +1,9 @@
 # Product Requirements Document — AgentFlow PMI
 
 **Progetto:** AgentFlow PMI
-**MVP:** ContaBot — "L'agente contabile che impara da te"
-**Data:** 2026-03-22
-**Stato:** Aggiornato post analisi gap CEO
+**MVP:** AgentFlow — "L'agente contabile con cui parli"
+**Data:** 2026-03-24
+**Stato:** Aggiornato post Pivot 3 (Sistema Agentico Conversazionale)
 **Fonte:** brainstorm/03-market-research.md, brainstorm/04-mvp-scope.md, brainstorm/specialists/security.md
 
 ---
@@ -70,7 +70,7 @@ Il mercato della gestione contabile per PMI italiane è saturo di soluzioni trad
 
 | # | Requisito | Priorità | Giustificazione |
 |---|-----------|----------|-----------------|
-| M5 | Odoo CE 18 headless come engine contabile | Must | Partita doppia nativa, 80+ moduli IT |
+| M5 | AccountingEngine interno (ADR-007: Odoo rimosso) | Must | Partita doppia nativa, fiscal_rules configurabili |
 | M5 | ContaAgent crea piano dei conti personalizzato via API | Must | Adattamento per tipo azienda |
 | M5 | Registrazione automatica scritture dare/avere | Must | Core contabile |
 
@@ -178,6 +178,29 @@ Il mercato della gestione contabile per PMI italiane è saturo di soluzioni trad
 
 ---
 
+### EPIC A: Sistema Agentico Conversazionale (v0.5) — Must Have (Pivot 3)
+
+| # | Requisito | Priorita | Giustificazione |
+|---|-----------|----------|-----------------|
+| AG1 | Orchestratore conversazionale (chat con utente, routing a agenti) | Must | H5: interfaccia primaria — l'utente parla, non naviga |
+| AG2 | Chat persistente (conversazioni salvate, ripresa dal punto lasciato) | Must | Retention: l'utente torna e trova lo storico |
+| AG3 | Agenti con nomi personalizzabili (display name, personalita) | Must | Personalizzazione: l'utente chiama l'agente "Mario" |
+| AG4 | Tool system (tools registrabili, eseguibili dagli agenti) | Must | Modularita: agenti usano tools per azioni concrete |
+| AG5 | WebSocket streaming (risposte in tempo reale) | Should | UX: l'utente vede la risposta che si scrive |
+| AG6 | Memoria conversazione (contesto a lungo termine) | Should | L'agente ricorda preferenze e scelte passate |
+| AG7 | Onboarding conversazionale (ContoEconomicoAgent via chat) | Must | Gia implementato, da integrare nel flusso chat |
+| AG8 | Multi-agent response (orchestratore chiama piu agenti per una risposta) | Should | Es: "come sto?" → fisco + cashflow + contabilita |
+| AG9 | Agent skill discovery (agente suggerisce cosa puo fare) | Could | "Posso aiutarti con fatture, scadenze, cash flow..." |
+| AG10 | Configurazione agenti nelle impostazioni | Must | UI per abilitare/disabilitare e rinominare agenti |
+
+**Tech stack aggiuntivo:**
+- LangGraph StateGraph per orchestrazione
+- Claude API per reasoning degli agenti
+- WebSocket (FastAPI) per streaming
+- PostgreSQL per conversazioni e configurazione agenti
+
+---
+
 ## MoSCoW Prioritization (MVP v0.1)
 
 ### Must Have
@@ -212,6 +235,15 @@ Il mercato della gestione contabile per PMI italiane è saturo di soluzioni trad
 10. F24 compilazione, CU annuale, conservazione digitale a norma
 11. Dashboard CEO base (fatturato vs budget, margini, KPI)
 
+### Must Have (v0.5 — Sistema Agentico)
+1. Orchestratore conversazionale con routing a agenti specialisti
+2. Chat persistente (conversazioni salvate in PostgreSQL)
+3. Agenti con nomi personalizzabili dall'utente
+4. Tool system (wrap 9 agenti esistenti come tools)
+5. Configurazione agenti nelle impostazioni
+6. Onboarding conversazionale (ContoEconomicoAgent integrato)
+7. Frontend chat UI (diventa interfaccia principale)
+
 ### Could Have (v1.0)
 1. ControllerAgent (centri di costo, budget vs consuntivo, KPI personalizzabili)
 2. HRAgent base (anagrafica, costo personale, budget HR, scadenzario)
@@ -245,8 +277,8 @@ Il mercato della gestione contabile per PMI italiane è saturo di soluzioni trad
 1. **App mobile nativa** — Web responsive sufficiente. Solo se retention lo giustifica.
 2. **Buste paga/cedolini in-house** — Troppo complesso (CCNL, addizionali, detrazioni). Sempre integrazione con provider (Zucchetti, TeamSystem).
 3. **Diventare intermediario telematico AdE** — Cambia completamente i requisiti normativi.
-4. **LLM API per categorizzazione** — Troppo costoso e privacy concerns (ADR-003).
-5. **ERP completo** — AgentFlow è un copilota AI, non un SAP. Odoo resta headless per la contabilità.
+4. **LLM API per categorizzazione base** — Rules + similarity engine (ADR-003). LLM usato solo per orchestratore conversazionale e onboarding.
+5. **ERP completo** — AgentFlow e un copilota AI conversazionale, non un SAP. AccountingEngine interno (ADR-007: Odoo rimosso).
 6. **Gestione magazzino/inventario** — Troppo specifico per settore, fuori target PMI di servizi.
 
 ---

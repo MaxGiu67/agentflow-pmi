@@ -16,6 +16,7 @@ from api.db.models import (
     Expense, ExpensePolicy, Asset, Accrual,
     CertificazioneUnica, DigitalPreservation, Payment, NormativeAlert,
     F24Document, Budget,
+    Conversation, Message, AgentConfig, ConversationMemory,
 )
 from api.db.session import get_db
 from api.main import app

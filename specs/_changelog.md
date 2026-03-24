@@ -137,6 +137,39 @@
 
 ---
 
+### Fase 5 (Agentic): Sprint Plan — 3 sprint, 57 SP, 10 stories
+- **Data**: 2026-03-24
+- **Sprint 11**: Orchestratore LangGraph + Tool Registry + Chat API + Persistenza (21 SP)
+- **Sprint 12**: Frontend Chat UI + WebSocket + Agent Config + Onboarding chat (23 SP)
+- **Sprint 13**: Multi-agent response + Memoria + Skill discovery + Polish (13 SP)
+- **File**: specs/05-sprint-plan-agentic.md
+
+---
+
+### Fase 5 (Agentic): Tech Spec + Stories + PRD + Vision aggiornati
+- **Data**: 2026-03-24
+- **Fase**: 1-4 aggiornate per Pivot 3
+- **Vision**: "Non e un software che usi: e un agente con cui parli" + sezione Sistema Agentico
+- **PRD**: Epic A (AG1-AG10) + MoSCoW v0.5
+- **Stories**: 10 nuove (US-A01 a US-A10, 57 SP, 44 AC)
+- **Tech Spec**: LangGraph StateGraph, 25+ tools, 5 nuove tabelle DB, 10 nuovi endpoint, WebSocket streaming
+- **File**: specs/technical/04-tech-spec-agentic.md, specs/03-user-stories-agentic.md
+
+---
+
+### PIVOT 3: Sistema Agentico Conversazionale — OpenClaw-like
+- **Data**: 2026-03-24
+- **Causa**: L'utente non deve usare un gestionale — deve parlare con un agente AI. Serve orchestratore centrale, chat persistente, agenti con nomi personalizzabili, tools/skills.
+- **Impatto**: 3 file da rifare, 8 da aggiornare, 5 invariati
+- **Nuove stories**: US-A01 a US-A10 (sistema agentico)
+- **Tech**: LangGraph StateGraph + Claude API + WebSocket + PostgreSQL conversations
+- **Strategia**: ADDITIVE — 9 agenti esistenti diventano tools, nessun codice riscritto
+- **Stima**: ~17 giorni, Sprint 11-14
+- **Report**: specs/technical/pivot-3-agentic-system.md
+- **Ordine**: vision → PRD → stories → tech spec → sprint → review → implement
+
+---
+
 ### Frontend React IMPLEMENTATO — 31 pagine, 13 componenti, build PASS
 - **Data**: 2026-03-23
 - **Fase**: 7 (Frontend)
