@@ -90,16 +90,22 @@ export default function ImpostazioniPage() {
         setSpidMessage(data.message || 'Sessione SPID creata')
       }
     } catch (err: any) {
-      // Fallback: open FiscoAPI link in popup
+      // Fallback: open FiscoAPI link in popup for SPID auth
+      const errorMsg = err.response?.data?.detail || ''
+      console.log('SPID API error, opening FiscoAPI portal:', errorMsg)
+
       const popup = window.open(
         'https://app.fiscoapi.com/link?codice=vRMMZPep55Q',
         'spid_auth',
-        'width=800,height=700,scrollbars=yes'
+        'width=900,height=750,scrollbars=yes,resizable=yes'
       )
       if (popup) {
-        setSpidMessage('Completa l\'autenticazione SPID nella finestra aperta. Chiudi quando hai finito.')
+        setSpidMessage('Completa l\'autenticazione SPID nella finestra aperta.')
+        showToast('Autenticazione SPID aperta in una nuova finestra', 'success')
       } else {
-        showToast('Popup bloccato. Consenti i popup per questo sito.', 'error')
+        // Popup blocked — open in new tab
+        window.open('https://app.fiscoapi.com/link?codice=vRMMZPep55Q', '_blank')
+        setSpidMessage('Completa l\'autenticazione SPID nella nuova scheda.')
       }
     } finally {
       setSpidLoading(false)
