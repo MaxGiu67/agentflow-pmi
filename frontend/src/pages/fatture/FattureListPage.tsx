@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Filter } from 'lucide-react'
+import { Plus, Search, Filter, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { useInvoices } from '../../api/hooks'
 import { formatCurrency, formatDate } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
@@ -9,9 +9,13 @@ import DateRangeFilter from '../../components/ui/DateRangeFilter'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
 
+type SortKey = 'data_fattura' | 'numero_fattura' | 'controparte' | 'importo_totale' | 'type'
+type SortDir = 'asc' | 'desc'
+
 export default function FattureListPage() {
   const navigate = useNavigate()
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
@@ -19,10 +23,12 @@ export default function FattureListPage() {
   const [sourceFilter, setSourceFilter] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+  const [sortKey, setSortKey] = useState<SortKey>('data_fattura')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
 
   const { data, isLoading } = useInvoices({
     page,
-    page_size: 20,
+    page_size: pageSize,
     date_from: dateFrom || undefined,
     date_to: dateTo || undefined,
     type: typeFilter || undefined,
@@ -31,11 +37,73 @@ export default function FattureListPage() {
     emittente: searchTerm || undefined,
   })
 
-  if (isLoading) return <LoadingSpinner className="mt-20" size="lg" />
-
   const invoices = data?.items ?? []
   const totalPages = data?.pages ?? data?.total_pages ?? 1
   const total = data?.total ?? 0
+
+  // Client-side sort on current page records
+  const getControparte = (inv: Record<string, unknown>) => {
+    const sd = inv.structured_data as Record<string, unknown> | null
+    const dest = (sd?.destinatario_nome ?? sd?.cessionario_nome) as string | undefined
+    return inv.type === 'attiva' ? (dest || '') : (inv.emittente_nome as string || '')
+  }
+
+  const sorted = useMemo(() => {
+    const items = [...invoices]
+    items.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+      let va: string | number = ''
+      let vb: string | number = ''
+
+      switch (sortKey) {
+        case 'data_fattura':
+          va = (a.data_fattura as string) || ''
+          vb = (b.data_fattura as string) || ''
+          break
+        case 'numero_fattura':
+          va = (a.numero_fattura as string) || ''
+          vb = (b.numero_fattura as string) || ''
+          break
+        case 'controparte':
+          va = getControparte(a).toLowerCase()
+          vb = getControparte(b).toLowerCase()
+          break
+        case 'importo_totale':
+          va = (a.importo_totale as number) || 0
+          vb = (b.importo_totale as number) || 0
+          break
+        case 'type':
+          va = (a.type as string) || ''
+          vb = (b.type as string) || ''
+          break
+      }
+
+      if (va < vb) return sortDir === 'asc' ? -1 : 1
+      if (va > vb) return sortDir === 'asc' ? 1 : -1
+      return 0
+    })
+    return items
+  }, [invoices, sortKey, sortDir])
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('desc')
+    }
+  }
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ChevronsUpDown className="ml-1 inline h-3 w-3 text-gray-400" />
+    return sortDir === 'asc'
+      ? <ChevronUp className="ml-1 inline h-3 w-3 text-blue-600" />
+      : <ChevronDown className="ml-1 inline h-3 w-3 text-blue-600" />
+  }
+
+  if (isLoading) return <LoadingSpinner className="mt-20" size="lg" />
+
+  const startRecord = (page - 1) * pageSize + 1
+  const endRecord = Math.min(page * pageSize, total)
 
   return (
     <div>
@@ -98,8 +166,8 @@ export default function FattureListPage() {
               className="mt-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
             >
               <option value="">Tutti</option>
-              <option value="passiva">Passiva</option>
-              <option value="attiva">Attiva</option>
+              <option value="passiva">Ricevute</option>
+              <option value="attiva">Emesse</option>
             </select>
           </div>
           <div>
@@ -134,7 +202,7 @@ export default function FattureListPage() {
         </div>
       )}
 
-      {invoices.length === 0 ? (
+      {sorted.length === 0 ? (
         <EmptyState
           title="Nessuna fattura trovata"
           description="Carica le tue fatture o collega il cassetto fiscale per importarle automaticamente."
@@ -145,25 +213,43 @@ export default function FattureListPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Data</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Numero</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Controparte</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Tipo</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Importo</th>
+                  <th
+                    className="cursor-pointer select-none px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 hover:text-gray-700"
+                    onClick={() => handleSort('data_fattura')}
+                  >
+                    Data <SortIcon col="data_fattura" />
+                  </th>
+                  <th
+                    className="cursor-pointer select-none px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 hover:text-gray-700"
+                    onClick={() => handleSort('numero_fattura')}
+                  >
+                    Numero <SortIcon col="numero_fattura" />
+                  </th>
+                  <th
+                    className="cursor-pointer select-none px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 hover:text-gray-700"
+                    onClick={() => handleSort('controparte')}
+                  >
+                    Controparte <SortIcon col="controparte" />
+                  </th>
+                  <th
+                    className="cursor-pointer select-none px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 hover:text-gray-700"
+                    onClick={() => handleSort('type')}
+                  >
+                    Tipo <SortIcon col="type" />
+                  </th>
+                  <th
+                    className="cursor-pointer select-none px-4 py-3 text-right text-xs font-medium uppercase text-gray-500 hover:text-gray-700"
+                    onClick={() => handleSort('importo_totale')}
+                  >
+                    Importo <SortIcon col="importo_totale" />
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Fonte</th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Stato</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {invoices.map((inv: Record<string, unknown>) => {
-                  // Get the counterpart name (for emesse: destinatario from structured_data, for ricevute: emittente)
-                  const structuredData = inv.structured_data as Record<string, unknown> | null
-                  // Per fatture EMESSE (attiva): mostra il CLIENTE (destinatario)
-                  // Per fatture RICEVUTE (passiva): mostra il FORNITORE (emittente)
-                  const destinatario = (structuredData?.destinatario_nome ?? structuredData?.cessionario_nome) as string | undefined
-                  const displayName = inv.type === 'attiva'
-                    ? (destinatario || '-')
-                    : (inv.emittente_nome as string || '-')
+                {sorted.map((inv: Record<string, unknown>) => {
+                  const displayName = getControparte(inv)
 
                   return (
                     <tr
@@ -179,7 +265,7 @@ export default function FattureListPage() {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
                         <div>
-                          <p className="font-medium">{displayName}</p>
+                          <p className="font-medium">{displayName || '-'}</p>
                           <p className="text-xs text-gray-400">
                             {inv.type === 'attiva' ? 'Cliente' : 'Fornitore'}
                           </p>
@@ -209,29 +295,61 @@ export default function FattureListPage() {
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between">
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
               <p className="text-sm text-gray-500">
-                Pagina {page} di {totalPages} — {total} fatture
+                {startRecord}–{endRecord} di {total} fatture
               </p>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-gray-400">Righe:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1) }}
+                  className="rounded border border-gray-300 px-2 py-1 text-xs focus:border-blue-500 focus:outline-none"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage(1)}
+                  disabled={page <= 1}
+                  className="rounded border border-gray-300 px-2 py-1 text-xs disabled:opacity-40"
+                >
+                  ««
+                </button>
                 <button
                   onClick={() => setPage(Math.max(1, page - 1))}
                   disabled={page <= 1}
-                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm disabled:opacity-50"
+                  className="rounded border border-gray-300 px-3 py-1 text-xs disabled:opacity-40"
                 >
-                  Precedente
+                  ‹ Prec.
                 </button>
+                <span className="px-3 text-sm font-medium text-gray-700">
+                  {page} / {totalPages}
+                </span>
                 <button
                   onClick={() => setPage(Math.min(totalPages, page + 1))}
                   disabled={page >= totalPages}
-                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm disabled:opacity-50"
+                  className="rounded border border-gray-300 px-3 py-1 text-xs disabled:opacity-40"
                 >
-                  Successiva
+                  Succ. ›
+                </button>
+                <button
+                  onClick={() => setPage(totalPages)}
+                  disabled={page >= totalPages}
+                  className="rounded border border-gray-300 px-2 py-1 text-xs disabled:opacity-40"
+                >
+                  »»
                 </button>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </>
       )}
     </div>
