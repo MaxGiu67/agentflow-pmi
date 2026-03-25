@@ -1,12 +1,12 @@
 """Router for dashboard module."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import User
 from api.db.session import get_db
 from api.middleware.auth import get_current_user
-from api.modules.dashboard.schemas import AgentStatus, DashboardSummary
+from api.modules.dashboard.schemas import AgentStatus, DashboardSummary, YearlyStats
 from api.modules.dashboard.service import DashboardService
 
 router = APIRouter(tags=["dashboard"])
@@ -24,6 +24,17 @@ async def dashboard_summary(
     """Get complete dashboard summary with counters, recent invoices, and agent status."""
     result = await service.get_summary(user)
     return DashboardSummary(**result)
+
+
+@router.get("/dashboard/yearly-stats", response_model=YearlyStats)
+async def get_yearly_stats(
+    year: int = Query(..., ge=2000, le=2100),
+    user: User = Depends(get_current_user),
+    service: DashboardService = Depends(get_dashboard_service),
+) -> YearlyStats:
+    """Get yearly statistics: totals, monthly breakdown, top clients/suppliers."""
+    result = await service.get_yearly_stats(user, year)
+    return YearlyStats(**result)
 
 
 @router.get("/agents/status", response_model=list[AgentStatus])

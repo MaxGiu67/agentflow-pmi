@@ -16,6 +16,14 @@ export function useAgentStatuses() {
   })
 }
 
+export function useYearlyStats(year: number) {
+  return useQuery({
+    queryKey: ['yearly-stats', year],
+    queryFn: () => api.get(`/dashboard/yearly-stats?year=${year}`).then((r) => r.data),
+    enabled: !!year,
+  })
+}
+
 // ── Invoices ──
 interface InvoiceFilters {
   date_from?: string
