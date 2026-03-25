@@ -26,8 +26,8 @@ export default function FatturaDetailPage() {
   }
 
   const structuredData = invoice.structured_data as Record<string, unknown> | null
-  const destinatario = structuredData?.cessionario_nome as string | undefined
-  const righe = (structuredData?.righe ?? []) as Record<string, unknown>[]
+  const destinatario = (structuredData?.destinatario_nome ?? structuredData?.cessionario_nome) as string | undefined
+  const righe = (structuredData?.linee_dettaglio ?? structuredData?.righe ?? []) as Record<string, unknown>[]
   const riepilogo = (structuredData?.riepilogo ?? []) as Record<string, unknown>[]
 
   return (
@@ -70,10 +70,18 @@ export default function FatturaDetailPage() {
               <dd className="text-sm font-medium text-gray-900">{invoice.emittente_piva ?? '-'}</dd>
             </div>
             {destinatario && (
-              <div className="flex justify-between">
-                <dt className="text-sm text-gray-500">Destinatario</dt>
-                <dd className="text-sm font-medium text-gray-900">{destinatario}</dd>
-              </div>
+              <>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Destinatario</dt>
+                  <dd className="text-sm font-medium text-gray-900">{destinatario}</dd>
+                </div>
+                {structuredData?.destinatario_piva && (
+                  <div className="flex justify-between">
+                    <dt className="text-sm text-gray-500">P.IVA Destinatario</dt>
+                    <dd className="text-sm font-medium text-gray-900">{structuredData.destinatario_piva as string}</dd>
+                  </div>
+                )}
+              </>
             )}
             <div className="flex justify-between">
               <dt className="text-sm text-gray-500">Tipo documento</dt>

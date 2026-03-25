@@ -158,7 +158,7 @@ export default function FattureListPage() {
                 {invoices.map((inv: Record<string, unknown>) => {
                   // Get the counterpart name (for emesse: destinatario from structured_data, for ricevute: emittente)
                   const structuredData = inv.structured_data as Record<string, unknown> | null
-                  const destinatario = structuredData?.cessionario_nome as string | undefined
+                  const destinatario = (structuredData?.destinatario_nome ?? structuredData?.cessionario_nome) as string | undefined
                   const displayName = inv.type === 'attiva'
                     ? (destinatario || inv.emittente_nome as string || '-')
                     : (inv.emittente_nome as string || '-')
