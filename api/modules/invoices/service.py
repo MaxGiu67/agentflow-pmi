@@ -171,8 +171,14 @@ class InvoiceService:
         if status:
             conditions.append(Invoice.processing_status == status)
         if emittente:
+            from sqlalchemy import or_, cast, String
+            search_term = f"%{emittente}%"
             conditions.append(
-                Invoice.emittente_nome.ilike(f"%{emittente}%")
+                or_(
+                    Invoice.emittente_nome.ilike(search_term),
+                    Invoice.numero_fattura.ilike(search_term),
+                    cast(Invoice.structured_data["destinatario_nome"], String).ilike(search_term),
+                )
             )
 
         # Count total
