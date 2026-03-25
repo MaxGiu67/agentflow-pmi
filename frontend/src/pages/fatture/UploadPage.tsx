@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Upload, CheckCircle, AlertTriangle, FolderOpen } from 'lucide-react'
 import { useUploadInvoice } from '../../api/hooks'
@@ -15,15 +15,16 @@ export default function UploadPage() {
   const [errorMessage, setErrorMessage] = useState('')
 
   // Folder import state
-  const [folderPath, setFolderPath] = useState('')
+  const folderInputRef = useRef<HTMLInputElement>(null)
+  const [folderFiles, setFolderFiles] = useState<File[]>([])
   const [folderLoading, setFolderLoading] = useState(false)
+  const [folderProgress, setFolderProgress] = useState({ current: 0, total: 0 })
   const [folderResult, setFolderResult] = useState<{
     total_files: number; imported: number; duplicates: number; errors: number
   } | null>(null)
 
   const handleUpload = async () => {
     if (files.length === 0) return
-
     setUploadStatus('idle')
     setErrorMessage('')
 
@@ -38,56 +39,82 @@ export default function UploadPage() {
     } catch (err: unknown) {
       setUploadStatus('error')
       setErrorMessage(
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-          'Errore durante il caricamento'
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Errore durante il caricamento'
       )
     }
   }
 
+  const handleFolderSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = e.target.files
+    if (!fileList) return
+
+    // Filter only XML files, exclude metaDato
+    const xmlFiles = Array.from(fileList).filter(
+      f => f.name.endsWith('.xml') && !f.name.includes('metaDato')
+    )
+
+    setFolderFiles(xmlFiles)
+    setFolderResult(null)
+    setErrorMessage('')
+  }
+
   const handleFolderImport = async () => {
-    if (!folderPath.trim()) return
+    if (folderFiles.length === 0) return
     setFolderLoading(true)
     setFolderResult(null)
     setErrorMessage('')
 
-    try {
-      const { data } = await api.post('/invoices/import-folder', { folder_path: folderPath.trim() })
-      setFolderResult(data)
-      if (data.imported > 0) {
-        setUploadStatus('success')
+    let imported = 0
+    let duplicates = 0
+    let errors = 0
+    const total = folderFiles.length
+
+    for (let i = 0; i < folderFiles.length; i++) {
+      const file = folderFiles[i]
+      setFolderProgress({ current: i + 1, total })
+
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+        const { data } = await api.post('/invoices/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+
+        if (data.message?.toLowerCase().includes('duplicata')) {
+          duplicates++
+        } else {
+          imported++
+        }
+      } catch {
+        errors++
       }
-    } catch (err: unknown) {
-      setErrorMessage(
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-          'Errore importazione cartella'
-      )
-      setUploadStatus('error')
-    } finally {
-      setFolderLoading(false)
     }
+
+    setFolderResult({ total_files: total, imported, duplicates, errors })
+    setFolderLoading(false)
   }
 
   return (
     <div>
       <PageHeader
         title="Carica Fatture"
-        subtitle="Carica fatture singole o importa da una cartella"
+        subtitle="Carica fatture singole o importa un'intera cartella"
       />
 
       <div className="grid gap-6 lg:grid-cols-2 max-w-4xl">
         {/* Upload singolo file */}
         <Card>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">Carica file</h2>
-          <p className="mb-4 text-sm text-gray-500">Trascina o seleziona file XML, PDF o P7M</p>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">
+            <Upload className="inline h-5 w-5 mr-2" />
+            Carica file
+          </h2>
+          <p className="mb-4 text-sm text-gray-500">Trascina o seleziona file XML, PDF, P7M</p>
 
           {uploadStatus === 'success' && !folderResult ? (
             <div className="flex flex-col items-center py-8 text-center">
               <CheckCircle className="mb-4 h-16 w-16 text-green-500" />
               <h3 className="text-lg font-semibold text-gray-900">Caricamento completato!</h3>
-              <button
-                onClick={() => navigate('/fatture')}
-                className="mt-4 text-sm text-blue-600 hover:underline"
-              >
+              <button onClick={() => navigate('/fatture')} className="mt-4 text-sm text-blue-600 hover:underline">
                 Vai alle fatture
               </button>
             </div>
@@ -123,8 +150,20 @@ export default function UploadPage() {
             Importa da cartella
           </h2>
           <p className="mb-4 text-sm text-gray-500">
-            Inserisci il percorso di una cartella contenente fatture XML scaricate dal cassetto fiscale
+            Seleziona una cartella contenente fatture XML (es. scaricate dal cassetto fiscale)
           </p>
+
+          {/* Hidden directory input */}
+          <input
+            ref={folderInputRef}
+            type="file"
+            /* @ts-expect-error webkitdirectory is non-standard but widely supported */
+            webkitdirectory=""
+            directory=""
+            multiple
+            className="hidden"
+            onChange={handleFolderSelect}
+          />
 
           {folderResult ? (
             <div className="space-y-3">
@@ -157,43 +196,63 @@ export default function UploadPage() {
                 Vai alle fatture
               </button>
               <button
-                onClick={() => { setFolderResult(null); setUploadStatus('idle') }}
+                onClick={() => { setFolderResult(null); setFolderFiles([]); setUploadStatus('idle') }}
                 className="w-full text-sm text-gray-500 hover:underline"
               >
                 Importa un'altra cartella
               </button>
             </div>
-          ) : (
-            <>
-              {uploadStatus === 'error' && !files.length && (
-                <div className="mb-4 flex items-center gap-2 rounded-lg bg-red-50 p-3">
-                  <AlertTriangle className="h-5 w-5 text-red-500" />
-                  <span className="text-sm text-red-700">{errorMessage}</span>
-                </div>
-              )}
-
-              <input
-                type="text"
-                value={folderPath}
-                onChange={(e) => setFolderPath(e.target.value)}
-                placeholder="/percorso/cartella/fatture"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              />
-              <p className="mt-1 text-xs text-gray-400">
-                Verranno importati tutti i file .xml (esclusi i metadati)
+          ) : folderLoading ? (
+            <div className="space-y-3 py-4">
+              <div className="flex items-center justify-center gap-2 text-sm text-blue-600">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                Importazione in corso...
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-gray-200">
+                <div
+                  className="h-full rounded-full bg-blue-600 transition-all"
+                  style={{ width: `${folderProgress.total > 0 ? (folderProgress.current / folderProgress.total) * 100 : 0}%` }}
+                />
+              </div>
+              <p className="text-center text-xs text-gray-500">
+                {folderProgress.current} / {folderProgress.total} file
               </p>
-
-              <div className="mt-4 flex justify-end">
+            </div>
+          ) : folderFiles.length > 0 ? (
+            <div className="space-y-3">
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                <p className="text-sm font-medium text-blue-800">
+                  {folderFiles.length} file XML trovati nella cartella
+                </p>
+                <p className="mt-1 text-xs text-blue-600">
+                  File metadati esclusi automaticamente
+                </p>
+              </div>
+              <div className="flex gap-2">
                 <button
                   onClick={handleFolderImport}
-                  disabled={!folderPath.trim() || folderLoading}
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
                 >
-                  <FolderOpen className="h-4 w-4" />
-                  {folderLoading ? 'Importazione...' : 'Importa cartella'}
+                  <Upload className="h-4 w-4" />
+                  Importa {folderFiles.length} fatture
+                </button>
+                <button
+                  onClick={() => { setFolderFiles([]); if (folderInputRef.current) folderInputRef.current.value = '' }}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Annulla
                 </button>
               </div>
-            </>
+            </div>
+          ) : (
+            <button
+              onClick={() => folderInputRef.current?.click()}
+              className="w-full rounded-xl border-2 border-dashed border-gray-300 p-8 text-center hover:border-blue-400 hover:bg-blue-50 transition-colors"
+            >
+              <FolderOpen className="mx-auto mb-3 h-12 w-12 text-gray-400" />
+              <p className="text-sm font-medium text-gray-700">Seleziona cartella</p>
+              <p className="mt-1 text-xs text-gray-500">Clicca per aprire il file picker</p>
+            </button>
           )}
         </Card>
       </div>
