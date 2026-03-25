@@ -23,6 +23,7 @@ class ChatService:
         user: User,
         conversation_id: uuid.UUID | None,
         message: str,
+        context: dict | None = None,
     ) -> dict:
         """Send a message and get an AI response.
 
@@ -61,6 +62,7 @@ class ChatService:
                 user_id=user.id,
                 db=self.db,
                 conversation_messages=history,
+                context=context,
             )
         except Exception as e:
             logger.error("Orchestrator error: %s", e)
@@ -101,6 +103,7 @@ class ChatService:
             "agent_type": result.get("agent_type"),
             "tool_calls": result.get("tool_calls"),
             "suggestions": suggestions,
+            "response_meta": result.get("response_meta"),
         }
 
     async def list_conversations(self, user: User) -> dict:

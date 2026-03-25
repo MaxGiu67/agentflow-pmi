@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useLocation } from 'react-router-dom'
 import { MessageSquare, X, Send } from 'lucide-react'
 import { useSendMessage } from '../../api/hooks'
 import { cn } from '../../lib/utils'
@@ -10,6 +11,21 @@ interface FloatingMessage {
   created_at: string
 }
 
+const getPlaceholder = (page: string): string => {
+  switch (page) {
+    case 'dashboard': return 'Chiedi sui KPI, fatturato, clienti...'
+    case 'fatture': return 'Cerca fattura, cliente, fornitore...'
+    case 'contabilita': return 'Chiedi sulle scritture contabili...'
+    case 'scadenze': return 'Chiedi sulle scadenze fiscali...'
+    case 'fisco': return 'Chiedi su IVA, F24, ritenute...'
+    case 'ceo': return 'Chiedi su KPI, budget, margini...'
+    case 'banca': return 'Chiedi su movimenti, saldi, riconciliazione...'
+    case 'spese': return 'Chiedi sulle note spese...'
+    case 'cespiti': return 'Chiedi sui cespiti e ammortamenti...'
+    default: return 'Scrivi un messaggio per iniziare...'
+  }
+}
+
 export default function ChatbotFloating() {
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<FloatingMessage[]>([])
@@ -19,6 +35,20 @@ export default function ChatbotFloating() {
   const [unreadCount, setUnreadCount] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const location = useLocation()
+  const page = location.pathname.split('/')[1] || 'dashboard'
+
+  const getSelectedYear = (): number => {
+    // Try to get from URL search params or default to current year
+    const params = new URLSearchParams(location.search)
+    const yearParam = params.get('year')
+    if (yearParam) {
+      const parsed = parseInt(yearParam, 10)
+      if (!isNaN(parsed)) return parsed
+    }
+    return new Date().getFullYear()
+  }
 
   const sendMessage = useSendMessage()
 
@@ -53,6 +83,7 @@ export default function ChatbotFloating() {
       const result = await sendMessage.mutateAsync({
         message: trimmed,
         conversationId: conversationId ?? undefined,
+        context: { page, year: getSelectedYear() },
       })
 
       if (!conversationId && result.conversation_id) {
@@ -81,7 +112,7 @@ export default function ChatbotFloating() {
     } finally {
       setIsTyping(false)
     }
-  }, [text, isTyping, conversationId, sendMessage, isOpen])
+  }, [text, isTyping, conversationId, sendMessage, isOpen, page, location.search])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -114,7 +145,7 @@ export default function ChatbotFloating() {
             {messages.length === 0 && (
               <div className="flex h-full items-center justify-center">
                 <p className="text-center text-sm text-gray-400">
-                  Scrivi un messaggio per iniziare...
+                  {getPlaceholder(page)}
                 </p>
               </div>
             )}
@@ -164,7 +195,7 @@ export default function ChatbotFloating() {
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={handleKeyDown}
                 disabled={isTyping}
-                placeholder="Scrivi un messaggio..."
+                placeholder={getPlaceholder(page)}
                 className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 disabled:opacity-50"
               />
               <button

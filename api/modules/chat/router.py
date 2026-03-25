@@ -49,6 +49,7 @@ async def send_message(
             user=user,
             conversation_id=request.conversation_id,
             message=request.message,
+            context=request.context,
         )
     except ValueError as e:
         raise HTTPException(

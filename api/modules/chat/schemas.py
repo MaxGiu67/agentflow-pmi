@@ -10,6 +10,7 @@ class ChatSendRequest(BaseModel):
     """Request to send a message in a conversation."""
     conversation_id: UUID | None = None
     message: str = Field(..., min_length=1, max_length=5000)
+    context: dict | None = None
 
 
 class ChatSendResponse(BaseModel):
@@ -22,6 +23,7 @@ class ChatSendResponse(BaseModel):
     agent_type: str | None = None
     tool_calls: list | None = None
     suggestions: list[str] = []
+    response_meta: dict | None = None
 
 
 class MessageResponse(BaseModel):

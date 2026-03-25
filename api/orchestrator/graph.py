@@ -301,9 +301,14 @@ async def respond_node(state: OrchestratorState) -> OrchestratorState:
 
 
 def _format_results_fallback(tool_results: list[dict]) -> str:
-    """Format tool results into a simple text response without LLM.
+    """Format tool results into a smart text response without LLM.
 
     US-A07: When multiple tools are present, prepend agent badges.
+    Smart response logic:
+    - Single value (count, total) -> short text
+    - List <= 5 items -> markdown table
+    - List > 5 items -> summary with link suggestion
+    - Dashboard query -> suggest adding widget
     """
     is_multi = len(tool_results) > 1
     parts: list[str] = []
@@ -322,23 +327,57 @@ def _format_results_fallback(tool_results: list[dict]) -> str:
             parts.append(f"{agent_badge}Errore ({tool_name}): {result['error']}")
             continue
 
+        # Smart formatting: single value results (count, totals)
+        if "count" in result and "items" not in result:
+            if "message" in result:
+                parts.append(f"{agent_badge}{result['message']}")
+            else:
+                parts.append(f"{agent_badge}{result['count']} risultati trovati.")
+            continue
+
+        # Smart formatting: list results
+        if "items" in result:
+            items = result["items"]
+            count = len(items)
+
+            if count == 0:
+                if "message" in result:
+                    parts.append(f"{agent_badge}{result['message']}")
+                else:
+                    parts.append(f"{agent_badge}Nessun risultato trovato.")
+            elif count <= 5:
+                # Markdown table for small result sets
+                if items:
+                    # Build table header from keys (excluding id)
+                    headers = [k for k in items[0].keys() if k != "id" and items[0][k] is not None]
+                    if headers:
+                        header_line = " | ".join(h.replace("_", " ").title() for h in headers)
+                        separator = " | ".join("---" for _ in headers)
+                        parts.append(f"{agent_badge}Trovati {count} risultati:")
+                        parts.append(f"| {header_line} |")
+                        parts.append(f"| {separator} |")
+                        for item in items:
+                            row = " | ".join(str(item.get(h, "")) for h in headers)
+                            parts.append(f"| {row} |")
+                    else:
+                        parts.append(f"{agent_badge}Trovati {count} risultati.")
+            else:
+                # Summary with link suggestion for large result sets
+                parts.append(f"{agent_badge}Ho trovato {count} risultati.")
+                # Show first 3 as preview
+                for item in items[:3]:
+                    formatted = ", ".join(
+                        f"{k}: {v}" for k, v in item.items()
+                        if v is not None and k != "id"
+                    )
+                    parts.append(f"  - {formatted}")
+                parts.append(f"  ... e altri {count - 3}")
+                parts.append("Consulta la pagina dedicata per la lista completa.")
+            continue
+
+        # Handle message-only results
         if "message" in result:
             parts.append(f"{agent_badge}{result['message']}")
-
-        if "count" in result and "items" not in result and "message" not in result:
-            parts.append(f"{agent_badge}{result['count']} risultati trovati.")
-
-        if "items" in result:
-            parts.append(f"{agent_badge}Trovati {len(result['items'])} risultati:")
-            for item in result["items"][:5]:
-                # Format item as key-value pairs
-                formatted = ", ".join(
-                    f"{k}: {v}" for k, v in item.items()
-                    if v is not None and k != "id"
-                )
-                parts.append(f"  - {formatted}")
-            if len(result["items"]) > 5:
-                parts.append(f"  ... e altri {len(result['items']) - 5}")
 
         if "counters" in result:
             parts.append(f"{agent_badge}Totale: {result['counters'].get('total', 0)} fatture")
@@ -370,12 +409,38 @@ def _format_results_fallback(tool_results: list[dict]) -> str:
 # ============================================================
 
 
+def _format_smart_response(tool_results: list[dict]) -> dict:
+    """Decide how to format the response based on data quantity."""
+
+    total_records = 0
+    for tr in tool_results:
+        result = tr.get("result", {})
+        if isinstance(result, list):
+            total_records += len(result)
+        elif isinstance(result, dict):
+            # Check if it contains a list (e.g., items, invoices)
+            for v in result.values():
+                if isinstance(v, list):
+                    total_records += len(v)
+
+    response_type = "text"  # default
+    if total_records == 0:
+        response_type = "text"  # simple text answer
+    elif total_records <= 5:
+        response_type = "table"  # show inline table in chat
+    elif total_records > 5:
+        response_type = "link"  # suggest link to filtered page
+
+    return {"response_type": response_type, "record_count": total_records}
+
+
 async def run_orchestrator(
     user_message: str,
     tenant_id: uuid.UUID,
     user_id: uuid.UUID,
     db: AsyncSession,
     conversation_messages: list[dict] | None = None,
+    context: dict | None = None,
 ) -> dict:
     """Run the full orchestrator pipeline: route -> execute -> respond.
 
@@ -385,9 +450,10 @@ async def run_orchestrator(
         user_id: User UUID.
         db: Async database session.
         conversation_messages: Previous messages for context (optional).
+        context: User context dict with page, year, etc. (optional).
 
     Returns:
-        dict with keys: content, tool_calls, tool_results, agent_name, agent_type
+        dict with keys: content, tool_calls, tool_results, agent_name, agent_type, response_meta
     """
     # US-A08: Memory — load context and detect preferences
     memory_mgr = MemoryManager(db)
@@ -401,6 +467,20 @@ async def run_orchestrator(
     # Inject memory context if present (as a system-style context message)
     if memory_context:
         messages.append({"role": "system", "content": memory_context})
+
+    # Inject user context (Level 2 Context Engineering)
+    if context:
+        page = context.get("page", "dashboard")
+        year = context.get("year", "")
+        context_msg = (
+            f"CONTESTO UTENTE:\n"
+            f"- Pagina corrente: {page}\n"
+            f"- Anno selezionato: {year}\n\n"
+            f"Usa queste informazioni per filtrare i dati. Se l'utente è sulla dashboard {year}, "
+            f"le domande sulle fatture si riferiscono al {year}."
+        )
+        messages.append({"role": "system", "content": context_msg})
+
     messages.append({"role": "user", "content": user_message})
 
     state: OrchestratorState = {
@@ -413,7 +493,19 @@ async def run_orchestrator(
     }
 
     # Step 1: Router — decide which tools to call
+    # For keyword fallback, inject year from context into tool args
     state = await router_node(state)
+
+    # Inject context year into tool args for keyword fallback path
+    if context and not _has_api_key():
+        ctx_year = context.get("year")
+        if ctx_year is not None:
+            for call in state.get("tool_calls", []):
+                tool_name = call.get("tool", "")
+                if tool_name in ("count_invoices", "list_invoices", "get_ceo_kpi"):
+                    call.setdefault("args", {})
+                    if "year" not in call["args"]:
+                        call["args"]["year"] = ctx_year
 
     # Step 2: Execute tools
     state = await execute_tools_node(state, db)
@@ -438,10 +530,14 @@ async def run_orchestrator(
         if len(non_direct_tools) > 1:
             agent_type = "multi"
 
+    # Smart response meta (Improvement 4)
+    response_meta = _format_smart_response(state.get("tool_results", []))
+
     return {
         "content": content,
         "tool_calls": state.get("tool_calls"),
         "tool_results": state.get("tool_results"),
         "agent_name": agent_name,
         "agent_type": agent_type,
+        "response_meta": response_meta,
     }

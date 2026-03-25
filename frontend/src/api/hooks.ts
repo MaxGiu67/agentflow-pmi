@@ -533,10 +533,11 @@ export function useConversation(id: string) {
 export function useSendMessage() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ message, conversationId }: { message: string; conversationId?: string }) =>
+    mutationFn: ({ message, conversationId, context }: { message: string; conversationId?: string; context?: { page: string; year: number } }) =>
       api.post('/chat/send', {
         message,
         conversation_id: conversationId ?? null,
+        context: context ?? null,
       }).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['conversations'] })

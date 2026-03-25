@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 async def count_invoices_handler(
     db: AsyncSession, tenant_id: uuid.UUID, **kwargs: object
 ) -> dict:
-    """Count invoices by optional month and type filters."""
+    """Count invoices by optional month, type, year, and search query filters."""
     conditions = [Invoice.tenant_id == tenant_id]
 
     month_str = kwargs.get("month")
@@ -57,6 +57,29 @@ async def count_invoices_handler(
     if inv_type:
         conditions.append(Invoice.type == inv_type)
 
+    # Year filter (from context or explicit parameter)
+    year_val = kwargs.get("year")
+    if year_val is not None:
+        try:
+            y = int(year_val)
+            conditions.append(Invoice.data_fattura >= date(y, 1, 1))
+            conditions.append(Invoice.data_fattura < date(y + 1, 1, 1))
+        except (ValueError, TypeError):
+            pass
+
+    # Search query — search in emittente_nome, numero_fattura, and destinatario_nome
+    query = kwargs.get("query")
+    if query and isinstance(query, str):
+        like_pattern = f"%{query}%"
+        from sqlalchemy import or_, cast, String as SAString
+        conditions.append(
+            or_(
+                Invoice.emittente_nome.ilike(like_pattern),
+                Invoice.numero_fattura.ilike(like_pattern),
+                cast(Invoice.structured_data["destinatario_nome"], SAString).ilike(like_pattern),
+            )
+        )
+
     result = await db.execute(
         select(func.count(Invoice.id)).where(and_(*conditions))
     )
@@ -78,6 +101,29 @@ async def list_invoices_handler(
     if status:
         conditions.append(Invoice.processing_status == status)
 
+    # Year filter (from context or explicit parameter)
+    year_val = kwargs.get("year")
+    if year_val is not None:
+        try:
+            y = int(year_val)
+            conditions.append(Invoice.data_fattura >= date(y, 1, 1))
+            conditions.append(Invoice.data_fattura < date(y + 1, 1, 1))
+        except (ValueError, TypeError):
+            pass
+
+    # Search query — search in emittente_nome, numero_fattura, and destinatario_nome
+    query = kwargs.get("query")
+    if query and isinstance(query, str):
+        like_pattern = f"%{query}%"
+        from sqlalchemy import or_, cast, String as SAString
+        conditions.append(
+            or_(
+                Invoice.emittente_nome.ilike(like_pattern),
+                Invoice.numero_fattura.ilike(like_pattern),
+                cast(Invoice.structured_data["destinatario_nome"], SAString).ilike(like_pattern),
+            )
+        )
+
     limit = int(kwargs.get("limit", 20))
 
     result = await db.execute(
@@ -92,6 +138,7 @@ async def list_invoices_handler(
             "id": str(inv.id),
             "numero": inv.numero_fattura,
             "emittente": inv.emittente_nome,
+            "destinatario": (inv.structured_data or {}).get("destinatario_nome") if inv.structured_data else None,
             "data": str(inv.data_fattura) if inv.data_fattura else None,
             "importo_totale": inv.importo_totale,
             "type": inv.type,
@@ -561,25 +608,29 @@ async def sync_cassetto_handler(
 TOOLS: list[dict] = [
     {
         "name": "count_invoices",
-        "description": "Conta il numero di fatture per periodo e tipo (emesse/ricevute)",
+        "description": "Conta il numero di fatture per periodo, tipo (emesse/ricevute) e nome cliente/fornitore",
         "parameters": {
             "type": "object",
             "properties": {
                 "month": {"type": "string", "description": "Mese in formato YYYY-MM"},
                 "type": {"type": "string", "enum": ["passiva", "attiva"], "description": "Tipo fattura"},
+                "year": {"type": "integer", "description": "Anno di riferimento"},
+                "query": {"type": "string", "description": "Ricerca per nome emittente, destinatario o numero fattura"},
             },
         },
         "handler": count_invoices_handler,
     },
     {
         "name": "list_invoices",
-        "description": "Elenca le fatture con filtri opzionali per tipo e stato",
+        "description": "Elenca le fatture con filtri opzionali per tipo, stato e nome cliente/fornitore",
         "parameters": {
             "type": "object",
             "properties": {
                 "type": {"type": "string", "enum": ["passiva", "attiva"]},
                 "status": {"type": "string", "enum": ["pending", "parsed", "categorized", "registered", "error"]},
                 "limit": {"type": "integer", "description": "Numero massimo di risultati"},
+                "year": {"type": "integer", "description": "Anno di riferimento"},
+                "query": {"type": "string", "description": "Ricerca per nome emittente, destinatario o numero fattura"},
             },
         },
         "handler": list_invoices_handler,
