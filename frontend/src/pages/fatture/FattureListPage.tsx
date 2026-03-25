@@ -147,7 +147,7 @@ export default function FattureListPage() {
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Data</th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Numero</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Emittente / Destinatario</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Controparte</th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Tipo</th>
                   <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Importo</th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Fonte</th>
@@ -158,9 +158,11 @@ export default function FattureListPage() {
                 {invoices.map((inv: Record<string, unknown>) => {
                   // Get the counterpart name (for emesse: destinatario from structured_data, for ricevute: emittente)
                   const structuredData = inv.structured_data as Record<string, unknown> | null
+                  // Per fatture EMESSE (attiva): mostra il CLIENTE (destinatario)
+                  // Per fatture RICEVUTE (passiva): mostra il FORNITORE (emittente)
                   const destinatario = (structuredData?.destinatario_nome ?? structuredData?.cessionario_nome) as string | undefined
                   const displayName = inv.type === 'attiva'
-                    ? (destinatario || inv.emittente_nome as string || '-')
+                    ? (destinatario || '-')
                     : (inv.emittente_nome as string || '-')
 
                   return (
@@ -176,13 +178,18 @@ export default function FattureListPage() {
                         {inv.numero_fattura as string || '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
-                        {displayName}
+                        <div>
+                          <p className="font-medium">{displayName}</p>
+                          <p className="text-xs text-gray-400">
+                            {inv.type === 'attiva' ? 'Cliente' : 'Fornitore'}
+                          </p>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                          inv.type === 'attiva' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+                          inv.type === 'attiva' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
                         }`}>
-                          {inv.type === 'attiva' ? 'Emessa' : 'Ricevuta'}
+                          {inv.type === 'attiva' ? '↑ Emessa' : '↓ Ricevuta'}
                         </span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-gray-900">

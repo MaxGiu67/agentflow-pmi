@@ -126,6 +126,21 @@ class UploadService:
                 "message": "File XML caricato ma parsing fallito. Revisione manuale necessaria.",
             }
 
+        # Determine if attiva (emessa) or passiva (ricevuta)
+        # If emittente P.IVA matches tenant's P.IVA → fattura emessa (attiva)
+        dest_piva = parsed.get("destinatario_piva", "")
+        emit_piva = parsed.get("emittente_piva", "")
+        from sqlalchemy import select as sel
+        from api.db.models import Tenant
+        tenant_result = await self.db.execute(sel(Tenant).where(Tenant.id == tenant_id))
+        tenant_obj = tenant_result.scalar_one_or_none()
+        tenant_piva = tenant_obj.piva if tenant_obj else ""
+
+        if emit_piva and tenant_piva and emit_piva.replace("IT", "") == tenant_piva.replace("IT", ""):
+            invoice.type = "attiva"
+        else:
+            invoice.type = "passiva"
+
         # Update invoice with parsed data
         numero = parsed.get("numero_fattura", invoice.numero_fattura)
         piva = parsed.get("emittente_piva", invoice.emittente_piva)
