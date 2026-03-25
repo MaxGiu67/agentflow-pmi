@@ -274,8 +274,8 @@ class DashboardService:
             {
                 "nome": row.nome or "Sconosciuto",
                 "piva": row.piva or "",
-                "totale": round(float(row.totale), 2),
-                "count": row.count,
+                "totale": round(float(row.totale or 0), 2),
+                "count": int(row.count or 0),
             }
             for row in clienti_result.fetchall()
         ]
@@ -317,8 +317,8 @@ class DashboardService:
             {
                 "nome": row.nome or "Sconosciuto",
                 "piva": row.piva or "",
-                "totale": round(float(row.totale), 2),
-                "count": row.count,
+                "totale": round(float(row.totale or 0), 2),
+                "count": int(row.count or 0),
             }
             for row in fornitori_result.fetchall()
         ]
@@ -359,9 +359,9 @@ class DashboardService:
             mese_map[int(row.mese)] = {
                 "mese": int(row.mese),
                 "attive_count": int(row.attive_count),
-                "attive_totale": round(float(row.attive_totale), 2),
+                "attive_totale": round(float(row.attive_totale or 0), 2),
                 "passive_count": int(row.passive_count),
-                "passive_totale": round(float(row.passive_totale), 2),
+                "passive_totale": round(float(row.passive_totale or 0), 2),
             }
 
         fatture_per_mese = []
