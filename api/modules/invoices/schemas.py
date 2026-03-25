@@ -50,6 +50,7 @@ class InvoiceResponse(BaseModel):
     processing_status: str = "pending"
     has_ritenuta: bool = False
     has_bollo: bool = False
+    structured_data: dict | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
