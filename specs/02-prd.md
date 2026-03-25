@@ -201,6 +201,23 @@ Il mercato della gestione contabile per PMI italiane è saturo di soluzioni trad
 
 ---
 
+### EPIC B: Agentic Dashboard (v0.6) — Must Have
+
+| # | Requisito | Priorita | Giustificazione |
+|---|-----------|----------|-----------------|
+| DB1 | Dashboard JSON-driven con widget configurabili | Must | L'utente personalizza la sua vista senza codice |
+| DB2 | Widget predefiniti: stat_card, bar_chart, pie_chart, table, list, alert | Must | Copertura 80% dei casi d'uso |
+| DB3 | Drag & drop riposizionamento widget (react-grid-layout) | Must | L'utente organizza la dashboard come vuole |
+| DB4 | Chatbot floating nella dashboard (bottom-right, collapsibile) | Must | Interfaccia conversazionale integrata nella vista principale |
+| DB5 | Tool modify_dashboard nell'orchestratore (add/remove/update widget via chat) | Must | "Aggiungi grafico fatturato" → widget appare |
+| DB6 | Salvataggio layout per tenant nel DB | Must | Ogni utente ha la sua dashboard personalizzata |
+| DB7 | Selettore anno per tutti i widget | Must | Filtro globale anno competenza |
+| DB8 | Widget KPI con trend e confronto anno precedente | Should | L'amministratore vede l'andamento |
+| DB9 | Chatbot proattivo con notifiche contestuali | Should | "3 fatture da verificare, scadenza IVA tra 12gg" |
+| DB10 | Template dashboard per settore (basato su ATECO) | Could | Onboarding veloce con layout pre-configurato |
+
+---
+
 ## MoSCoW Prioritization (MVP v0.1)
 
 ### Must Have

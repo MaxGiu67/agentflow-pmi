@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Menu, LogOut, User } from 'lucide-react'
 import Sidebar from '../ui/Sidebar'
+import ChatbotFloating from '../chat/ChatbotFloating'
 import { useAuthStore } from '../../store/auth'
 
 export default function AppLayout() {
@@ -50,6 +51,9 @@ export default function AppLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Floating chatbot */}
+      <ChatbotFloating />
     </div>
   )
 }

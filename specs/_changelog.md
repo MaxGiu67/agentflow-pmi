@@ -137,6 +137,15 @@
 
 ---
 
+### Epic B: Agentic Dashboard — PRD + Stories + Tech Spec
+- **Data**: 2026-03-25
+- **PRD**: Epic B (DB1-DB10) — dashboard JSON-driven, chatbot floating, drag & drop, modify_dashboard tool
+- **Stories**: 5 nuove (US-B01 a US-B05, 24 SP)
+- **Tech Spec**: Widget renderer, react-grid-layout, dashboard_layouts table, chatbot floating
+- **File**: specs/03-user-stories-dashboard.md, specs/technical/04-tech-spec-dashboard.md
+
+---
+
 ### Fase 5 (Agentic): Sprint Plan — 3 sprint, 57 SP, 10 stories
 - **Data**: 2026-03-24
 - **Sprint 11**: Orchestratore LangGraph + Tool Registry + Chat API + Persistenza (21 SP)

@@ -24,6 +24,31 @@ export function useYearlyStats(year: number) {
   })
 }
 
+// ── Dashboard Layout ──
+export function useDashboardLayout() {
+  return useQuery({
+    queryKey: ['dashboard-layout'],
+    queryFn: () => api.get('/dashboard/layout').then((r) => r.data),
+  })
+}
+
+export function useSaveDashboardLayout() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { widgets: Record<string, unknown>[]; year: number }) =>
+      api.put('/dashboard/layout', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['dashboard-layout'] }),
+  })
+}
+
+export function useResetDashboardLayout() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post('/dashboard/layout/reset').then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['dashboard-layout'] }),
+  })
+}
+
 // ── Invoices ──
 interface InvoiceFilters {
   date_from?: string

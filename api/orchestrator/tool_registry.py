@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import (
     Asset,
+    DashboardLayout,
     Expense,
     FiscalDeadline,
     Invoice,
@@ -20,6 +21,7 @@ from api.db.models import (
     JournalLine,
     ChartAccount,
 )
+from api.modules.dashboard.default_widgets import DEFAULT_WIDGETS
 
 logger = logging.getLogger(__name__)
 
@@ -442,6 +444,96 @@ async def get_ceo_kpi_handler(
     }
 
 
+async def modify_dashboard_handler(
+    db: AsyncSession, tenant_id: uuid.UUID, **kwargs: object
+) -> dict:
+    """Add, remove, or update a widget in the user's dashboard."""
+    action = kwargs.get("action", "add")
+    user_id = kwargs.get("user_id")
+
+    if not user_id:
+        return {"error": "user_id richiesto"}
+
+    try:
+        uid = uuid.UUID(str(user_id))
+    except ValueError:
+        return {"error": "user_id non valido"}
+
+    result = await db.execute(
+        select(DashboardLayout).where(
+            DashboardLayout.user_id == uid,
+            DashboardLayout.tenant_id == tenant_id,
+        )
+    )
+    layout = result.scalar_one_or_none()
+    if layout is None:
+        layout = DashboardLayout(
+            tenant_id=tenant_id,
+            user_id=uid,
+            name="default",
+            year=datetime.now().year,
+            widgets=list(DEFAULT_WIDGETS),
+        )
+        db.add(layout)
+        await db.flush()
+
+    widgets: list[dict] = list(layout.widgets or [])
+
+    if action == "add":
+        title = kwargs.get("title", "Nuovo Widget")
+        widget_type = kwargs.get("widget_type", "stat_card")
+        config = kwargs.get("config", {})
+        if not isinstance(config, dict):
+            config = {}
+        data_source = kwargs.get("data_source", "yearly_stats")
+        data_path = kwargs.get("data_path", "")
+
+        max_y = max((w.get("layout", {}).get("y", 0) + w.get("layout", {}).get("h", 2) for w in widgets), default=0)
+        new_widget = {
+            "id": f"w_custom_{uuid.uuid4().hex[:8]}",
+            "type": widget_type,
+            "title": title,
+            "data_source": data_source,
+            "data_path": data_path,
+            "config": config,
+            "layout": {"x": 0, "y": max_y, "w": 6, "h": 3},
+        }
+        widgets.append(new_widget)
+        layout.widgets = widgets
+        await db.flush()
+        return {"message": f"Widget '{title}' aggiunto alla dashboard", "widget": new_widget}
+
+    elif action == "remove":
+        title = kwargs.get("title", "")
+        original_len = len(widgets)
+        widgets = [w for w in widgets if w.get("title", "").lower() != str(title).lower()]
+        layout.widgets = widgets
+        await db.flush()
+        removed = original_len - len(widgets)
+        if removed > 0:
+            return {"message": f"Widget '{title}' rimosso dalla dashboard"}
+        return {"message": f"Widget '{title}' non trovato nella dashboard"}
+
+    elif action == "update":
+        title = kwargs.get("title", "")
+        config = kwargs.get("config", {})
+        if not isinstance(config, dict):
+            config = {}
+        found = False
+        for w in widgets:
+            if w.get("title", "").lower() == str(title).lower():
+                w["config"] = {**w.get("config", {}), **config}
+                found = True
+                break
+        layout.widgets = widgets
+        await db.flush()
+        if found:
+            return {"message": f"Widget '{title}' aggiornato"}
+        return {"message": f"Widget '{title}' non trovato nella dashboard"}
+
+    return {"error": f"Azione '{action}' non supportata. Usa: add, remove, update"}
+
+
 async def sync_cassetto_handler(
     db: AsyncSession, tenant_id: uuid.UUID, **kwargs: object
 ) -> dict:
@@ -584,6 +676,47 @@ TOOLS: list[dict] = [
         "description": "Controlla lo stato di sincronizzazione del cassetto fiscale",
         "parameters": {"type": "object", "properties": {}},
         "handler": sync_cassetto_handler,
+    },
+    {
+        "name": "modify_dashboard",
+        "description": "Aggiunge, rimuove o modifica un widget nella dashboard dell'utente. Azioni: add (aggiungi widget), remove (rimuovi per titolo), update (modifica).",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["add", "remove", "update"],
+                    "description": "Azione da eseguire: add, remove, update",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Titolo del widget da aggiungere/rimuovere/aggiornare",
+                },
+                "widget_type": {
+                    "type": "string",
+                    "enum": ["stat_card", "bar_chart", "pie_chart", "table", "alert"],
+                    "description": "Tipo di widget (solo per add)",
+                },
+                "data_source": {
+                    "type": "string",
+                    "description": "Fonte dati (es. yearly_stats)",
+                },
+                "data_path": {
+                    "type": "string",
+                    "description": "Percorso dati (es. fatture_attive.totale)",
+                },
+                "config": {
+                    "type": "object",
+                    "description": "Configurazione widget (formato, colori, colonne...)",
+                },
+                "user_id": {
+                    "type": "string",
+                    "description": "UUID dell'utente",
+                },
+            },
+            "required": ["action", "user_id"],
+        },
+        "handler": modify_dashboard_handler,
     },
 ]
 

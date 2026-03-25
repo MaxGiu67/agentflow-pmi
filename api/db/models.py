@@ -620,6 +620,20 @@ class Budget(Base):
 # ============================================================
 
 
+class DashboardLayout(Base):
+    """User dashboard layout with draggable widgets."""
+    __tablename__ = "dashboard_layouts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), default="default")
+    year: Mapped[int] = mapped_column(Integer, default=2024)
+    widgets: Mapped[dict | None] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class Conversation(Base):
     """Chat conversation (US-A02)."""
     __tablename__ = "conversations"
