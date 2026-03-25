@@ -321,8 +321,8 @@ class CEOService:
         total_projected_annual = 0.0
 
         for category, items in cat_data.items():
-            budget_annual = sum(b.budget_amount for b in items)
-            actual_ytd = sum(b.actual_amount for b in items)
+            budget_annual = sum((b.budget_amount or 0) for b in items)
+            actual_ytd = sum((b.actual_amount or 0) for b in items)
 
             # Moving average for projection
             months_actual = [b for b in items if b.actual_amount > 0]
@@ -367,8 +367,8 @@ class CEOService:
         )
         invoices = result.scalars().all()
         total = sum(
-            inv.importo_totale for inv in invoices
-            if inv.data_fattura.year == year and inv.data_fattura.month == month
+            (inv.importo_totale or 0) for inv in invoices
+            if inv.data_fattura and inv.data_fattura.year == year and inv.data_fattura.month == month
         )
         return round(total, 2)
 
@@ -383,8 +383,8 @@ class CEOService:
         )
         invoices = result.scalars().all()
         total = sum(
-            inv.importo_totale for inv in invoices
-            if inv.data_fattura.year == year
+            (inv.importo_totale or 0) for inv in invoices
+            if inv.data_fattura and inv.data_fattura.year == year
         )
         return round(total, 2)
 
@@ -400,7 +400,7 @@ class CEOService:
         )
         invoices = result.scalars().all()
         total = sum(
-            inv.importo_totale for inv in invoices
+            (inv.importo_totale or 0) for inv in invoices
             if inv.data_fattura and inv.data_fattura.year == year
         )
         return round(total, 2)
@@ -430,7 +430,7 @@ class CEOService:
 
         client_totals: dict[str, dict] = {}
         for inv in invoices:
-            if inv.data_fattura.year != year:
+            if inv.data_fattura and inv.data_fattura.year != year:
                 continue
             key = inv.cliente_piva
             if key not in client_totals:
@@ -492,7 +492,7 @@ class CEOService:
         invoices = result.scalars().all()
         months = set()
         for inv in invoices:
-            if inv.data_fattura.year == year:
+            if inv.data_fattura and inv.data_fattura.year == year:
                 months.add(inv.data_fattura.month)
         return len(months)
 
@@ -514,8 +514,8 @@ class CEOService:
         )
         unpaid = result.scalars().all()
         crediti = sum(
-            inv.importo_totale for inv in unpaid
-            if inv.data_fattura.year == year
+            (inv.importo_totale or 0) for inv in unpaid
+            if inv.data_fattura and inv.data_fattura.year == year
         )
 
         today = date.today()
@@ -567,8 +567,8 @@ class CEOService:
             invoices = result.scalars().all()
 
             revenue = sum(
-                inv.importo_totale for inv in invoices
-                if inv.data_fattura.year == year
+                (inv.importo_totale or 0) for inv in invoices
+                if inv.data_fattura and inv.data_fattura.year == year
                 and inv.data_fattura.month in quarter_months
             )
             if revenue > 0:
