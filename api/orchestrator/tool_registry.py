@@ -636,6 +636,139 @@ async def modify_dashboard_handler(
     return {"error": f"Azione '{action}' non supportata. Usa: add, remove, update"}
 
 
+MONTH_LABELS = [
+    "", "Gen", "Feb", "Mar", "Apr", "Mag", "Giu",
+    "Lug", "Ago", "Set", "Ott", "Nov", "Dic",
+]
+
+
+async def get_period_stats_handler(
+    db: AsyncSession, tenant_id: uuid.UUID, **kwargs: object
+) -> dict:
+    """Get KPI stats for a period (month, quarter, year) with content blocks for rich rendering."""
+    from sqlalchemy import text as sa_text
+
+    year = int(kwargs.get("year", date.today().year))
+    month_start = kwargs.get("month_start")
+    month_end = kwargs.get("month_end")
+
+    # Default: full year
+    if month_start is None:
+        month_start = 1
+        month_end = 12
+    month_start = int(month_start)
+    month_end = int(month_end)
+
+    # Period label
+    if month_start == month_end:
+        period_label = f"{MONTH_LABELS[month_start]} {year}"
+    elif month_end - month_start == 2:
+        q_num = (month_start - 1) // 3 + 1
+        period_label = f"Q{q_num} {year}"
+    else:
+        period_label = str(year)
+
+    # Monthly breakdown
+    monthly_data = []
+    for m in range(month_start, month_end + 1):
+        # Emesse
+        r_att = await db.execute(
+            sa_text(
+                "SELECT COALESCE(SUM(importo_totale), 0), COUNT(*) FROM invoices "
+                "WHERE tenant_id = :tid AND type = 'attiva' "
+                "AND EXTRACT(YEAR FROM data_fattura) = :yr "
+                "AND EXTRACT(MONTH FROM data_fattura) = :m"
+            ),
+            {"tid": str(tenant_id), "yr": year, "m": m},
+        )
+        row_att = r_att.fetchone()
+        emesse_tot = float(row_att[0]) if row_att else 0
+        emesse_cnt = int(row_att[1]) if row_att else 0
+
+        # Ricevute
+        r_pas = await db.execute(
+            sa_text(
+                "SELECT COALESCE(SUM(importo_totale), 0), COUNT(*) FROM invoices "
+                "WHERE tenant_id = :tid AND type = 'passiva' "
+                "AND EXTRACT(YEAR FROM data_fattura) = :yr "
+                "AND EXTRACT(MONTH FROM data_fattura) = :m"
+            ),
+            {"tid": str(tenant_id), "yr": year, "m": m},
+        )
+        row_pas = r_pas.fetchone()
+        ricevute_tot = float(row_pas[0]) if row_pas else 0
+        ricevute_cnt = int(row_pas[1]) if row_pas else 0
+
+        monthly_data.append({
+            "label": MONTH_LABELS[m],
+            "emesse": round(emesse_tot, 2),
+            "ricevute": round(ricevute_tot, 2),
+            "emesse_count": emesse_cnt,
+            "ricevute_count": ricevute_cnt,
+        })
+
+    # Totals
+    tot_emesse = sum(m["emesse"] for m in monthly_data)
+    tot_ricevute = sum(m["ricevute"] for m in monthly_data)
+    tot_emesse_cnt = sum(m["emesse_count"] for m in monthly_data)
+    tot_ricevute_cnt = sum(m["ricevute_count"] for m in monthly_data)
+    ebitda = round(tot_emesse - tot_ricevute, 2)
+
+    # Build content blocks for rich rendering
+    content_blocks = [
+        {
+            "type": "stat_row",
+            "items": [
+                {"label": "Fatturato", "value": round(tot_emesse, 2), "format": "currency", "sub": f"{tot_emesse_cnt} fatture"},
+                {"label": "Costi", "value": round(tot_ricevute, 2), "format": "currency", "sub": f"{tot_ricevute_cnt} fatture"},
+                {"label": "EBITDA", "value": ebitda, "format": "currency"},
+            ],
+        },
+    ]
+
+    # Bar chart if multiple months
+    if month_end - month_start >= 1:
+        content_blocks.append({
+            "type": "bar_chart",
+            "title": f"Fatturato Mensile {period_label}",
+            "data": [
+                {"label": m["label"], "Emesse": m["emesse"], "Ricevute": m["ricevute"]}
+                for m in monthly_data
+            ],
+            "keys": ["Emesse", "Ricevute"],
+            "colors": ["#22c55e", "#f97316"],
+        })
+
+    # Table with monthly detail
+    if month_end - month_start >= 1:
+        content_blocks.append({
+            "type": "table",
+            "title": f"Dettaglio {period_label}",
+            "columns": ["Mese", "Emesse", "Ricevute", "Margine"],
+            "rows": [
+                [
+                    m["label"],
+                    f"€{m['emesse']:,.2f}",
+                    f"€{m['ricevute']:,.2f}",
+                    f"€{m['emesse'] - m['ricevute']:,.2f}",
+                ]
+                for m in monthly_data
+            ],
+        })
+
+    return {
+        "period": period_label,
+        "fatturato": round(tot_emesse, 2),
+        "costi": round(tot_ricevute, 2),
+        "ebitda": ebitda,
+        "fatture_emesse": tot_emesse_cnt,
+        "fatture_ricevute": tot_ricevute_cnt,
+        "monthly_data": monthly_data,
+        "content_blocks": content_blocks,
+        "message": f"{period_label}: fatturato €{tot_emesse:,.2f}, costi €{tot_ricevute:,.2f}, EBITDA €{ebitda:,.2f}",
+    }
+
+
 async def sync_cassetto_handler(
     db: AsyncSession, tenant_id: uuid.UUID, **kwargs: object
 ) -> dict:
@@ -776,6 +909,19 @@ TOOLS: list[dict] = [
             },
         },
         "handler": get_ceo_kpi_handler,
+    },
+    {
+        "name": "get_period_stats",
+        "description": "KPI per periodo (mese, trimestre, anno): fatturato, costi, EBITDA con dettaglio mensile e grafici",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "year": {"type": "integer", "description": "Anno di riferimento"},
+                "month_start": {"type": "integer", "description": "Mese inizio (1-12)"},
+                "month_end": {"type": "integer", "description": "Mese fine (1-12)"},
+            },
+        },
+        "handler": get_period_stats_handler,
     },
     {
         "name": "sync_cassetto",

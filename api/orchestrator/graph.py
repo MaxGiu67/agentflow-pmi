@@ -59,9 +59,57 @@ TOOL_AGENT_MAP: dict[str, str] = {
 # ============================================================
 
 
-def keyword_route(message: str) -> list[dict]:
-    """Simple keyword-matching router for when Claude API is not available."""
+MONTH_NAMES = {
+    "gennaio": 1, "febbraio": 2, "marzo": 3, "aprile": 4,
+    "maggio": 5, "giugno": 6, "luglio": 7, "agosto": 8,
+    "settembre": 9, "ottobre": 10, "novembre": 11, "dicembre": 12,
+    "gen": 1, "feb": 2, "mar": 3, "apr": 4, "mag": 5, "giu": 6,
+    "lug": 7, "ago": 8, "set": 9, "ott": 10, "nov": 11, "dic": 12,
+}
+
+QUARTER_NAMES = {
+    "q1": (1, 3), "q2": (4, 6), "q3": (7, 9), "q4": (10, 12),
+    "1 trimestre": (1, 3), "2 trimestre": (4, 6),
+    "3 trimestre": (7, 9), "4 trimestre": (10, 12),
+    "primo trimestre": (1, 3), "secondo trimestre": (4, 6),
+    "terzo trimestre": (7, 9), "quarto trimestre": (10, 12),
+}
+
+
+def _extract_time_params(message: str) -> dict:
+    """Extract year, month, quarter from user message."""
+    import re
     msg_lower = message.lower()
+    params: dict = {}
+
+    # Extract year (2020-2030)
+    year_match = re.search(r'\b(20[2-3]\d)\b', message)
+    if year_match:
+        params["year"] = int(year_match.group(1))
+
+    # Extract quarter
+    for q_name, (m_start, m_end) in QUARTER_NAMES.items():
+        if q_name in msg_lower:
+            params["month_start"] = m_start
+            params["month_end"] = m_end
+            params["quarter"] = q_name
+            break
+
+    # Extract month (if no quarter found)
+    if "month_start" not in params:
+        for m_name, m_num in MONTH_NAMES.items():
+            if m_name in msg_lower:
+                params["month"] = f"{params.get('year', 2024)}-{m_num:02d}"
+                params["month_num"] = m_num
+                break
+
+    return params
+
+
+def keyword_route(message: str) -> list[dict]:
+    """Smart keyword-matching router with time extraction."""
+    msg_lower = message.lower()
+    time_params = _extract_time_params(message)
 
     # US-A10: Help / skill discovery (check first)
     help_keywords = ["cosa sai fare", "aiuto", "help", "cosa puoi", "come funziona", "cosa fai"]
@@ -71,18 +119,40 @@ def keyword_route(message: str) -> list[dict]:
     # US-A07: Multi-agent detection — broad questions
     broad_keywords = ["come sta", "panoramica", "riepilogo", "situazione", "come vanno"]
     if any(k in msg_lower for k in broad_keywords):
+        args: dict = {}
+        if time_params.get("year"):
+            args["year"] = time_params["year"]
         return [
-            {"tool": "count_invoices", "args": {}},
+            {"tool": "get_ceo_kpi", "args": {**args}},
             {"tool": "get_dashboard_summary", "args": {}},
             {"tool": "get_deadlines", "args": {}},
         ]
 
+    # Period-specific KPI requests (ebitda Q1, fatturato gennaio, etc.)
+    if any(kw in msg_lower for kw in ["kpi", "ceo", "fatturato", "ebitda", "margine", "ricav", "cost"]):
+        args = {}
+        if time_params.get("year"):
+            args["year"] = time_params["year"]
+        if time_params.get("month_start"):
+            args["month_start"] = time_params["month_start"]
+            args["month_end"] = time_params["month_end"]
+        elif time_params.get("month_num"):
+            args["month_start"] = time_params["month_num"]
+            args["month_end"] = time_params["month_num"]
+        return [{"tool": "get_period_stats", "args": args}]
+
+    # Invoice queries with time params
     if any(kw in msg_lower for kw in ["fattur", "invoice"]):
+        args = {}
+        if time_params.get("year"):
+            args["year"] = time_params["year"]
+        if time_params.get("month"):
+            args["month"] = time_params["month"]
         if any(kw in msg_lower for kw in ["quant", "cont", "numer"]):
-            return [{"tool": "count_invoices", "args": {}}]
+            return [{"tool": "count_invoices", "args": args}]
         if any(kw in msg_lower for kw in ["elenc", "list", "mostr"]):
-            return [{"tool": "list_invoices", "args": {}}]
-        return [{"tool": "count_invoices", "args": {}}]
+            return [{"tool": "list_invoices", "args": args}]
+        return [{"tool": "count_invoices", "args": args}]
 
     if any(kw in msg_lower for kw in ["scadenz", "deadline"]):
         return [{"tool": "get_deadlines", "args": {}}]
@@ -110,9 +180,6 @@ def keyword_route(message: str) -> list[dict]:
 
     if any(kw in msg_lower for kw in ["cespiti", "asset", "beni strumentali"]):
         return [{"tool": "list_assets", "args": {}}]
-
-    if any(kw in msg_lower for kw in ["kpi", "ceo", "fatturato", "ebitda"]):
-        return [{"tool": "get_ceo_kpi", "args": {}}]
 
     if any(kw in msg_lower for kw in ["cassetto", "sync", "sincronizz"]):
         return [{"tool": "sync_cassetto", "args": {}}]
@@ -671,6 +738,15 @@ async def run_orchestrator(
 
     # Smart response meta (Improvement 4)
     response_meta = _format_smart_response(state.get("tool_results", []))
+
+    # Content Blocks — extract rich content from tool results
+    content_blocks = []
+    for tr in state.get("tool_results", []):
+        result = tr.get("result", {})
+        if isinstance(result, dict) and "content_blocks" in result:
+            content_blocks.extend(result["content_blocks"])
+    if content_blocks:
+        response_meta["content_blocks"] = content_blocks
 
     # Action Commands — build UI actions from context + results
     auto_actions, suggested = _build_actions(

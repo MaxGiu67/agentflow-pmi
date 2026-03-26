@@ -5,6 +5,7 @@ import { Sparkles, Send, X, ArrowRight } from 'lucide-react'
 import { useSendMessage } from '../../api/hooks'
 import { useActionExecutor, type ActionCommand } from '../../hooks/useActionExecutor'
 import Toast from '../ui/Toast'
+import ContentBlockRenderer from './ContentBlockRenderer'
 
 const getPlaceholder = (page: string): string => {
   switch (page) {
@@ -52,6 +53,7 @@ export default function ChatbotFloating() {
   const [error, setError] = useState<string | null>(null)
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [suggestedActions, setSuggestedActions] = useState<ActionCommand[]>([])
+  const [contentBlocks, setContentBlocks] = useState<Record<string, unknown>[]>([])
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -96,6 +98,7 @@ export default function ChatbotFloating() {
     setIsLoading(true)
     setQuery('')
     setSuggestedActions([])
+    setContentBlocks([])
 
     try {
       const result = await sendMessage.mutateAsync({
@@ -124,6 +127,11 @@ export default function ChatbotFloating() {
         const suggested = (meta.suggested_actions ?? []) as ActionCommand[]
         if (suggested.length > 0) {
           setSuggestedActions(suggested)
+        }
+
+        const blocks = (meta.content_blocks ?? []) as Record<string, unknown>[]
+        if (blocks.length > 0) {
+          setContentBlocks(blocks)
         }
       }
     } catch {
@@ -161,6 +169,7 @@ export default function ChatbotFloating() {
     setResponse('')
     setError(null)
     setSuggestedActions([])
+    setContentBlocks([])
   }
 
   return (
@@ -208,7 +217,7 @@ export default function ChatbotFloating() {
               </div>
 
               {/* Response Body */}
-              <div className="max-h-[40vh] overflow-y-auto px-4 py-3 md:max-h-[300px]">
+              <div className={`overflow-y-auto px-4 py-3 ${contentBlocks.length > 0 ? 'max-h-[60vh]' : 'max-h-[40vh] md:max-h-[300px]'}`}>
                 {error ? (
                   <p className="text-sm text-red-600">{error}</p>
                 ) : isLoading && !response ? (
@@ -221,9 +230,12 @@ export default function ChatbotFloating() {
                     </span>
                   </div>
                 ) : (
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
-                    {renderBold(response)}
-                  </div>
+                  <>
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+                      {renderBold(response)}
+                    </div>
+                    <ContentBlockRenderer blocks={contentBlocks as never[]} />
+                  </>
                 )}
               </div>
 
