@@ -62,6 +62,9 @@ import ChatPage from './pages/chat/ChatPage'
 // Agent Config
 import AgentConfigPage from './pages/impostazioni/AgentConfigPage'
 
+// Test
+import ChatTestPage from './pages/ChatTestPage'
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -141,6 +144,9 @@ export default function App() {
               {/* Impostazioni */}
               <Route path="/impostazioni" element={<ImpostazioniPage />} />
               <Route path="/impostazioni/agenti" element={<AgentConfigPage />} />
+
+              {/* Test */}
+              <Route path="/test/chatbot" element={<ChatTestPage />} />
             </Route>
           </Route>
         </Routes>
