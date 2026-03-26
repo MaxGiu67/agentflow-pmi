@@ -434,6 +434,145 @@ def _format_smart_response(tool_results: list[dict]) -> dict:
     return {"response_type": response_type, "record_count": total_records}
 
 
+# ============================================================
+# Action Commands — chatbot controls the UI
+# ============================================================
+
+# Map tool names to relevant frontend pages
+TOOL_PAGE_MAP: dict[str, str] = {
+    "count_invoices": "/fatture",
+    "list_invoices": "/fatture",
+    "get_invoice_detail": "/fatture",
+    "get_dashboard_summary": "/dashboard",
+    "get_deadlines": "/scadenze",
+    "get_fiscal_alerts": "/scadenze",
+    "get_journal_entries": "/contabilita",
+    "get_balance_sheet_summary": "/contabilita/bilancio",
+    "predict_cashflow": "/banca/cashflow",
+    "get_pending_review": "/fatture/verifica",
+    "list_expenses": "/spese",
+    "list_assets": "/cespiti",
+    "get_ceo_kpi": "/ceo",
+    "sync_cassetto": "/impostazioni",
+}
+
+
+def _build_actions(
+    tool_calls: list[dict],
+    tool_results: list[dict],
+    context: dict | None,
+    user_message: str,
+) -> tuple[list[dict], list[dict]]:
+    """Build action commands for the frontend based on tool results and context.
+
+    Returns:
+        (actions, suggested_actions) — actions are auto-executed, suggested are buttons.
+    """
+    actions: list[dict] = []
+    suggested_actions: list[dict] = []
+
+    if not context:
+        return actions, suggested_actions
+
+    current_page = context.get("page", "dashboard")
+    current_year = context.get("year")
+    msg_lower = user_message.lower()
+
+    # --- Detect year intent from message ---
+    requested_year = None
+    import re
+    year_match = re.search(r'\b(20[1-3]\d)\b', user_message)
+    if year_match:
+        requested_year = int(year_match.group(1))
+
+    # Action: set_year if user asks for a different year
+    if requested_year and current_year and int(current_year) != requested_year:
+        actions.append({
+            "type": "set_year",
+            "value": requested_year,
+            "mode": "auto",
+            "label": f"Dashboard impostata su {requested_year}",
+        })
+
+    # --- Detect navigation intent ---
+    # Explicit navigation keywords
+    nav_keywords = {
+        "fatture": "/fatture",
+        "scadenze": "/scadenze",
+        "contabilit": "/contabilita",
+        "dashboard": "/dashboard",
+        "ceo": "/ceo",
+        "spese": "/spese",
+        "cespiti": "/cespiti",
+        "banca": "/banca",
+        "impostazioni": "/impostazioni",
+    }
+
+    # Check for explicit "vai a", "mostrami", "apri"
+    explicit_nav = any(kw in msg_lower for kw in ["vai a", "vai alle", "apri", "mostrami la pagina", "portami"])
+    if explicit_nav:
+        for keyword, path in nav_keywords.items():
+            if keyword in msg_lower and f"/{current_page}" != path:
+                actions.append({
+                    "type": "navigate",
+                    "path": path,
+                    "mode": "auto",
+                    "label": f"Navigato a {path.strip('/')}",
+                })
+                break
+
+    # --- Suggest navigation for large result sets ---
+    for tr in tool_results:
+        tool_name = tr.get("tool", "")
+        result = tr.get("result", {})
+
+        if isinstance(result, dict) and "items" in result:
+            items = result["items"]
+            count = len(items)
+
+            if count > 5:
+                target_page = TOOL_PAGE_MAP.get(tool_name, "")
+                if target_page and f"/{current_page}" != target_page:
+                    # Build query params from tool args
+                    tool_call = next((tc for tc in tool_calls if tc.get("tool") == tool_name), None)
+                    query_params = ""
+                    if tool_call:
+                        args = tool_call.get("args", {})
+                        params = []
+                        if args.get("query"):
+                            params.append(f"emittente={args['query']}")
+                        if args.get("type"):
+                            params.append(f"type={args['type']}")
+                        if args.get("year"):
+                            params.append(f"year={args['year']}")
+                        if params:
+                            query_params = "?" + "&".join(params)
+
+                    suggested_actions.append({
+                        "type": "navigate",
+                        "path": f"{target_page}{query_params}",
+                        "mode": "suggest",
+                        "label": f"Vedi tutti i {count} risultati",
+                    })
+
+    # --- Suggest filter for specific search queries ---
+    for tc in tool_calls:
+        args = tc.get("args", {})
+        query = args.get("query")
+        inv_type = args.get("type")
+        if query and inv_type:
+            target = TOOL_PAGE_MAP.get(tc.get("tool", ""), "/fatture")
+            suggested_actions.append({
+                "type": "set_filter",
+                "filters": {"emittente": query, "type": inv_type},
+                "path": target,
+                "mode": "suggest",
+                "label": f"Filtra per {query} ({inv_type})",
+            })
+
+    return actions, suggested_actions
+
+
 async def run_orchestrator(
     user_message: str,
     tenant_id: uuid.UUID,
@@ -532,6 +671,18 @@ async def run_orchestrator(
 
     # Smart response meta (Improvement 4)
     response_meta = _format_smart_response(state.get("tool_results", []))
+
+    # Action Commands — build UI actions from context + results
+    auto_actions, suggested = _build_actions(
+        tool_calls=state.get("tool_calls", []),
+        tool_results=state.get("tool_results", []),
+        context=context,
+        user_message=user_message,
+    )
+    if auto_actions:
+        response_meta["actions"] = auto_actions
+    if suggested:
+        response_meta["suggested_actions"] = suggested
 
     return {
         "content": content,

@@ -141,10 +141,22 @@ SPID → sync → parse → categorizza → verifica → registra → dashboard
 - **10/10 sprint** completati
 - v0.1 Must Have (69 SP) + v0.2 Should Have (32 SP) + v0.3 Could Have (79 SP) + v0.4 Could Have (44 SP)
 
+## Post-Sprint: Miglioramenti Chatbot (2026-03-26)
+- **Chatbot ElevIA Redesign**: input bar always-visible, framer-motion, glassmorphism, suggestion pills
+- **Action Commands (Level 3)**: chatbot controlla UI — navigate, set_year, set_filter
+  - Auto actions + toast feedback
+  - Suggested actions come bottoni cliccabili
+  - Whitelist, batch execution, user priority
+- **Context Engineering (Level 2)**: pagina + anno iniettati nel system prompt
+- **Smart Response**: text/table/link in base a quantità risultati
+- **Open Banking**: richieste inviate a Fabrick (AISP) e Salt Edge (Partner Program)
+
 ## Prossimi Passi
-1. `/dev-validate` — Fase 8: Validazione con test E2E
-2. Deploy su AWS eu-south-1 con docker-compose
-3. Ingaggiare commercialista per validazione contabile (€500)
+1. Deploy su Railway con ultime modifiche chatbot
+2. Creare adapter `api/adapters/fabrick.py` dopo risposta Fabrick
+3. Completare KYC Salt Edge come piano B
+4. Call tecnica con A-Cube per SDI produzione
+5. Ingaggiare commercialista per validazione contabile
 
 ---
-_Ultimo aggiornamento: 2026-03-22_
+_Ultimo aggiornamento: 2026-03-26_

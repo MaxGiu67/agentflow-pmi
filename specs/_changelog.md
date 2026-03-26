@@ -8,6 +8,30 @@
 
 ---
 
+### Action Commands — Chatbot controlla la UI (Level 3 Agent)
+- **Data**: 2026-03-26
+- **Fase**: 7 — Implementazione
+- **Azione**: Implementato pattern Action Commands — il chatbot può navigare pagine, cambiare anno e applicare filtri sull'app web
+- **Backend**: `_build_actions()` in `api/orchestrator/graph.py` — analizza context (pagina+anno) e tool results per generare action commands
+- **Frontend**: `useActionExecutor` hook con whitelist statica (navigate, set_year, set_filter), batch execution, priorità utente
+- **Frontend**: `Toast.tsx` component per feedback visivo delle auto-actions
+- **Frontend**: `ChatbotFloating.tsx` — suggestedActions come bottoni cliccabili nella risposta, auto-actions eseguite + toast
+- **Modalità**: `auto` (esegue subito) per navigazione/anno espliciti, `suggest` (bottone) per >5 risultati
+- **Sicurezza**: whitelist path, validazione anno 2020-2030, batch render, user priority
+- **Contesto**: Brainstorming con Davide (architettura), Marta (UX), Nicola (sicurezza), Valentina (sintesi)
+
+---
+
+### Chatbot Floating Redesign — Stile ElevIA
+- **Data**: 2026-03-26
+- **Fase**: 7 — Implementazione
+- **Azione**: Ridisegnato chatbot da pannello tradizionale a input bar sempre visibile in basso al centro (stile ElevIA)
+- **Dettaglio**: framer-motion AnimatePresence, glassmorphism, Sparkles icon, suggestion pills contestuali, response panel animato
+- **File**: `frontend/src/components/chat/ChatbotFloating.tsx`, `frontend/src/components/layout/AppLayout.tsx`
+- **Dipendenza**: aggiunto framer-motion
+
+---
+
 ### Handoff da BrainStorming
 - **Data**: 2026-03-22
 - **Fase**: Handoff BS → UMCC

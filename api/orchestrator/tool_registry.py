@@ -364,27 +364,28 @@ async def get_balance_sheet_summary_handler(
 async def predict_cashflow_handler(
     db: AsyncSession, tenant_id: uuid.UUID, **kwargs: object
 ) -> dict:
-    """Simplified cashflow prediction based on invoices."""
-    # Income: active invoices
-    from api.db.models import ActiveInvoice
+    """Simplified cashflow prediction based on Invoice table (type attiva/passiva)."""
+    from sqlalchemy import text as sa_text
 
-    active_result = await db.execute(
-        select(ActiveInvoice).where(ActiveInvoice.tenant_id == tenant_id)
+    # Income: fatture emesse (type='attiva')
+    recv_result = await db.execute(
+        sa_text(
+            "SELECT COALESCE(SUM(importo_totale), 0) FROM invoices "
+            "WHERE tenant_id = :tid AND type = 'attiva'"
+        ),
+        {"tid": str(tenant_id)},
     )
-    active_invoices = active_result.scalars().all()
-    total_receivable = sum(inv.importo_totale for inv in active_invoices)
+    total_receivable = float(recv_result.scalar() or 0)
 
-    # Expenses: passive invoices pending
-    passive_result = await db.execute(
-        select(Invoice).where(
-            and_(
-                Invoice.tenant_id == tenant_id,
-                Invoice.type == "passiva",
-            )
-        )
+    # Expenses: fatture ricevute (type='passiva')
+    pay_result = await db.execute(
+        sa_text(
+            "SELECT COALESCE(SUM(importo_totale), 0) FROM invoices "
+            "WHERE tenant_id = :tid AND type = 'passiva'"
+        ),
+        {"tid": str(tenant_id)},
     )
-    passive_invoices = passive_result.scalars().all()
-    total_payable = sum((inv.importo_totale or 0.0) for inv in passive_invoices)
+    total_payable = float(pay_result.scalar() or 0)
 
     net_cashflow = round(total_receivable - total_payable, 2)
 
@@ -484,33 +485,54 @@ async def list_assets_handler(
 async def get_ceo_kpi_handler(
     db: AsyncSession, tenant_id: uuid.UUID, **kwargs: object
 ) -> dict:
-    """Get CEO KPI summary."""
-    from api.db.models import ActiveInvoice
+    """Get CEO KPI summary using Invoice table (not ActiveInvoice)."""
+    from sqlalchemy import text as sa_text
 
     today = date.today()
     year = int(kwargs.get("year", today.year))
 
-    # Fatturato YTD
-    active_result = await db.execute(
-        select(ActiveInvoice).where(ActiveInvoice.tenant_id == tenant_id)
+    # Fatturato YTD — fatture emesse (type='attiva') filtrate per anno con SQL
+    fatturato_result = await db.execute(
+        sa_text(
+            "SELECT COALESCE(SUM(importo_totale), 0) FROM invoices "
+            "WHERE tenant_id = :tid AND type = 'attiva' "
+            "AND EXTRACT(YEAR FROM data_fattura) = :yr"
+        ),
+        {"tid": str(tenant_id), "yr": year},
     )
-    active_invoices = active_result.scalars().all()
-    fatturato_ytd = sum(
-        inv.importo_totale for inv in active_invoices
-        if inv.data_fattura.year == year
-    )
+    fatturato_ytd = float(fatturato_result.scalar() or 0)
 
-    # Costi YTD
-    passive_result = await db.execute(
-        select(Invoice).where(
-            and_(Invoice.tenant_id == tenant_id, Invoice.type == "passiva")
-        )
+    # Costi YTD — fatture ricevute (type='passiva') filtrate per anno con SQL
+    costi_result = await db.execute(
+        sa_text(
+            "SELECT COALESCE(SUM(importo_totale), 0) FROM invoices "
+            "WHERE tenant_id = :tid AND type = 'passiva' "
+            "AND EXTRACT(YEAR FROM data_fattura) = :yr"
+        ),
+        {"tid": str(tenant_id), "yr": year},
     )
-    passive_invoices = passive_result.scalars().all()
-    costi_ytd = sum(
-        (inv.importo_totale or 0.0) for inv in passive_invoices
-        if inv.data_fattura and inv.data_fattura.year == year
+    costi_ytd = float(costi_result.scalar() or 0)
+
+    # Conteggi fatture
+    count_attive_result = await db.execute(
+        sa_text(
+            "SELECT COUNT(*) FROM invoices "
+            "WHERE tenant_id = :tid AND type = 'attiva' "
+            "AND EXTRACT(YEAR FROM data_fattura) = :yr"
+        ),
+        {"tid": str(tenant_id), "yr": year},
     )
+    count_attive = int(count_attive_result.scalar() or 0)
+
+    count_passive_result = await db.execute(
+        sa_text(
+            "SELECT COUNT(*) FROM invoices "
+            "WHERE tenant_id = :tid AND type = 'passiva' "
+            "AND EXTRACT(YEAR FROM data_fattura) = :yr"
+        ),
+        {"tid": str(tenant_id), "yr": year},
+    )
+    count_passive = int(count_passive_result.scalar() or 0)
 
     ebitda = round(fatturato_ytd - costi_ytd, 2)
 
@@ -519,6 +541,8 @@ async def get_ceo_kpi_handler(
         "costi_ytd": round(costi_ytd, 2),
         "ebitda": ebitda,
         "year": year,
+        "fatture_emesse": count_attive,
+        "fatture_ricevute": count_passive,
     }
 
 
