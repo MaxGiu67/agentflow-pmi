@@ -67,6 +67,12 @@
 - Wireframes: `specs/ux/wireframes.md`
 - Test Strategy: `specs/testing/test-strategy.md`
 
+## MCP Server (Debug & Test)
+- Server MCP locale: `mcp-server/server.py` — auto-generato, espone DB + 111 endpoint + chatbot test
+- Generatore: `python3 mcp-server/generate_mcp.py` — legge modelli SQLAlchemy + router FastAPI
+- **REGOLA**: Dopo aver aggiunto/modificato endpoint o modelli DB, eseguire il generatore
+- Configurato in Claude Code settings come `agentflow-db`
+
 ## Rules
 1. Implementa una story alla volta
 2. Ogni AC deve avere almeno 1 test
@@ -74,3 +80,4 @@
 4. Non procedere alla story successiva finche tutti i test della corrente non passano
 5. Aggiorna `specs/_status.md` dopo ogni story completata
 6. Segui i pattern sopra — se devi deviare, documenta il motivo
+7. Dopo modifiche a modelli DB o endpoint API, eseguire `python3 mcp-server/generate_mcp.py`
