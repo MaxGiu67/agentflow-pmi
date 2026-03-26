@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   ResponsiveGridLayout,
   useContainerWidth,
@@ -13,7 +13,7 @@ import {
   RefreshCw,
   MessageSquare,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   useDashboardLayout,
   useSaveDashboardLayout,
@@ -28,8 +28,24 @@ import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 export default function DashboardPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const currentYear = new Date().getFullYear()
-  const [selectedYear, setSelectedYear] = useState(currentYear)
+
+  // Read year from URL params (set by chatbot action) or default to current year
+  const urlYear = searchParams.get('year')
+  const initialYear = urlYear ? parseInt(urlYear, 10) : currentYear
+  const [selectedYear, setSelectedYear] = useState(isNaN(initialYear) ? currentYear : initialYear)
+
+  // Sync year from URL when chatbot changes it
+  useEffect(() => {
+    const yp = searchParams.get('year')
+    if (yp) {
+      const parsed = parseInt(yp, 10)
+      if (!isNaN(parsed) && parsed !== selectedYear) {
+        setSelectedYear(parsed)
+      }
+    }
+  }, [searchParams])
 
   // Container width for responsive grid
   const { width, containerRef } = useContainerWidth()
