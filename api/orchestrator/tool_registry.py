@@ -84,7 +84,12 @@ async def count_invoices_handler(
         select(func.count(Invoice.id)).where(and_(*conditions))
     )
     count = result.scalar() or 0
-    return {"count": count, "message": f"{count} fatture trovate"}
+
+    content_blocks = [{
+        "type": "stat_row",
+        "items": [{"label": "Fatture trovate", "value": count, "format": "number"}],
+    }]
+    return {"count": count, "message": f"{count} fatture trovate", "content_blocks": content_blocks}
 
 
 async def list_invoices_handler(
@@ -569,6 +574,49 @@ async def get_ceo_kpi_handler(
 
     ebitda = round(fatturato_ytd - costi_ytd, 2)
 
+    # Content blocks for dashboard rendering
+    content_blocks = [
+        {
+            "type": "stat_row",
+            "items": [
+                {"label": "Fatturato", "value": round(fatturato_ytd, 2), "format": "currency", "sub": f"{count_attive} fatture"},
+                {"label": "Costi", "value": round(costi_ytd, 2), "format": "currency", "sub": f"{count_passive} fatture"},
+                {"label": "EBITDA", "value": ebitda, "format": "currency"},
+            ],
+        },
+    ]
+
+    # Monthly breakdown for bar chart
+    from sqlalchemy import text as sa_text2
+    monthly_result = await db.execute(
+        sa_text2(
+            "SELECT EXTRACT(MONTH FROM data_fattura)::int AS m, type, "
+            "COALESCE(SUM(importo_totale), 0) AS tot "
+            "FROM invoices WHERE tenant_id = :tid AND EXTRACT(YEAR FROM data_fattura) = :yr "
+            "GROUP BY m, type ORDER BY m"
+        ),
+        {"tid": str(tenant_id), "yr": year},
+    )
+    month_labels = ["", "Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"]
+    month_data: dict[int, dict] = {}
+    for row in monthly_result.fetchall():
+        m = int(row[0])
+        if m not in month_data:
+            month_data[m] = {"label": month_labels[m], "Emesse": 0, "Ricevute": 0}
+        if row[1] == "attiva":
+            month_data[m]["Emesse"] = round(float(row[2]), 2)
+        elif row[1] == "passiva":
+            month_data[m]["Ricevute"] = round(float(row[2]), 2)
+
+    if month_data:
+        content_blocks.append({
+            "type": "bar_chart",
+            "title": f"Fatturato Mensile {year}",
+            "data": [month_data[m] for m in sorted(month_data.keys())],
+            "keys": ["Emesse", "Ricevute"],
+            "colors": ["#22c55e", "#f97316"],
+        })
+
     return {
         "fatturato_ytd": round(fatturato_ytd, 2),
         "costi_ytd": round(costi_ytd, 2),
@@ -576,6 +624,7 @@ async def get_ceo_kpi_handler(
         "year": year,
         "fatture_emesse": count_attive,
         "fatture_ricevute": count_passive,
+        "content_blocks": content_blocks,
     }
 
 
