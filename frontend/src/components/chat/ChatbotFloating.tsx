@@ -130,14 +130,12 @@ export default function ChatbotFloating() {
           setSuggestedActions(suggested)
         }
 
-        const blocks = (meta.content_blocks ?? []) as Record<string, unknown>[]
-        if (blocks.length > 0) {
+        const blocks = meta.content_blocks
+        if (Array.isArray(blocks) && blocks.length > 0) {
           setContentBlocks(blocks)
           // Send blocks to dashboard for full-size rendering
-          useAIBlocksStore.getState().setBlocks(
-            blocks as never[],
-            result.content?.slice(0, 100) ?? '',
-          )
+          console.log('[AgentFlow] Sending content_blocks to dashboard:', blocks.length)
+          useAIBlocksStore.getState().setBlocks(blocks, result.content?.slice(0, 100) ?? '')
         }
       }
     } catch {
