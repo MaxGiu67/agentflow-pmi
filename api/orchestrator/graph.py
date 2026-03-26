@@ -50,6 +50,8 @@ TOOL_AGENT_MAP: dict[str, str] = {
     "list_expenses": "conta",
     "list_assets": "conta",
     "get_ceo_kpi": "conta",
+    "get_period_stats": "conta",
+    "get_top_clients": "fisco",
     "sync_cassetto": "fisco",
 }
 
@@ -140,6 +142,22 @@ def keyword_route(message: str) -> list[dict]:
             args["month_start"] = time_params["month_num"]
             args["month_end"] = time_params["month_num"]
         return [{"tool": "get_period_stats", "args": args}]
+
+    # Top clients/suppliers
+    if any(kw in msg_lower for kw in ["top client", "top fornit", "classifica client", "classifica fornit", "migliori client"]):
+        args = {}
+        if time_params.get("year"):
+            args["year"] = time_params["year"]
+        if any(kw in msg_lower for kw in ["fornit"]):
+            args["type"] = "passiva"
+        else:
+            args["type"] = "attiva"
+        # Extract limit
+        import re as _re
+        limit_match = _re.search(r'\btop\s+(\d+)', msg_lower)
+        if limit_match:
+            args["limit"] = int(limit_match.group(1))
+        return [{"tool": "get_top_clients", "args": args}]
 
     # Invoice queries with time params
     if any(kw in msg_lower for kw in ["fattur", "invoice"]):
@@ -520,6 +538,8 @@ TOOL_PAGE_MAP: dict[str, str] = {
     "list_expenses": "/spese",
     "list_assets": "/cespiti",
     "get_ceo_kpi": "/ceo",
+    "get_period_stats": "/dashboard",
+    "get_top_clients": "/dashboard",
     "sync_cassetto": "/impostazioni",
 }
 
@@ -702,13 +722,17 @@ async def run_orchestrator(
     # For keyword fallback, inject year from context into tool args
     state = await router_node(state)
 
-    # Inject context year into tool args for keyword fallback path
-    if context and not _has_api_key():
+    # Inject context year into tool args for ALL paths (LLM + keyword fallback)
+    if context:
         ctx_year = context.get("year")
         if ctx_year is not None:
+            year_tools = (
+                "count_invoices", "list_invoices", "get_ceo_kpi",
+                "get_period_stats", "get_top_clients",
+            )
             for call in state.get("tool_calls", []):
                 tool_name = call.get("tool", "")
-                if tool_name in ("count_invoices", "list_invoices", "get_ceo_kpi"):
+                if tool_name in year_tools:
                     call.setdefault("args", {})
                     if "year" not in call["args"]:
                         call["args"]["year"] = ctx_year

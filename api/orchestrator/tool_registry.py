@@ -636,6 +636,85 @@ async def modify_dashboard_handler(
     return {"error": f"Azione '{action}' non supportata. Usa: add, remove, update"}
 
 
+async def get_top_clients_handler(
+    db: AsyncSession, tenant_id: uuid.UUID, **kwargs: object
+) -> dict:
+    """Get top clients/suppliers by invoice volume and amount."""
+    from sqlalchemy import text as sa_text
+
+    year = int(kwargs.get("year", date.today().year))
+    inv_type = kwargs.get("type", "attiva")  # attiva=clienti, passiva=fornitori
+    limit = int(kwargs.get("limit", 10))
+
+    label = "Clienti" if inv_type == "attiva" else "Fornitori"
+
+    # For attiva (emesse): group by destinatario_nome from structured_data
+    # For passiva (ricevute): group by emittente_nome
+    if inv_type == "attiva":
+        query = sa_text(
+            "SELECT structured_data->>'destinatario_nome' AS nome, "
+            "COUNT(*) AS num_fatture, COALESCE(SUM(importo_totale), 0) AS totale "
+            "FROM invoices "
+            "WHERE tenant_id = :tid AND type = 'attiva' "
+            "AND EXTRACT(YEAR FROM data_fattura) = :yr "
+            "AND structured_data->>'destinatario_nome' IS NOT NULL "
+            "GROUP BY structured_data->>'destinatario_nome' "
+            "ORDER BY totale DESC LIMIT :lim"
+        )
+    else:
+        query = sa_text(
+            "SELECT emittente_nome AS nome, "
+            "COUNT(*) AS num_fatture, COALESCE(SUM(importo_totale), 0) AS totale "
+            "FROM invoices "
+            "WHERE tenant_id = :tid AND type = 'passiva' "
+            "AND EXTRACT(YEAR FROM data_fattura) = :yr "
+            "AND emittente_nome IS NOT NULL AND emittente_nome != '' "
+            "GROUP BY emittente_nome "
+            "ORDER BY totale DESC LIMIT :lim"
+        )
+
+    result = await db.execute(query, {"tid": str(tenant_id), "yr": year, "lim": limit})
+    rows = result.fetchall()
+
+    items = [
+        {"nome": row[0], "fatture": int(row[1]), "totale": round(float(row[2]), 2)}
+        for row in rows
+    ]
+
+    # Content blocks
+    content_blocks = []
+    if items:
+        content_blocks.append({
+            "type": "table",
+            "title": f"Top {len(items)} {label} {year}",
+            "columns": [label[:-1], "Fatture", "Totale"],
+            "rows": [
+                [it["nome"], str(it["fatture"]), f"\u20ac{it['totale']:,.2f}"]
+                for it in items
+            ],
+        })
+        # Bar chart for top entries
+        content_blocks.append({
+            "type": "bar_chart",
+            "title": f"Top {min(len(items), 10)} {label} per fatturato {year}",
+            "data": [
+                {"label": (it["nome"] or "")[:20], "Totale": it["totale"]}
+                for it in items[:10]
+            ],
+            "keys": ["Totale"],
+            "colors": ["#3b82f6"] if inv_type == "attiva" else ["#f97316"],
+        })
+
+    return {
+        "items": items,
+        "count": len(items),
+        "label": label,
+        "year": year,
+        "content_blocks": content_blocks,
+        "message": f"Top {len(items)} {label.lower()} {year}: {items[0]['nome']} ({items[0]['fatture']} fatture, \u20ac{items[0]['totale']:,.2f})" if items else f"Nessun {label.lower()} trovato per {year}",
+    }
+
+
 MONTH_LABELS = [
     "", "Gen", "Feb", "Mar", "Apr", "Mag", "Giu",
     "Lug", "Ago", "Set", "Ott", "Nov", "Dic",
@@ -909,6 +988,19 @@ TOOLS: list[dict] = [
             },
         },
         "handler": get_ceo_kpi_handler,
+    },
+    {
+        "name": "get_top_clients",
+        "description": "Mostra la classifica top clienti o fornitori per fatturato e numero fatture",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "year": {"type": "integer", "description": "Anno di riferimento"},
+                "type": {"type": "string", "enum": ["attiva", "passiva"], "description": "attiva=clienti, passiva=fornitori"},
+                "limit": {"type": "integer", "description": "Numero di risultati (default 10)"},
+            },
+        },
+        "handler": get_top_clients_handler,
     },
     {
         "name": "get_period_stats",
