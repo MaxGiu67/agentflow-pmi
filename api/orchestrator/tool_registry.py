@@ -587,26 +587,29 @@ async def get_ceo_kpi_handler(
     ]
 
     # Monthly breakdown for bar chart
-    from sqlalchemy import text as sa_text2
-    monthly_result = await db.execute(
-        sa_text2(
-            "SELECT EXTRACT(MONTH FROM data_fattura)::int AS m, type, "
-            "COALESCE(SUM(importo_totale), 0) AS tot "
-            "FROM invoices WHERE tenant_id = :tid AND EXTRACT(YEAR FROM data_fattura) = :yr "
-            "GROUP BY m, type ORDER BY m"
-        ),
-        {"tid": str(tenant_id), "yr": year},
-    )
-    month_labels = ["", "Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"]
-    month_data: dict[int, dict] = {}
-    for row in monthly_result.fetchall():
-        m = int(row[0])
-        if m not in month_data:
-            month_data[m] = {"label": month_labels[m], "Emesse": 0, "Ricevute": 0}
-        if row[1] == "attiva":
-            month_data[m]["Emesse"] = round(float(row[2]), 2)
-        elif row[1] == "passiva":
-            month_data[m]["Ricevute"] = round(float(row[2]), 2)
+    try:
+        monthly_result = await db.execute(
+            sa_text(
+                "SELECT EXTRACT(MONTH FROM data_fattura)::int AS m, type, "
+                "COALESCE(SUM(importo_totale), 0) AS tot "
+                "FROM invoices WHERE tenant_id = :tid AND EXTRACT(YEAR FROM data_fattura) = :yr "
+                "GROUP BY m, type ORDER BY m"
+            ),
+            {"tid": str(tenant_id), "yr": year},
+        )
+        month_labels = ["", "Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"]
+        month_data: dict[int, dict] = {}
+        for row in monthly_result.fetchall():
+            m = int(row[0])
+            if m not in month_data:
+                month_data[m] = {"label": month_labels[m], "Emesse": 0, "Ricevute": 0}
+            if row[1] == "attiva":
+                month_data[m]["Emesse"] = round(float(row[2]), 2)
+            elif row[1] == "passiva":
+                month_data[m]["Ricevute"] = round(float(row[2]), 2)
+    except Exception as e:
+        logger.error("Monthly breakdown query failed: %s", e)
+        month_data = {}
 
     if month_data:
         content_blocks.append({
