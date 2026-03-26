@@ -17,6 +17,7 @@ from api.modules.chat.schemas import (
     MemoryListResponse,
 )
 from api.modules.chat.service import ChatService
+from api.modules.chat.test_suite import run_chatbot_test_suite
 from api.modules.chat.websocket import chat_websocket
 from api.orchestrator.memory_node import MemoryManager
 
@@ -178,3 +179,32 @@ async def clear_memory(
     mgr = MemoryManager(db)
     await mgr.clear_memories(user.tenant_id, user.id)
     return {"message": "Memorie cancellate", "status": "ok"}
+
+
+# ============================================================
+# Test Suite endpoint
+# ============================================================
+
+
+@router.get("/test-suite")
+async def chatbot_test_suite(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Run 40 chatbot prompts against real data and return quality report.
+
+    Tests: KPI, top clients, invoice search, navigation, edge cases.
+    Compares results with direct DB queries for validation.
+    """
+    if not user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Profilo azienda non configurato",
+        )
+
+    report = await run_chatbot_test_suite(
+        db=db,
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+    )
+    return report
