@@ -376,35 +376,34 @@ class CEOService:
         self, tenant_id: uuid.UUID, year: int,
     ) -> float:
         """Calculate YTD revenue from active invoices."""
+        from sqlalchemy import extract, func
+        # Use SQL-level year filter instead of Python-level
         result = await self.db.execute(
-            select(Invoice).where(
+            select(func.coalesce(func.sum(Invoice.importo_totale), 0)).where(
                 Invoice.tenant_id == tenant_id,
                 Invoice.type == "attiva",
+                Invoice.data_fattura.isnot(None),
+                extract("year", Invoice.data_fattura) == year,
             )
         )
-        invoices = result.scalars().all()
-        total = sum(
-            (inv.importo_totale or 0) for inv in invoices
-            if inv.data_fattura and inv.data_fattura.year == year
-        )
-        return round(total, 2)
+        total = result.scalar() or 0
+        return round(float(total), 2)
 
     async def _calc_costi_ytd(
         self, tenant_id: uuid.UUID, year: int,
     ) -> float:
         """Calculate YTD costs from passive invoices."""
+        from sqlalchemy import extract, func
         result = await self.db.execute(
-            select(Invoice).where(
+            select(func.coalesce(func.sum(Invoice.importo_totale), 0)).where(
                 Invoice.tenant_id == tenant_id,
                 Invoice.type == "passiva",
+                Invoice.data_fattura.isnot(None),
+                extract("year", Invoice.data_fattura) == year,
             )
         )
-        invoices = result.scalars().all()
-        total = sum(
-            (inv.importo_totale or 0) for inv in invoices
-            if inv.data_fattura and inv.data_fattura.year == year
-        )
-        return round(total, 2)
+        total = result.scalar() or 0
+        return round(float(total), 2)
 
     async def _count_upcoming_deadlines(self, tenant_id: uuid.UUID) -> int:
         """Count upcoming fiscal deadlines."""
