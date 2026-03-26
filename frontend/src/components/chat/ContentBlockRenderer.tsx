@@ -51,7 +51,7 @@ function BarChartBlock({ block }: { block: ContentBlock }) {
   return (
     <div>
       {block.title && <p className="mb-2 text-xs font-medium text-gray-600">{block.title}</p>}
-      <ResponsiveContainer width="100%" height={180}>
+      <ResponsiveContainer width="100%" height={250}>
         <BarChart data={data} margin={{ top: 5, right: 5, left: -10, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis dataKey="label" tick={{ fontSize: 10 }} />

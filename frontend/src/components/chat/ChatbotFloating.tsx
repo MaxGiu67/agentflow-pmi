@@ -6,6 +6,7 @@ import { useSendMessage } from '../../api/hooks'
 import { useActionExecutor, type ActionCommand } from '../../hooks/useActionExecutor'
 import Toast from '../ui/Toast'
 import ContentBlockRenderer from './ContentBlockRenderer'
+import { useAIBlocksStore } from '../../store/aiBlocks'
 
 const getPlaceholder = (page: string): string => {
   switch (page) {
@@ -132,6 +133,11 @@ export default function ChatbotFloating() {
         const blocks = (meta.content_blocks ?? []) as Record<string, unknown>[]
         if (blocks.length > 0) {
           setContentBlocks(blocks)
+          // Send blocks to dashboard for full-size rendering
+          useAIBlocksStore.getState().setBlocks(
+            blocks as never[],
+            result.content?.slice(0, 100) ?? '',
+          )
         }
       }
     } catch {

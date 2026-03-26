@@ -25,6 +25,7 @@ import WidgetRenderer from '../components/dashboard/WidgetRenderer'
 import type { WidgetDef } from '../components/dashboard/WidgetRenderer'
 import PageHeader from '../components/ui/PageHeader'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
+import AIResultsPanel from '../components/dashboard/AIResultsPanel'
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -194,6 +195,9 @@ export default function DashboardPage() {
           </div>
         }
       />
+
+      {/* AI Results — injected by chatbot */}
+      <AIResultsPanel />
 
       {widgets.length > 0 && width > 0 ? (
         <ResponsiveGridLayout
