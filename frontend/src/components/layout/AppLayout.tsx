@@ -46,8 +46,8 @@ export default function AppLayout() {
           </div>
         </header>
 
-        {/* Main content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        {/* Main content — pb-24 reserves space for the floating chat bar */}
+        <main className="flex-1 overflow-y-auto p-4 pb-24 lg:p-6 lg:pb-28">
           <Outlet />
         </main>
       </div>

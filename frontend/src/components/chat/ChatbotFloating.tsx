@@ -1,15 +1,8 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { MessageSquare, X, Send } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Sparkles, Send, X } from 'lucide-react'
 import { useSendMessage } from '../../api/hooks'
-import { cn } from '../../lib/utils'
-
-interface FloatingMessage {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  created_at: string
-}
 
 const getPlaceholder = (page: string): string => {
   switch (page) {
@@ -22,25 +15,46 @@ const getPlaceholder = (page: string): string => {
     case 'banca': return 'Chiedi su movimenti, saldi, riconciliazione...'
     case 'spese': return 'Chiedi sulle note spese...'
     case 'cespiti': return 'Chiedi sui cespiti e ammortamenti...'
-    default: return 'Scrivi un messaggio per iniziare...'
+    default: return 'Chiedi qualcosa ad AgentFlow...'
   }
 }
 
+const suggestions: Record<string, string[]> = {
+  dashboard: ['Qual è il fatturato del mese?', 'Top 5 clienti', 'Come stanno le finanze?'],
+  fatture: ['Fatture NTT Data', 'Quante fatture ricevute?', 'Fatture in attesa'],
+  contabilita: ['Ultime registrazioni', 'Stato patrimoniale', 'Prima nota'],
+  scadenze: ['Prossime scadenze', 'Scadenze in ritardo', 'F24 da pagare'],
+  ceo: ['KPI annuali', 'EBITDA', 'Cash flow previsto'],
+  default: ['Come stanno le finanze?', 'Prossime scadenze', 'Fatture da verificare'],
+}
+
+/**
+ * Render **bold** markdown as <strong> elements.
+ */
+function renderBold(text: string): React.ReactNode[] {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g)
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>
+    }
+    return part
+  })
+}
+
 export default function ChatbotFloating() {
-  const [isOpen, setIsOpen] = useState(false)
-  const [messages, setMessages] = useState<FloatingMessage[]>([])
-  const [text, setText] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
+  const [query, setQuery] = useState('')
+  const [isFocused, setIsFocused] = useState(false)
+  const [response, setResponse] = useState('')
+  const [showResponse, setShowResponse] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [conversationId, setConversationId] = useState<string | null>(null)
-  const [unreadCount, setUnreadCount] = useState(0)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const location = useLocation()
   const page = location.pathname.split('/')[1] || 'dashboard'
 
   const getSelectedYear = (): number => {
-    // Try to get from URL search params or default to current year
     const params = new URLSearchParams(location.search)
     const yearParam = params.get('year')
     if (yearParam) {
@@ -52,32 +66,27 @@ export default function ChatbotFloating() {
 
   const sendMessage = useSendMessage()
 
-  // Auto-scroll to bottom when messages change
+  const pageSuggestions = suggestions[page] ?? suggestions['default']
+
+  // Close response when navigating to a different page
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isTyping])
-
-  // Focus input when opened
-  useEffect(() => {
-    if (isOpen) {
-      setUnreadCount(0)
-      setTimeout(() => inputRef.current?.focus(), 100)
+    if (showResponse) {
+      setShowResponse(false)
+      setResponse('')
+      setError(null)
     }
-  }, [isOpen])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname])
 
-  const handleSend = useCallback(async () => {
-    const trimmed = text.trim()
-    if (!trimmed || isTyping) return
+  const handleSubmit = useCallback(async () => {
+    const trimmed = query.trim()
+    if (!trimmed || isLoading) return
 
-    const userMsg: FloatingMessage = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: trimmed,
-      created_at: new Date().toISOString(),
-    }
-    setMessages((prev) => [...prev, userMsg])
-    setText('')
-    setIsTyping(true)
+    setResponse('')
+    setError(null)
+    setShowResponse(true)
+    setIsLoading(true)
+    setQuery('')
 
     try {
       const result = await sendMessage.mutateAsync({
@@ -90,147 +99,188 @@ export default function ChatbotFloating() {
         setConversationId(result.conversation_id)
       }
 
-      const assistantMsg: FloatingMessage = {
-        id: result.message_id ?? `asst-${Date.now()}`,
-        role: 'assistant',
-        content: result.content ?? 'Risposta non disponibile.',
-        created_at: new Date().toISOString(),
-      }
-      setMessages((prev) => [...prev, assistantMsg])
-
-      if (!isOpen) {
-        setUnreadCount((c) => c + 1)
-      }
+      setResponse(result.content ?? 'Risposta non disponibile.')
     } catch {
-      const errorMsg: FloatingMessage = {
-        id: `error-${Date.now()}`,
-        role: 'assistant',
-        content: 'Si e verificato un errore. Riprova tra poco.',
-        created_at: new Date().toISOString(),
-      }
-      setMessages((prev) => [...prev, errorMsg])
+      setError('Si è verificato un errore. Riprova tra poco.')
     } finally {
-      setIsTyping(false)
+      setIsLoading(false)
     }
-  }, [text, isTyping, conversationId, sendMessage, isOpen, page, location.search])
+  }, [query, isLoading, conversationId, sendMessage, page, location.search])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      void handleSend()
+      void handleSubmit()
     }
   }
 
+  const handleSuggestionClick = (suggestion: string) => {
+    setQuery(suggestion)
+    inputRef.current?.focus()
+  }
+
+  const clearQuery = () => {
+    setQuery('')
+    inputRef.current?.focus()
+  }
+
+  const closeResponse = () => {
+    setShowResponse(false)
+    setResponse('')
+    setError(null)
+  }
+
   return (
-    <>
-      {/* Floating chat panel */}
-      {isOpen && (
-        <div className="fixed bottom-20 right-4 z-50 flex h-[500px] w-[350px] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl">
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-gray-200 bg-blue-600 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-white" />
-              <span className="text-sm font-semibold text-white">AgentFlow</span>
-            </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="rounded p-1 text-white/80 hover:bg-blue-700 hover:text-white"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          {/* Messages area */}
-          <div className="flex-1 overflow-y-auto px-3 py-3">
-            {messages.length === 0 && (
-              <div className="flex h-full items-center justify-center">
-                <p className="text-center text-sm text-gray-400">
-                  {getPlaceholder(page)}
-                </p>
-              </div>
-            )}
-            <div className="space-y-3">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}
-                >
-                  <div
-                    className={cn(
-                      'max-w-[85%] rounded-xl px-3 py-2 text-sm',
-                      msg.role === 'user'
-                        ? 'rounded-br-sm bg-blue-600 text-white'
-                        : 'rounded-bl-sm border border-gray-100 bg-gray-50 text-gray-900',
-                    )}
+    <div
+      className="fixed z-50
+        bottom-4 left-4 right-4
+        md:bottom-6 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-[min(600px,90vw)]"
+      role="search"
+      aria-label="Chat con AgentFlow AI"
+    >
+      {/* Response Panel */}
+      <AnimatePresence>
+        {showResponse && (response || isLoading || error) && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: 10, height: 0 }}
+            transition={{ duration: 0.3 }}
+            className="mb-2 overflow-hidden rounded-2xl border border-gray-200/50 bg-white/95 shadow-2xl backdrop-blur-xl"
+          >
+            {/* Response Header */}
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-blue-500" />
+                <span className="text-sm font-medium text-gray-700">AgentFlow AI</span>
+                {isLoading && (
+                  <motion.span
+                    animate={{ opacity: [1, 0.4, 1] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    className="text-xs text-blue-500"
                   >
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
-                  </div>
-                </div>
-              ))}
-              {isTyping && (
-                <div className="flex justify-start">
-                  <div className="rounded-xl rounded-bl-sm border border-gray-100 bg-gray-50 px-3 py-2">
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-gray-500">Sto scrivendo</span>
-                      <span className="flex gap-0.5">
-                        <span className="h-1 w-1 animate-bounce rounded-full bg-gray-400 [animation-delay:0ms]" />
-                        <span className="h-1 w-1 animate-bounce rounded-full bg-gray-400 [animation-delay:150ms]" />
-                        <span className="h-1 w-1 animate-bounce rounded-full bg-gray-400 [animation-delay:300ms]" />
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-          </div>
-
-          {/* Input area */}
-          <div className="border-t border-gray-200 px-3 py-2">
-            <div className="flex items-center gap-2">
-              <input
-                ref={inputRef}
-                type="text"
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={isTyping}
-                placeholder={getPlaceholder(page)}
-                className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 disabled:opacity-50"
-              />
+                    sta scrivendo...
+                  </motion.span>
+                )}
+              </div>
               <button
-                onClick={() => void handleSend()}
-                disabled={isTyping || !text.trim()}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white transition-colors hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500"
+                type="button"
+                onClick={closeResponse}
+                className="p-1 text-gray-400 transition-colors hover:text-gray-600"
+                aria-label="Chiudi risposta"
               >
-                <Send className="h-4 w-4" />
+                <X className="h-4 w-4" />
               </button>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* Floating button */}
-      <button
-        onClick={() => setIsOpen((o) => !o)}
-        className={cn(
-          'fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all hover:scale-105',
-          isOpen ? 'bg-gray-600 hover:bg-gray-700' : 'bg-blue-600 hover:bg-blue-700',
+            {/* Response Body */}
+            <div className="max-h-[40vh] overflow-y-auto px-4 py-3 md:max-h-[300px]">
+              {error ? (
+                <p className="text-sm text-red-600">{error}</p>
+              ) : isLoading && !response ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500">Sto elaborando</span>
+                  <span className="flex gap-0.5">
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-400 [animation-delay:0ms]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-400 [animation-delay:150ms]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-400 [animation-delay:300ms]" />
+                  </span>
+                </div>
+              ) : (
+                <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+                  {renderBold(response)}
+                </div>
+              )}
+            </div>
+          </motion.div>
         )}
+      </AnimatePresence>
+
+      {/* Input Bar */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+        className="rounded-2xl border border-blue-100 bg-white/95 p-4 shadow-[0_8px_32px_rgba(59,130,246,0.12)] backdrop-blur-xl"
       >
-        {isOpen ? (
-          <X className="h-6 w-6 text-white" />
-        ) : (
-          <>
-            <MessageSquare className="h-6 w-6 text-white" />
-            {unreadCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </>
-        )}
-      </button>
-    </>
+        {/* Input Row */}
+        <div className="flex items-center gap-3">
+          <Sparkles
+            className="h-5 w-5 flex-shrink-0 text-blue-500"
+            aria-hidden="true"
+          />
+
+          <div className="relative flex-1">
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setTimeout(() => setIsFocused(false), 200)}
+              placeholder={getPlaceholder(page)}
+              aria-label="Scrivi la tua domanda"
+              className="w-full rounded-lg bg-gray-50 px-4 py-3 pr-10 text-gray-900 placeholder-gray-400 transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              disabled={isLoading}
+            />
+
+            {/* Clear button */}
+            <AnimatePresence>
+              {query && !isLoading && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  type="button"
+                  onClick={clearQuery}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  aria-label="Cancella"
+                >
+                  <X className="h-4 w-4" />
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Submit button */}
+          <button
+            type="button"
+            onClick={() => void handleSubmit()}
+            disabled={isLoading || !query.trim()}
+            className="rounded-lg bg-blue-500 p-3 text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Invia domanda"
+          >
+            <Send className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Suggestions */}
+        <AnimatePresence>
+          {isFocused && !query && !showResponse && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mt-3 border-t border-gray-100 pt-3"
+            >
+              <p className="mb-2 text-xs text-gray-400">Prova a chiedere:</p>
+              <div className="flex flex-wrap gap-2">
+                {pageSuggestions.map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    onClick={() => handleSuggestionClick(suggestion)}
+                    className="rounded-full bg-gray-100 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-blue-100 hover:text-blue-700"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    </div>
   )
 }
