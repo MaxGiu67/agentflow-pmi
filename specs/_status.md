@@ -151,11 +151,17 @@ SPID → sync → parse → categorizza → verifica → registra → dashboard
 - **Smart Response**: text/table/link in base a quantità risultati
 - **Open Banking**: richieste inviate a Fabrick (AISP) e Salt Edge (Partner Program)
 
+## PIVOT 4 IN CORSO: Fatturazione Attiva Completa + Costi Personale
+- **US-41**: Fattura attiva completa (XML FatturaPA v1.2, multi-linea, RegimeFiscale, Sede, DatiPagamento)
+- **US-42**: Impostazioni fatturazione (IBAN, modalità pagamento, regime fiscale, sede) salvate in Tenant
+- **US-43**: Copia di cortesia PDF da fattura attiva
+- **US-44**: Importazione costi del personale (cedolini/stipendi come voce di costo)
+
 ## Prossimi Passi
-1. Deploy su Railway con ultime modifiche chatbot
-2. Creare adapter `api/adapters/fabrick.py` dopo risposta Fabrick
-3. Completare KYC Salt Edge come piano B
-4. Call tecnica con A-Cube per SDI produzione
+1. Implementare US-41/42/43/44 (fatturazione attiva + costi personale)
+2. Call tecnica con A-Cube per SDI produzione
+3. Creare adapter `api/adapters/fabrick.py` dopo risposta Fabrick
+4. Completare KYC Salt Edge come piano B
 5. Ingaggiare commercialista per validazione contabile
 
 ---

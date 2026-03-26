@@ -8,6 +8,16 @@
 
 ---
 
+### PIVOT 4: Fatturazione Attiva Completa + Costi del Personale
+- **Data**: 2026-03-27
+- **Causa**: La fatturazione attiva (US-21) è incompleta (mancano XML completo, PDF cortesia, impostazioni ricorrenti, multi-linea). Serve importazione costi personale per EBITDA reale.
+- **Impatto**: 12 file da aggiornare, 0 da rifare, modelli + servizi + frontend
+- **Nuove stories**: US-41 (fattura completa XML+PDF), US-42 (impostazioni fatturazione), US-43 (costi personale)
+- **Azioni**: Tenant model + XML generator + PDF + PayrollCost model + frontend
+- **Ordine**: impostazioni → XML → multi-linea → PDF → frontend → personale → CEO
+
+---
+
 ### Action Commands — Chatbot controlla la UI (Level 3 Agent)
 - **Data**: 2026-03-26
 - **Fase**: 7 — Implementazione
