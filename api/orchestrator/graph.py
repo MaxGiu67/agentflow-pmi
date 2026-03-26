@@ -146,10 +146,10 @@ def keyword_route(message: str) -> list[dict]:
     if any(k in msg_lower for k in help_keywords):
         return [{"tool": "direct_response", "args": {"message": get_skill_discovery_message()}}]
 
-    # US-A07: Multi-agent detection — broad questions (Bug 6: added "come va", "come stiamo")
+    # US-A07: Multi-agent detection — broad questions
     broad_keywords = [
         "come sta", "come va", "come stiamo", "panoramica", "riepilogo",
-        "situazione", "come vanno", "stato azien",
+        "situazione", "come vanno", "stato azien", "stato dell",
     ]
     if any(k in msg_lower for k in broad_keywords):
         args: dict = {}
@@ -160,7 +160,30 @@ def keyword_route(message: str) -> list[dict]:
             {"tool": "get_deadlines", "args": {}},
         ]
 
-    # Period-specific KPI requests (Bug 10: added "guadagn", "utile", "profitt", "entrat", "uscit")
+    # Top clients/suppliers — BEFORE KPI (so "classifica clienti per fatturato" doesn't match "fatturato")
+    top_keywords = [
+        "top client", "top fornit", "classifica client", "classifica fornit",
+        "migliori client", "miglior client", "migliore client",
+        "principal client", "principali client", "principale client",
+        "miglior fornit", "migliore fornit", "migliori fornit",
+        "principal fornit", "principali fornit", "principale fornit",
+    ]
+    has_top_regex = bool(_re.search(r'\btop\s+\d*\s*client', msg_lower)) or \
+                    bool(_re.search(r'\btop\s+\d*\s*fornit', msg_lower))
+    if any(kw in msg_lower for kw in top_keywords) or has_top_regex:
+        args = {}
+        if time_params.get("year"):
+            args["year"] = time_params["year"]
+        if any(kw in msg_lower for kw in ["fornit"]):
+            args["type"] = "passiva"
+        else:
+            args["type"] = "attiva"
+        limit_match = _re.search(r'\btop\s+(\d+)', msg_lower)
+        if limit_match:
+            args["limit"] = int(limit_match.group(1))
+        return [{"tool": "get_top_clients", "args": args}]
+
+    # Period-specific KPI requests
     kpi_keywords = [
         "kpi", "ceo", "fatturato", "ebitda", "margine", "ricav", "cost",
         "guadagn", "utile", "profit", "entrat", "uscit",
@@ -177,27 +200,17 @@ def keyword_route(message: str) -> list[dict]:
             args["month_end"] = time_params["month_num"]
         return [{"tool": "get_period_stats", "args": args}]
 
-    # Top clients/suppliers (Bug 4: singular forms + "top N clienti" with number)
-    top_keywords = [
-        "top client", "top fornit", "classifica client", "classifica fornit",
-        "migliori client", "miglior client", "migliore client",
-        "principal client", "miglior fornit", "migliore fornit",
-        "principal fornit",
-    ]
-    has_top_regex = bool(_re.search(r'\btop\s+\d*\s*client', msg_lower)) or \
-                    bool(_re.search(r'\btop\s+\d*\s*fornit', msg_lower))
-    if any(kw in msg_lower for kw in top_keywords) or has_top_regex:
-        args = {}
-        if time_params.get("year"):
-            args["year"] = time_params["year"]
-        if any(kw in msg_lower for kw in ["fornit"]):
-            args["type"] = "passiva"
-        else:
-            args["type"] = "attiva"
-        limit_match = _re.search(r'\btop\s+(\d+)', msg_lower)
-        if limit_match:
-            args["limit"] = int(limit_match.group(1))
-        return [{"tool": "get_top_clients", "args": args}]
+    # Pending review / verification — BEFORE generic invoice queries
+    if any(kw in msg_lower for kw in ["da verificare", "da revisionare", "attesa di revision", "pending review"]):
+        return [{"tool": "get_pending_review", "args": {}}]
+
+    # Cassetto fiscale — BEFORE cespiti (both start with "c")
+    if any(kw in msg_lower for kw in ["cassetto", "sync", "sincronizz"]):
+        return [{"tool": "sync_cassetto", "args": {}}]
+
+    # Dashboard summary — BEFORE generic invoice queries
+    if any(kw in msg_lower for kw in ["dashboard"]):
+        return [{"tool": "get_dashboard_summary", "args": {}}]
 
     # Bug 7: Invoice detail by number — "fattura numero X", "fattura n. X", "fattura #X"
     detail_match = _re.search(r'fattura\s+(?:numero|n\.?|#)\s*(.+)', msg_lower)
@@ -234,9 +247,6 @@ def keyword_route(message: str) -> list[dict]:
     if any(kw in msg_lower for kw in ["scadenz", "deadline"]):
         return [{"tool": "get_deadlines", "args": {}}]
 
-    if any(kw in msg_lower for kw in ["dashboard"]):
-        return [{"tool": "get_dashboard_summary", "args": {}}]
-
     if any(kw in msg_lower for kw in ["prima nota", "registrazi", "journal"]):
         return [{"tool": "get_journal_entries", "args": {}}]
 
@@ -254,9 +264,6 @@ def keyword_route(message: str) -> list[dict]:
 
     if any(kw in msg_lower for kw in ["cespiti", "asset", "beni strumentali"]):
         return [{"tool": "list_assets", "args": {}}]
-
-    if any(kw in msg_lower for kw in ["cassetto", "sync", "sincronizz"]):
-        return [{"tool": "sync_cassetto", "args": {}}]
 
     # Greetings (Bug 14: added buonasera, grazie)
     if any(kw in msg_lower for kw in ["ciao", "buongiorno", "buonasera", "salve", "hello", "hey", "grazie"]):

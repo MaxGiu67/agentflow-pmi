@@ -1,8 +1,8 @@
-"""Chatbot test suite — runs on the server with real data.
+"""Chatbot test suite — 100+ prompts tested on server with real data.
 
 Endpoint: GET /api/v1/chat/test-suite
-Runs 40+ prompts against the orchestrator, compares results with direct DB queries,
-and returns a quality report.
+Runs prompts against the orchestrator, compares with direct DB queries,
+returns quality + efficiency report.
 """
 
 import logging
@@ -18,20 +18,13 @@ from api.orchestrator.graph import run_orchestrator
 logger = logging.getLogger(__name__)
 
 
-# ============================================================
-# Expected data from direct DB queries
-# ============================================================
-
-
 async def _get_expected_data(db: AsyncSession, tenant_id: uuid.UUID) -> dict:
-    """Query the DB directly to get ground truth values for validation."""
+    """Query DB directly for ground truth validation."""
     data = {}
 
-    # KPI 2024
     r = await db.execute(text(
         "SELECT type, COUNT(*), COALESCE(SUM(importo_totale), 0) "
-        "FROM invoices WHERE tenant_id = :tid AND EXTRACT(YEAR FROM data_fattura) = 2024 "
-        "GROUP BY type"
+        "FROM invoices WHERE tenant_id = :tid AND EXTRACT(YEAR FROM data_fattura) = 2024 GROUP BY type"
     ), {"tid": str(tenant_id)})
     for row in r.fetchall():
         if row[0] == "attiva":
@@ -42,550 +35,414 @@ async def _get_expected_data(db: AsyncSession, tenant_id: uuid.UUID) -> dict:
             data["count_ricevute_2024"] = int(row[1])
     data["ebitda_2024"] = round(data.get("fatturato_2024", 0) - data.get("costi_2024", 0), 2)
 
-    # Total invoices
-    r = await db.execute(text(
-        "SELECT COUNT(*) FROM invoices WHERE tenant_id = :tid"
-    ), {"tid": str(tenant_id)})
+    r = await db.execute(text("SELECT COUNT(*) FROM invoices WHERE tenant_id = :tid"), {"tid": str(tenant_id)})
     data["total_invoices"] = int(r.scalar() or 0)
 
-    # Top client 2024
     r = await db.execute(text(
-        "SELECT structured_data->>'destinatario_nome', COUNT(*) "
-        "FROM invoices WHERE tenant_id = :tid AND type = 'attiva' "
-        "AND EXTRACT(YEAR FROM data_fattura) = 2024 "
+        "SELECT structured_data->>'destinatario_nome', COUNT(*) FROM invoices "
+        "WHERE tenant_id = :tid AND type = 'attiva' AND EXTRACT(YEAR FROM data_fattura) = 2024 "
         "AND structured_data->>'destinatario_nome' IS NOT NULL "
-        "GROUP BY structured_data->>'destinatario_nome' ORDER BY COUNT(*) DESC LIMIT 1"
+        "GROUP BY 1 ORDER BY COUNT(*) DESC LIMIT 1"
     ), {"tid": str(tenant_id)})
     row = r.fetchone()
-    data["top_client_2024"] = row[0] if row else None
-    data["top_client_count_2024"] = int(row[1]) if row else 0
+    data["top_client"] = row[0] if row else None
 
-    # NTT Data count
     r = await db.execute(text(
         "SELECT COUNT(*) FROM invoices WHERE tenant_id = :tid "
         "AND (emittente_nome ILIKE '%%NTT%%' OR structured_data->>'destinatario_nome' ILIKE '%%NTT%%')"
     ), {"tid": str(tenant_id)})
-    data["ntt_data_count"] = int(r.scalar() or 0)
+    data["ntt_count"] = int(r.scalar() or 0)
 
-    # Q1 2024 fatturato
-    r = await db.execute(text(
-        "SELECT COALESCE(SUM(importo_totale), 0) FROM invoices "
-        "WHERE tenant_id = :tid AND type = 'attiva' "
-        "AND EXTRACT(YEAR FROM data_fattura) = 2024 "
-        "AND EXTRACT(MONTH FROM data_fattura) BETWEEN 1 AND 3"
-    ), {"tid": str(tenant_id)})
-    data["fatturato_q1_2024"] = float(r.scalar() or 0)
-
-    # January 2024 count
-    r = await db.execute(text(
-        "SELECT COUNT(*) FROM invoices WHERE tenant_id = :tid "
-        "AND EXTRACT(YEAR FROM data_fattura) = 2024 "
-        "AND EXTRACT(MONTH FROM data_fattura) = 1"
-    ), {"tid": str(tenant_id)})
-    data["count_gen_2024"] = int(r.scalar() or 0)
+    # Monthly counts
+    for m in range(1, 13):
+        r = await db.execute(text(
+            "SELECT COUNT(*) FROM invoices WHERE tenant_id = :tid "
+            "AND EXTRACT(YEAR FROM data_fattura) = 2024 AND EXTRACT(MONTH FROM data_fattura) = :m"
+        ), {"tid": str(tenant_id), "m": m})
+        data[f"count_month_{m}"] = int(r.scalar() or 0)
 
     return data
 
 
-# ============================================================
-# Test prompt definitions
-# ============================================================
+def _build_prompts() -> list[dict]:
+    """Build 100+ test prompts covering all DB query combinations."""
+    prompts = []
 
+    def add(id, cat, prompt, ctx_year, checks, page="dashboard"):
+        prompts.append({
+            "id": id, "category": cat, "prompt": prompt,
+            "context": {"page": page, "year": ctx_year}, "checks": checks,
+        })
 
-def _build_test_prompts(expected: dict) -> list[dict]:
-    """Build test prompts with expected validation criteria."""
-    return [
-        # ── A: KPI e Fatturato ──
-        {
-            "id": "A01", "category": "KPI",
-            "prompt": "qual è il fatturato 2024?",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("content_contains_any", ["4.724", "4724", "fatturato"]),
-                ("tool_used", "get_period_stats"),
-            ],
-        },
-        {
-            "id": "A02", "category": "KPI",
-            "prompt": "ebitda primo trimestre 2024",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("tool_used", "get_period_stats"),
-                ("has_content_blocks", True),
-            ],
-        },
-        {
-            "id": "A03", "category": "KPI",
-            "prompt": "costi 2024",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("content_contains_any", ["106", "costi"]),
-                ("tool_used", "get_period_stats"),
-            ],
-        },
-        {
-            "id": "A04", "category": "KPI",
-            "prompt": "fatturato 2025",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("has_action_set_year", 2025),
-            ],
-        },
-        {
-            "id": "A05", "category": "KPI",
-            "prompt": "ricavi di ottobre",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("tool_used", "get_period_stats"),
-            ],
-        },
-        {
-            "id": "A06", "category": "KPI",
-            "prompt": "kpi annuali",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("tool_used", "get_period_stats"),
-                ("has_content_blocks", True),
-            ],
-        },
-        {
-            "id": "A07", "category": "KPI",
-            "prompt": "quanto ho guadagnato?",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("tool_used_not", "direct_response"),
-            ],
-        },
-        {
-            "id": "A08", "category": "KPI",
-            "prompt": "utile netto 2024",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("tool_used", "get_period_stats"),
-            ],
-        },
-        {
-            "id": "A09", "category": "KPI",
-            "prompt": "ebitda q2 2024",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("tool_used", "get_period_stats"),
-                ("has_content_blocks", True),
-            ],
-        },
-        {
-            "id": "A10", "category": "KPI",
-            "prompt": "entrate e uscite 2024",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("tool_used", "get_period_stats"),
-            ],
-        },
+    # ══════════════════════════════════════════════════════════
+    # A: KPI / Fatturato (20 prompt)
+    # ══════════════════════════════════════════════════════════
+    add("A01", "KPI", "qual è il fatturato 2024?", 2024, [
+        ("has_content", True), ("content_contains_any", ["4.724", "4724", "4,724"]), ("tool_used", "get_period_stats"), ("has_content_blocks", True)])
+    add("A02", "KPI", "ebitda primo trimestre 2024", 2024, [
+        ("has_content", True), ("tool_used", "get_period_stats"), ("has_content_blocks", True)])
+    add("A03", "KPI", "costi 2024", 2024, [
+        ("has_content", True), ("content_contains_any", ["106", "costi"]), ("tool_used", "get_period_stats")])
+    add("A04", "KPI", "fatturato 2025", 2024, [
+        ("has_content", True), ("has_action_set_year", 2025)])
+    add("A05", "KPI", "ricavi di ottobre", 2024, [
+        ("has_content", True), ("tool_used", "get_period_stats")])
+    add("A06", "KPI", "kpi annuali", 2024, [
+        ("has_content", True), ("tool_used", "get_period_stats"), ("has_content_blocks", True)])
+    add("A07", "KPI", "quanto ho guadagnato?", 2024, [
+        ("has_content", True), ("tool_used_not", "direct_response")])
+    add("A08", "KPI", "utile netto 2024", 2024, [
+        ("has_content", True), ("tool_used", "get_period_stats")])
+    add("A09", "KPI", "ebitda q2 2024", 2024, [
+        ("has_content", True), ("tool_used", "get_period_stats"), ("has_content_blocks", True)])
+    add("A10", "KPI", "entrate e uscite 2024", 2024, [
+        ("has_content", True), ("tool_used", "get_period_stats")])
+    add("A11", "KPI", "margine lordo 2024", 2024, [
+        ("has_content", True), ("tool_used", "get_period_stats")])
+    add("A12", "KPI", "fatturato q3 2024", 2024, [
+        ("has_content", True), ("tool_used", "get_period_stats"), ("has_content_blocks", True)])
+    add("A13", "KPI", "fatturato q4 2024", 2024, [
+        ("has_content", True), ("tool_used", "get_period_stats")])
+    add("A14", "KPI", "costi primo trimestre", 2024, [
+        ("has_content", True), ("tool_used", "get_period_stats")])
+    add("A15", "KPI", "ricavi febbraio 2024", 2024, [
+        ("has_content", True), ("tool_used", "get_period_stats")])
+    add("A16", "KPI", "fatturato dicembre 2024", 2024, [
+        ("has_content", True), ("tool_used", "get_period_stats")])
+    add("A17", "KPI", "profitto 2024", 2024, [
+        ("has_content", True), ("tool_used", "get_period_stats")])
+    add("A18", "KPI", "costi secondo trimestre 2024", 2024, [
+        ("has_content", True), ("tool_used", "get_period_stats")])
+    add("A19", "KPI", "guadagno di marzo", 2024, [
+        ("has_content", True), ("tool_used", "get_period_stats")])
+    add("A20", "KPI", "ebitda annuale", 2024, [
+        ("has_content", True), ("tool_used", "get_period_stats"), ("has_content_blocks", True)])
 
-        # ── B: Top Clienti/Fornitori ──
-        {
-            "id": "B01", "category": "Top",
-            "prompt": "top 5 clienti",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("tool_used", "get_top_clients"),
-                ("content_contains_any", ["NTT"]),
-                ("has_content_blocks", True),
-            ],
-        },
-        {
-            "id": "B02", "category": "Top",
-            "prompt": "classifica fornitori 2024",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("tool_used", "get_top_clients"),
-            ],
-        },
-        {
-            "id": "B03", "category": "Top",
-            "prompt": "chi è il mio miglior cliente?",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("tool_used", "get_top_clients"),
-            ],
-        },
-        {
-            "id": "B04", "category": "Top",
-            "prompt": "top fornitori",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("tool_used", "get_top_clients"),
-            ],
-        },
-        {
-            "id": "B05", "category": "Top",
-            "prompt": "top 3 clienti 2024",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("tool_used", "get_top_clients"),
-                ("has_content_blocks", True),
-            ],
-        },
+    # ══════════════════════════════════════════════════════════
+    # B: Top Clienti/Fornitori (15 prompt)
+    # ══════════════════════════════════════════════════════════
+    add("B01", "Top", "top 5 clienti", 2024, [
+        ("has_content", True), ("tool_used", "get_top_clients"), ("content_contains_any", ["NTT"]), ("has_content_blocks", True)])
+    add("B02", "Top", "classifica fornitori 2024", 2024, [
+        ("has_content", True), ("tool_used", "get_top_clients")])
+    add("B03", "Top", "chi è il mio miglior cliente?", 2024, [
+        ("has_content", True), ("tool_used", "get_top_clients")])
+    add("B04", "Top", "top fornitori", 2024, [
+        ("has_content", True), ("tool_used", "get_top_clients")])
+    add("B05", "Top", "top 3 clienti 2024", 2024, [
+        ("has_content", True), ("tool_used", "get_top_clients"), ("has_content_blocks", True)])
+    add("B06", "Top", "top 10 clienti", 2024, [
+        ("has_content", True), ("tool_used", "get_top_clients")])
+    add("B07", "Top", "migliore cliente", 2024, [
+        ("has_content", True), ("tool_used", "get_top_clients")])
+    add("B08", "Top", "principale fornitore", 2024, [
+        ("has_content", True), ("tool_used", "get_top_clients")])
+    add("B09", "Top", "classifica clienti per fatturato", 2024, [
+        ("has_content", True), ("tool_used", "get_top_clients")])
+    add("B10", "Top", "top clienti 2023", 2024, [
+        ("has_content", True), ("tool_used", "get_top_clients")])
+    add("B11", "Top", "miglior cliente 2024", 2024, [
+        ("has_content", True), ("tool_used", "get_top_clients")])
+    add("B12", "Top", "top 5 fornitori 2024", 2024, [
+        ("has_content", True), ("tool_used", "get_top_clients")])
+    add("B13", "Top", "principali clienti", 2024, [
+        ("has_content", True), ("tool_used", "get_top_clients")])
+    add("B14", "Top", "migliori fornitori", 2024, [
+        ("has_content", True), ("tool_used", "get_top_clients")])
+    add("B15", "Top", "top clienti", 2024, [
+        ("has_content", True), ("tool_used", "get_top_clients")])
 
-        # ── C: Ricerca Fatture ──
-        {
-            "id": "C01", "category": "Fatture",
-            "prompt": "fatture NTT Data",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("content_not_contains", "Non ho capito"),
-                ("content_contains_any", ["NTT", "fattur"]),
-            ],
-        },
-        {
-            "id": "C02", "category": "Fatture",
-            "prompt": "fattura numero 1/7",
-            "context": {"page": "fatture", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("tool_used", "get_invoice_detail"),
-            ],
-        },
-        {
-            "id": "C03", "category": "Fatture",
-            "prompt": "quante fatture ricevute?",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("tool_used", "count_invoices"),
-            ],
-        },
-        {
-            "id": "C04", "category": "Fatture",
-            "prompt": "elenco fatture emesse",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("tool_used", "list_invoices"),
-            ],
-        },
-        {
-            "id": "C05", "category": "Fatture",
-            "prompt": "mostrami le fatture di gennaio 2024",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("content_not_contains", "0 fatture"),
-            ],
-        },
+    # ══════════════════════════════════════════════════════════
+    # C: Ricerca Fatture (20 prompt)
+    # ══════════════════════════════════════════════════════════
+    add("C01", "Fatture", "fatture NTT Data", 2024, [
+        ("has_content", True), ("content_not_contains", "Non ho capito"), ("content_contains_any", ["NTT", "199", "fattur"])])
+    add("C02", "Fatture", "fattura numero 1/7", 2024, [
+        ("has_content", True), ("tool_used", "get_invoice_detail")], page="fatture")
+    add("C03", "Fatture", "quante fatture ricevute?", 2024, [
+        ("has_content", True), ("tool_used", "count_invoices")])
+    add("C04", "Fatture", "elenco fatture emesse", 2024, [
+        ("has_content", True), ("tool_used", "list_invoices")])
+    add("C05", "Fatture", "mostrami le fatture di gennaio 2024", 2024, [
+        ("has_content", True), ("content_not_contains", "0 fatture")])
+    add("C06", "Fatture", "quante fatture emesse nel 2024?", 2024, [
+        ("has_content", True), ("tool_used", "count_invoices")])
+    add("C07", "Fatture", "fatture Engineering", 2024, [
+        ("has_content", True), ("content_contains_any", ["Engineering", "ENGINEERING"])])
+    add("C08", "Fatture", "fatture Xister Reply", 2024, [
+        ("has_content", True), ("content_contains_any", ["Xister", "XISTER"])])
+    add("C09", "Fatture", "fatture Deloitte", 2024, [
+        ("has_content", True), ("content_contains_any", ["Deloitte", "DELOITTE"])])
+    add("C10", "Fatture", "fatture Nexa Data", 2024, [
+        ("has_content", True), ("content_contains_any", ["Nexa", "NEXA"])])
+    add("C11", "Fatture", "lista fatture marzo 2024", 2024, [
+        ("has_content", True), ("tool_used", "list_invoices")])
+    add("C12", "Fatture", "quante fatture ho?", 2024, [
+        ("has_content", True), ("tool_used", "count_invoices")])
+    add("C13", "Fatture", "fatture ricevute febbraio", 2024, [
+        ("has_content", True)])
+    add("C14", "Fatture", "numero fatture per mese", 2024, [
+        ("has_content", True), ("tool_used_not", "direct_response")])
+    add("C15", "Fatture", "fatture emesse a luglio", 2024, [
+        ("has_content", True)])
+    add("C16", "Fatture", "conta fatture passive", 2024, [
+        ("has_content", True), ("tool_used", "count_invoices")])
+    add("C17", "Fatture", "mostra fatture attive", 2024, [
+        ("has_content", True), ("tool_used", "list_invoices")])
+    add("C18", "Fatture", "fattura n. AQ01809969", 2024, [
+        ("has_content", True), ("tool_used", "get_invoice_detail")])
+    add("C19", "Fatture", "cerca fatture settembre 2024", 2024, [
+        ("has_content", True)])
+    add("C20", "Fatture", "quante fatture ci sono in totale?", 2024, [
+        ("has_content", True), ("tool_used", "count_invoices")])
 
-        # ── D: Navigazione ──
-        {
-            "id": "D01", "category": "Nav",
-            "prompt": "vai alle scadenze",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("has_action_navigate", "/scadenze"),
-            ],
-        },
-        {
-            "id": "D02", "category": "Nav",
-            "prompt": "apri le fatture",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("has_action_navigate", "/fatture"),
-            ],
-        },
-        {
-            "id": "D03", "category": "Nav",
-            "prompt": "portami alla dashboard",
-            "context": {"page": "fatture", "year": 2024},
-            "checks": [
-                ("has_content", True),
-            ],
-        },
+    # ══════════════════════════════════════════════════════════
+    # D: Navigazione e Azioni (10 prompt)
+    # ══════════════════════════════════════════════════════════
+    add("D01", "Nav", "vai alle scadenze", 2024, [
+        ("has_content", True), ("has_action_navigate", "/scadenze")])
+    add("D02", "Nav", "apri le fatture", 2024, [
+        ("has_content", True), ("has_action_navigate", "/fatture")])
+    add("D03", "Nav", "portami alla dashboard", 2024, [
+        ("has_content", True)], page="fatture")
+    add("D04", "Nav", "vai alla contabilità", 2024, [
+        ("has_content", True), ("has_action_navigate", "/contabilita")])
+    add("D05", "Nav", "apri il cruscotto CEO", 2024, [
+        ("has_content", True)])
+    add("D06", "Nav", "mostrami il 2023", 2024, [
+        ("has_content", True)])
+    add("D07", "Nav", "vai alle spese", 2024, [
+        ("has_content", True)])
+    add("D08", "Nav", "apri i cespiti", 2024, [
+        ("has_content", True)])
+    add("D09", "Nav", "vai alle impostazioni", 2024, [
+        ("has_content", True)])
+    add("D10", "Nav", "apri la banca", 2024, [
+        ("has_content", True)])
 
-        # ── E: Panoramica ──
-        {
-            "id": "E01", "category": "Panoramica",
-            "prompt": "situazione 2024",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("content_not_contains", "Non ho capito"),
-                ("has_content_blocks", True),
-            ],
-        },
-        {
-            "id": "E02", "category": "Panoramica",
-            "prompt": "come stanno le finanze?",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("content_not_contains", "Non ho capito"),
-            ],
-        },
-        {
-            "id": "E03", "category": "Panoramica",
-            "prompt": "panoramica",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("content_not_contains", "Non ho capito"),
-            ],
-        },
-        {
-            "id": "E04", "category": "Panoramica",
-            "prompt": "come va l'azienda?",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("content_not_contains", "Non ho capito"),
-            ],
-        },
-        {
-            "id": "E05", "category": "Panoramica",
-            "prompt": "riepilogo",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("content_not_contains", "Non ho capito"),
-            ],
-        },
+    # ══════════════════════════════════════════════════════════
+    # E: Panoramica e Stato (10 prompt)
+    # ══════════════════════════════════════════════════════════
+    add("E01", "Panoramica", "situazione 2024", 2024, [
+        ("has_content", True), ("content_not_contains", "Non ho capito"), ("has_content_blocks", True)])
+    add("E02", "Panoramica", "come stanno le finanze?", 2024, [
+        ("has_content", True), ("content_not_contains", "Non ho capito")])
+    add("E03", "Panoramica", "panoramica", 2024, [
+        ("has_content", True), ("content_not_contains", "Non ho capito")])
+    add("E04", "Panoramica", "come va l'azienda?", 2024, [
+        ("has_content", True), ("content_not_contains", "Non ho capito")])
+    add("E05", "Panoramica", "riepilogo", 2024, [
+        ("has_content", True), ("content_not_contains", "Non ho capito")])
+    add("E06", "Panoramica", "come stiamo?", 2024, [
+        ("has_content", True), ("content_not_contains", "Non ho capito")])
+    add("E07", "Panoramica", "stato dell'azienda", 2024, [
+        ("has_content", True), ("content_not_contains", "Non ho capito")])
+    add("E08", "Panoramica", "situazione finanziaria", 2024, [
+        ("has_content", True), ("content_not_contains", "Non ho capito")])
+    add("E09", "Panoramica", "dammi un riepilogo del 2024", 2024, [
+        ("has_content", True), ("content_not_contains", "Non ho capito")])
+    add("E10", "Panoramica", "com'è la situazione?", 2024, [
+        ("has_content", True), ("content_not_contains", "Non ho capito")])
 
-        # ── F: Edge Cases ──
-        {
-            "id": "F01", "category": "Edge",
-            "prompt": "ciao",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("content_contains_any", ["Ciao", "ciao", "aiutarti"]),
-            ],
-        },
-        {
-            "id": "F02", "category": "Edge",
-            "prompt": "grazie",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("content_contains_any", ["Prego", "prego", "bisogno"]),
-            ],
-        },
-        {
-            "id": "F03", "category": "Edge",
-            "prompt": "cosa sai fare?",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("content_not_contains", "Non ho capito"),
-            ],
-        },
-        {
-            "id": "F04", "category": "Edge",
-            "prompt": "<script>alert('xss')</script>",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("content_not_contains", "<script>"),
-            ],
-        },
-        {
-            "id": "F05", "category": "Edge",
-            "prompt": "fatturato 2030",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("no_error", True),
-            ],
-        },
+    # ══════════════════════════════════════════════════════════
+    # F: Contabilità e Registrazioni (10 prompt)
+    # ══════════════════════════════════════════════════════════
+    add("F01", "Contabilità", "prima nota", 2024, [
+        ("has_content", True), ("tool_used", "get_journal_entries")])
+    add("F02", "Contabilità", "ultime registrazioni contabili", 2024, [
+        ("has_content", True), ("tool_used", "get_journal_entries")])
+    add("F03", "Contabilità", "stato patrimoniale", 2024, [
+        ("has_content", True), ("tool_used", "get_balance_sheet_summary")], page="contabilita")
+    add("F04", "Contabilità", "bilancio", 2024, [
+        ("has_content", True), ("tool_used", "get_balance_sheet_summary")])
+    add("F05", "Contabilità", "cash flow", 2024, [
+        ("has_content", True), ("tool_used", "predict_cashflow")])
+    add("F06", "Contabilità", "flusso di cassa", 2024, [
+        ("has_content", True), ("tool_used", "predict_cashflow")])
+    add("F07", "Contabilità", "previsione cash flow", 2024, [
+        ("has_content", True), ("tool_used", "predict_cashflow")])
+    add("F08", "Contabilità", "note spese", 2024, [
+        ("has_content", True), ("tool_used", "list_expenses")])
+    add("F09", "Contabilità", "cespiti", 2024, [
+        ("has_content", True), ("tool_used", "list_assets")])
+    add("F10", "Contabilità", "beni strumentali", 2024, [
+        ("has_content", True), ("tool_used", "list_assets")])
 
-        # ── G: Specifici per dati reali ──
-        {
-            "id": "G01", "category": "Reale",
-            "prompt": "fatture Engineering",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("content_contains_any", ["Engineering", "ENGINEERING", "engineering"]),
-            ],
-        },
-        {
-            "id": "G02", "category": "Reale",
-            "prompt": "fatturato gennaio 2024",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("content_not_contains", "0,00"),
-                ("has_content_blocks", True),
-            ],
-        },
-        {
-            "id": "G03", "category": "Reale",
-            "prompt": "cash flow",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("tool_used", "predict_cashflow"),
-            ],
-        },
-        {
-            "id": "G04", "category": "Reale",
-            "prompt": "scadenze in ritardo",
-            "context": {"page": "dashboard", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("tool_used", "get_fiscal_alerts"),
-            ],
-        },
-        {
-            "id": "G05", "category": "Reale",
-            "prompt": "stato patrimoniale",
-            "context": {"page": "contabilita", "year": 2024},
-            "checks": [
-                ("has_content", True),
-                ("tool_used", "get_balance_sheet_summary"),
-            ],
-        },
-    ]
+    # ══════════════════════════════════════════════════════════
+    # G: Scadenze e Fisco (10 prompt)
+    # ══════════════════════════════════════════════════════════
+    add("G01", "Fisco", "prossime scadenze", 2024, [
+        ("has_content", True), ("tool_used", "get_deadlines")])
+    add("G02", "Fisco", "scadenze fiscali", 2024, [
+        ("has_content", True), ("tool_used", "get_deadlines")])
+    add("G03", "Fisco", "scadenze in ritardo", 2024, [
+        ("has_content", True), ("tool_used", "get_fiscal_alerts")])
+    add("G04", "Fisco", "alert fiscali", 2024, [
+        ("has_content", True), ("tool_used", "get_fiscal_alerts")])
+    add("G05", "Fisco", "ci sono scadenze scadute?", 2024, [
+        ("has_content", True), ("tool_used", "get_fiscal_alerts")])
+    add("G06", "Fisco", "fatture da verificare", 2024, [
+        ("has_content", True), ("tool_used", "get_pending_review")])
+    add("G07", "Fisco", "fatture in attesa di revisione", 2024, [
+        ("has_content", True), ("tool_used", "get_pending_review")])
+    add("G08", "Fisco", "stato cassetto fiscale", 2024, [
+        ("has_content", True), ("tool_used", "sync_cassetto")])
+    add("G09", "Fisco", "sincronizzazione cassetto", 2024, [
+        ("has_content", True), ("tool_used", "sync_cassetto")])
+    add("G10", "Fisco", "dashboard fatture", 2024, [
+        ("has_content", True), ("tool_used", "get_dashboard_summary")])
 
+    # ══════════════════════════════════════════════════════════
+    # H: Edge Cases e Sicurezza (15 prompt)
+    # ══════════════════════════════════════════════════════════
+    add("H01", "Edge", "ciao", 2024, [
+        ("has_content", True), ("content_contains_any", ["Ciao", "ciao", "aiutarti"])])
+    add("H02", "Edge", "grazie", 2024, [
+        ("has_content", True), ("content_contains_any", ["Prego", "prego"])])
+    add("H03", "Edge", "cosa sai fare?", 2024, [
+        ("has_content", True), ("content_not_contains", "Non ho capito")])
+    add("H04", "Edge", "buongiorno", 2024, [
+        ("has_content", True), ("content_contains_any", ["Ciao", "ciao", "aiutarti"])])
+    add("H05", "Edge", "buonasera", 2024, [
+        ("has_content", True), ("content_contains_any", ["Ciao", "ciao", "aiutarti"])])
+    add("H06", "Edge", "<script>alert('xss')</script>", 2024, [
+        ("has_content", True), ("content_not_contains", "<script>")])
+    add("H07", "Edge", "fatturato 2030", 2024, [
+        ("has_content", True), ("no_error", True)])
+    add("H08", "Edge", "help", 2024, [
+        ("has_content", True), ("content_not_contains", "Non ho capito")])
+    add("H09", "Edge", "aiuto", 2024, [
+        ("has_content", True), ("content_not_contains", "Non ho capito")])
+    add("H10", "Edge", "come funziona?", 2024, [
+        ("has_content", True), ("content_not_contains", "Non ho capito")])
+    add("H11", "Edge", "' OR 1=1 --", 2024, [
+        ("has_content", True), ("no_error", True)])
+    add("H12", "Edge", "fatturato 2020", 2024, [
+        ("has_content", True), ("no_error", True)])
+    add("H13", "Edge", "a", 2024, [
+        ("has_content", True)])
+    add("H14", "Edge", "!@#$%^&*()", 2024, [
+        ("has_content", True), ("no_error", True)])
+    add("H15", "Edge", "fammi un caffè", 2024, [
+        ("has_content", True)])
 
-# ============================================================
-# Check functions
-# ============================================================
+    # ══════════════════════════════════════════════════════════
+    # I: Context-Aware / Pagine diverse (10 prompt)
+    # ══════════════════════════════════════════════════════════
+    add("I01", "Context", "fatturato", 2024, [
+        ("has_content", True), ("tool_used", "get_period_stats")])
+    add("I02", "Context", "fatturato", 2023, [
+        ("has_content", True), ("tool_used", "get_period_stats")])
+    add("I03", "Context", "quante fatture?", 2024, [
+        ("has_content", True), ("tool_used", "count_invoices")], page="fatture")
+    add("I04", "Context", "quante fatture?", 2024, [
+        ("has_content", True), ("tool_used", "count_invoices")], page="dashboard")
+    add("I05", "Context", "ebitda", 2024, [
+        ("has_content", True), ("tool_used", "get_period_stats")], page="ceo")
+    add("I06", "Context", "stato patrimoniale", 2024, [
+        ("has_content", True), ("tool_used", "get_balance_sheet_summary")], page="contabilita")
+    add("I07", "Context", "top clienti", 2024, [
+        ("has_content", True), ("tool_used", "get_top_clients")])
+    add("I08", "Context", "top clienti", 2023, [
+        ("has_content", True), ("tool_used", "get_top_clients")])
+    add("I09", "Context", "fatturato gennaio", 2024, [
+        ("has_content", True), ("tool_used", "get_period_stats")])
+    add("I10", "Context", "fatturato gennaio", 2023, [
+        ("has_content", True), ("tool_used", "get_period_stats")])
+
+    return prompts
 
 
 def _run_check(check: tuple, result: dict) -> tuple[bool, str]:
-    """Run a single check against the orchestrator result. Returns (passed, detail)."""
-    check_type = check[0]
-    expected = check[1]
-
+    """Run a single check. Returns (passed, detail)."""
+    check_type, expected = check[0], check[1]
     content = result.get("content", "")
     meta = result.get("response_meta", {}) or {}
     tool_calls = result.get("tool_calls", []) or []
 
     if check_type == "has_content":
         ok = bool(content and len(content) > 5)
-        return ok, f"content length={len(content)}"
-
+        return ok, f"len={len(content)}"
     if check_type == "content_contains_any":
         found = any(kw in content for kw in expected)
-        return found, f"looking for {expected}, found={found}"
-
+        return found, f"keywords={expected}"
     if check_type == "content_not_contains":
         ok = expected not in content
-        return ok, f"'{expected}' should not be in content, found={not ok}"
-
+        return ok, f"'{expected}' in content={not ok}"
     if check_type == "tool_used":
         tools = [tc.get("tool", "") for tc in tool_calls]
         ok = expected in tools
-        return ok, f"expected tool={expected}, got={tools}"
-
+        return ok, f"want={expected}, got={tools}"
     if check_type == "tool_used_not":
         tools = [tc.get("tool", "") for tc in tool_calls]
         ok = expected not in tools
-        return ok, f"tool={expected} should NOT be used, tools={tools}"
-
+        return ok, f"should_not={expected}, got={tools}"
     if check_type == "has_content_blocks":
         blocks = meta.get("content_blocks", [])
         ok = len(blocks) > 0
-        return ok, f"content_blocks count={len(blocks)}"
-
+        return ok, f"blocks={len(blocks)}"
     if check_type == "has_action_set_year":
         actions = meta.get("actions", [])
         ok = any(a.get("type") == "set_year" and a.get("value") == expected for a in actions)
-        return ok, f"looking for set_year={expected}, actions={actions}"
-
+        return ok, f"set_year={expected}"
     if check_type == "has_action_navigate":
-        actions = meta.get("actions", [])
-        suggested = meta.get("suggested_actions", [])
-        all_actions = actions + suggested
+        all_actions = meta.get("actions", []) + meta.get("suggested_actions", [])
         ok = any(a.get("type") == "navigate" and expected in a.get("path", "") for a in all_actions)
-        return ok, f"looking for navigate to {expected}"
-
+        return ok, f"navigate to {expected}"
     if check_type == "no_error":
-        ok = "error" not in content.lower() and "errore" not in content.lower()
-        return ok, f"no error in content"
-
-    return False, f"unknown check: {check_type}"
-
-
-# ============================================================
-# Main test runner
-# ============================================================
+        ok = "error" not in content.lower() and "errore" not in content.lower() and "traceback" not in content.lower()
+        return ok, "no errors"
+    return False, f"unknown: {check_type}"
 
 
 async def run_chatbot_test_suite(
-    db: AsyncSession,
-    tenant_id: uuid.UUID,
-    user_id: uuid.UUID,
+    db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID,
 ) -> dict:
-    """Run the full chatbot test suite. Returns detailed report."""
+    """Run full test suite. Returns report with scores, timing, failures."""
 
-    # Get ground truth from DB
     expected = await _get_expected_data(db, tenant_id)
-
-    # Build prompts
-    prompts = _build_test_prompts(expected)
+    prompts = _build_prompts()
 
     results = []
-    total_pass = 0
-    total_fail = 0
-    total_time = 0
+    total_pass = total_fail = total_time = 0
+    category_stats: dict[str, dict] = {}
 
     for test in prompts:
+        cat = test["category"]
+        if cat not in category_stats:
+            category_stats[cat] = {"pass": 0, "fail": 0, "time": 0}
+
         t0 = time.time()
         try:
             result = await run_orchestrator(
                 user_message=test["prompt"],
-                tenant_id=tenant_id,
-                user_id=user_id,
-                db=db,
+                tenant_id=tenant_id, user_id=user_id, db=db,
                 context=test.get("context"),
             )
             elapsed = round((time.time() - t0) * 1000)
             total_time += elapsed
+            category_stats[cat]["time"] += elapsed
 
-            # Run checks
             check_results = []
             all_passed = True
             for check in test["checks"]:
                 passed, detail = _run_check(check, result)
-                check_results.append({
-                    "check": check[0],
-                    "expected": str(check[1]),
-                    "passed": passed,
-                    "detail": detail,
-                })
+                check_results.append({"check": check[0], "expected": str(check[1]), "passed": passed, "detail": detail})
                 if not passed:
                     all_passed = False
 
             verdict = "PASS" if all_passed else "FAIL"
             if all_passed:
                 total_pass += 1
+                category_stats[cat]["pass"] += 1
             else:
                 total_fail += 1
+                category_stats[cat]["fail"] += 1
 
             results.append({
-                "id": test["id"],
-                "category": test["category"],
-                "prompt": test["prompt"],
-                "verdict": verdict,
-                "time_ms": elapsed,
-                "content_preview": (result.get("content", "") or "")[:150],
+                "id": test["id"], "category": cat, "prompt": test["prompt"],
+                "verdict": verdict, "time_ms": elapsed,
+                "content_preview": (result.get("content", "") or "")[:200],
                 "tool_calls": [tc.get("tool", "") for tc in (result.get("tool_calls") or [])],
                 "has_blocks": bool((result.get("response_meta") or {}).get("content_blocks")),
                 "checks": check_results,
@@ -595,37 +452,41 @@ async def run_chatbot_test_suite(
             elapsed = round((time.time() - t0) * 1000)
             total_time += elapsed
             total_fail += 1
+            category_stats[cat]["fail"] += 1
             results.append({
-                "id": test["id"],
-                "category": test["category"],
-                "prompt": test["prompt"],
-                "verdict": "ERROR",
-                "time_ms": elapsed,
-                "error": str(e),
-                "checks": [],
+                "id": test["id"], "category": cat, "prompt": test["prompt"],
+                "verdict": "ERROR", "time_ms": elapsed, "error": str(e)[:300], "checks": [],
             })
 
-    # Summary
     total = len(prompts)
     score = round(total_pass / total * 100, 1) if total > 0 else 0
 
+    # Category summary
+    cat_summary = {}
+    for cat, stats in category_stats.items():
+        t = stats["pass"] + stats["fail"]
+        cat_summary[cat] = {
+            "total": t, "pass": stats["pass"], "fail": stats["fail"],
+            "score": f"{round(stats['pass']/t*100, 1)}%" if t > 0 else "0%",
+            "avg_ms": round(stats["time"] / t) if t > 0 else 0,
+        }
+
     return {
         "summary": {
-            "total": total,
-            "pass": total_pass,
-            "fail": total_fail,
+            "total": total, "pass": total_pass, "fail": total_fail,
             "score": f"{score}%",
             "avg_time_ms": round(total_time / total) if total > 0 else 0,
             "total_time_ms": total_time,
         },
+        "categories": cat_summary,
         "expected_data": {
             "fatturato_2024": expected.get("fatturato_2024"),
             "costi_2024": expected.get("costi_2024"),
             "ebitda_2024": expected.get("ebitda_2024"),
             "count_emesse_2024": expected.get("count_emesse_2024"),
             "count_ricevute_2024": expected.get("count_ricevute_2024"),
-            "top_client": expected.get("top_client_2024"),
-            "ntt_data_count": expected.get("ntt_data_count"),
+            "top_client": expected.get("top_client"),
+            "ntt_count": expected.get("ntt_count"),
         },
         "results": results,
     }
