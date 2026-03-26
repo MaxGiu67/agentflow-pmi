@@ -376,17 +376,31 @@ class CEOService:
         self, tenant_id: uuid.UUID, year: int,
     ) -> float:
         """Calculate YTD revenue from active invoices."""
-        from sqlalchemy import extract, func
-        # Use SQL-level year filter instead of Python-level
-        result = await self.db.execute(
-            select(func.coalesce(func.sum(Invoice.importo_totale), 0)).where(
+        from sqlalchemy import extract, func, text
+        # Debug: count all attive for this tenant
+        count_res = await self.db.execute(
+            select(func.count(Invoice.id)).where(
                 Invoice.tenant_id == tenant_id,
                 Invoice.type == "attiva",
-                Invoice.data_fattura.isnot(None),
-                extract("year", Invoice.data_fattura) == year,
             )
         )
-        total = result.scalar() or 0
+        total_attive = count_res.scalar() or 0
+        logger.info("CEO DEBUG: tenant=%s year=%s total_attive=%d", tenant_id, year, total_attive)
+
+        # Use raw SQL for reliability
+        raw = await self.db.execute(
+            text("""
+                SELECT COALESCE(SUM(importo_totale), 0)
+                FROM invoices
+                WHERE tenant_id = :tid
+                AND type = 'attiva'
+                AND data_fattura IS NOT NULL
+                AND EXTRACT(YEAR FROM data_fattura) = :yr
+            """),
+            {"tid": str(tenant_id), "yr": year}
+        )
+        total = raw.scalar() or 0
+        logger.info("CEO DEBUG: fatturato_ytd raw SQL = %.2f", float(total))
         return round(float(total), 2)
 
     async def _calc_costi_ytd(
