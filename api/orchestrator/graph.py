@@ -177,14 +177,16 @@ def keyword_route(message: str) -> list[dict]:
             args["month_end"] = time_params["month_num"]
         return [{"tool": "get_period_stats", "args": args}]
 
-    # Top clients/suppliers (Bug 4: added singular forms)
+    # Top clients/suppliers (Bug 4: singular forms + "top N clienti" with number)
     top_keywords = [
         "top client", "top fornit", "classifica client", "classifica fornit",
         "migliori client", "miglior client", "migliore client",
         "principal client", "miglior fornit", "migliore fornit",
         "principal fornit",
     ]
-    if any(kw in msg_lower for kw in top_keywords):
+    has_top_regex = bool(_re.search(r'\btop\s+\d*\s*client', msg_lower)) or \
+                    bool(_re.search(r'\btop\s+\d*\s*fornit', msg_lower))
+    if any(kw in msg_lower for kw in top_keywords) or has_top_regex:
         args = {}
         if time_params.get("year"):
             args["year"] = time_params["year"]
@@ -225,14 +227,15 @@ def keyword_route(message: str) -> list[dict]:
             return [{"tool": "list_invoices", "args": args}]
         return [{"tool": "count_invoices", "args": args}]
 
+    # Alerts/overdue BEFORE generic deadlines (so "scadenze in ritardo" goes to alerts)
+    if any(kw in msg_lower for kw in ["alert", "ritardo", "scadut", "overdue"]):
+        return [{"tool": "get_fiscal_alerts", "args": {}}]
+
     if any(kw in msg_lower for kw in ["scadenz", "deadline"]):
         return [{"tool": "get_deadlines", "args": {}}]
 
     if any(kw in msg_lower for kw in ["dashboard"]):
         return [{"tool": "get_dashboard_summary", "args": {}}]
-
-    if any(kw in msg_lower for kw in ["alert", "ritardo", "scadut"]):
-        return [{"tool": "get_fiscal_alerts", "args": {}}]
 
     if any(kw in msg_lower for kw in ["prima nota", "registrazi", "journal"]):
         return [{"tool": "get_journal_entries", "args": {}}]
