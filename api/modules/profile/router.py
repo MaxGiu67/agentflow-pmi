@@ -5,6 +5,8 @@ from api.db.models import User
 from api.db.session import get_db
 from api.middleware.auth import get_current_user
 from api.modules.profile.schemas import (
+    InvoiceSettingsRequest,
+    InvoiceSettingsResponse,
     ProfileChangeWarning,
     ProfileResponse,
     ProfileUpdateRequest,
@@ -64,3 +66,35 @@ async def update_profile(
         ) from e
 
     return ProfileResponse(**data)
+
+
+# ── Impostazioni Fatturazione (US-42) ──
+
+
+@router.get("/invoice-settings", response_model=InvoiceSettingsResponse)
+async def get_invoice_settings(
+    user: User = Depends(get_current_user),
+    service: ProfileService = Depends(get_profile_service),
+) -> InvoiceSettingsResponse:
+    """Get invoice settings (IBAN, sede, regime fiscale SDI, pagamento)."""
+    try:
+        data = await service.get_invoice_settings(user)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    return InvoiceSettingsResponse(**data)
+
+
+@router.patch("/invoice-settings", response_model=InvoiceSettingsResponse)
+async def update_invoice_settings(
+    request: InvoiceSettingsRequest,
+    user: User = Depends(get_current_user),
+    service: ProfileService = Depends(get_profile_service),
+) -> InvoiceSettingsResponse:
+    """Update invoice settings. Only provided fields are updated."""
+    try:
+        data = await service.update_invoice_settings(
+            user, request.model_dump(exclude_none=True),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    return InvoiceSettingsResponse(**data)

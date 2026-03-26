@@ -131,3 +131,73 @@ class ProfileService:
             "requires_confirmation": True,
             "affected_areas": ["piano_dei_conti", "scritture_contabili"],
         }
+
+    # ── Impostazioni Fatturazione (US-42) ──
+
+    async def get_invoice_settings(self, user: User) -> dict:
+        """Get invoice settings from tenant."""
+        if not user.tenant_id:
+            raise ValueError("Profilo azienda non configurato")
+
+        result = await self.db.execute(select(Tenant).where(Tenant.id == user.tenant_id))
+        tenant = result.scalar_one_or_none()
+        if not tenant:
+            raise ValueError("Tenant non trovato")
+
+        return {
+            "name": tenant.name,
+            "piva": tenant.piva,
+            "codice_fiscale": tenant.codice_fiscale,
+            "regime_fiscale_sdi": tenant.regime_fiscale_sdi,
+            "sede_indirizzo": tenant.sede_indirizzo,
+            "sede_numero_civico": tenant.sede_numero_civico,
+            "sede_cap": tenant.sede_cap,
+            "sede_comune": tenant.sede_comune,
+            "sede_provincia": tenant.sede_provincia,
+            "sede_nazione": tenant.sede_nazione,
+            "iban": tenant.iban,
+            "banca_nome": tenant.banca_nome,
+            "bic": tenant.bic,
+            "modalita_pagamento": tenant.modalita_pagamento,
+            "condizioni_pagamento": tenant.condizioni_pagamento,
+            "giorni_pagamento": tenant.giorni_pagamento,
+            "rea_ufficio": tenant.rea_ufficio,
+            "rea_numero": tenant.rea_numero,
+            "rea_capitale_sociale": tenant.rea_capitale_sociale,
+            "rea_socio_unico": tenant.rea_socio_unico,
+            "rea_stato_liquidazione": tenant.rea_stato_liquidazione,
+            "telefono": tenant.telefono,
+            "email_aziendale": tenant.email_aziendale,
+            "pec": tenant.pec,
+        }
+
+    async def update_invoice_settings(self, user: User, data: dict) -> dict:
+        """Update invoice settings in tenant. Only non-None fields are updated."""
+        if not user.tenant_id:
+            raise ValueError("Profilo azienda non configurato")
+
+        result = await self.db.execute(select(Tenant).where(Tenant.id == user.tenant_id))
+        tenant = result.scalar_one_or_none()
+        if not tenant:
+            raise ValueError("Tenant non trovato")
+
+        # Update only provided fields
+        settable_fields = [
+            "codice_fiscale", "regime_fiscale_sdi",
+            "sede_indirizzo", "sede_numero_civico", "sede_cap",
+            "sede_comune", "sede_provincia", "sede_nazione",
+            "iban", "banca_nome", "bic",
+            "modalita_pagamento", "condizioni_pagamento", "giorni_pagamento",
+            "rea_ufficio", "rea_numero", "rea_capitale_sociale",
+            "rea_socio_unico", "rea_stato_liquidazione",
+            "telefono", "email_aziendale", "pec",
+        ]
+
+        for field in settable_fields:
+            value = data.get(field)
+            if value is not None:
+                setattr(tenant, field, value)
+
+        await self.db.flush()
+        logger.info("Invoice settings updated for tenant %s", tenant.id)
+        return await self.get_invoice_settings(user)

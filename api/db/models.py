@@ -19,8 +19,41 @@ class Tenant(Base):
     regime_fiscale: Mapped[str] = mapped_column(String(50), nullable=False)  # forfettario, semplificato, ordinario
     codice_ateco: Mapped[str | None] = mapped_column(String(10))
     piva: Mapped[str | None] = mapped_column(String(11), unique=True)
+    codice_fiscale: Mapped[str | None] = mapped_column(String(16))
     odoo_db_name: Mapped[str | None] = mapped_column(String(100))
     subscription_tier: Mapped[str] = mapped_column(String(20), default="starter")
+
+    # Fatturazione — Sede (US-42)
+    sede_indirizzo: Mapped[str | None] = mapped_column(String(255))
+    sede_numero_civico: Mapped[str | None] = mapped_column(String(10))
+    sede_cap: Mapped[str | None] = mapped_column(String(5))
+    sede_comune: Mapped[str | None] = mapped_column(String(100))
+    sede_provincia: Mapped[str | None] = mapped_column(String(2))
+    sede_nazione: Mapped[str | None] = mapped_column(String(2), default="IT")
+
+    # Fatturazione — Regime fiscale SDI (RF01-RF19)
+    regime_fiscale_sdi: Mapped[str | None] = mapped_column(String(4), default="RF01")
+
+    # Fatturazione — Pagamento (US-42)
+    iban: Mapped[str | None] = mapped_column(String(34))
+    banca_nome: Mapped[str | None] = mapped_column(String(100))
+    bic: Mapped[str | None] = mapped_column(String(11))
+    modalita_pagamento: Mapped[str | None] = mapped_column(String(4), default="MP05")  # MP01-MP23
+    condizioni_pagamento: Mapped[str | None] = mapped_column(String(4), default="TP02")  # TP01-TP03
+    giorni_pagamento: Mapped[int | None] = mapped_column(Integer, default=30)
+
+    # Fatturazione — REA (opzionale, per società)
+    rea_ufficio: Mapped[str | None] = mapped_column(String(2))
+    rea_numero: Mapped[str | None] = mapped_column(String(20))
+    rea_capitale_sociale: Mapped[float | None] = mapped_column(Float)
+    rea_socio_unico: Mapped[str | None] = mapped_column(String(2))  # SU/SM
+    rea_stato_liquidazione: Mapped[str | None] = mapped_column(String(2), default="LN")  # LN/LS
+
+    # Contatti
+    telefono: Mapped[str | None] = mapped_column(String(20))
+    email_aziendale: Mapped[str | None] = mapped_column(String(255))
+    pec: Mapped[str | None] = mapped_column(String(255))
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
