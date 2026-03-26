@@ -57,7 +57,7 @@ function BarChartBlock({ block }: { block: ContentBlock }) {
           <XAxis dataKey="label" tick={{ fontSize: 10 }} />
           <YAxis tick={{ fontSize: 10 }} tickFormatter={(v: number) => `€${(v / 1000).toFixed(0)}k`} />
           <Tooltip
-            formatter={(value: number) => formatCurrency(value)}
+            formatter={(value) => formatCurrency(Number(value ?? 0))}
             labelStyle={{ fontSize: 12 }}
           />
           <Legend wrapperStyle={{ fontSize: 10 }} />
