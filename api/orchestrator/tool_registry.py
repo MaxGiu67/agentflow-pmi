@@ -149,28 +149,8 @@ async def list_invoices_handler(
     return {"items": items, "count": len(items)}
 
 
-async def get_invoice_detail_handler(
-    db: AsyncSession, tenant_id: uuid.UUID, **kwargs: object
-) -> dict:
-    """Get a single invoice detail by ID."""
-    invoice_id = kwargs.get("invoice_id")
-    if not invoice_id:
-        return {"error": "invoice_id richiesto"}
-
-    try:
-        uid = uuid.UUID(str(invoice_id))
-    except ValueError:
-        return {"error": "invoice_id non valido"}
-
-    result = await db.execute(
-        select(Invoice).where(
-            and_(Invoice.id == uid, Invoice.tenant_id == tenant_id)
-        )
-    )
-    inv = result.scalar_one_or_none()
-    if not inv:
-        return {"error": "Fattura non trovata"}
-
+def _format_invoice(inv: object) -> dict:
+    """Format an Invoice model instance into a response dict."""
     return {
         "id": str(inv.id),
         "numero": inv.numero_fattura,
@@ -184,6 +164,57 @@ async def get_invoice_detail_handler(
         "category": inv.category,
         "status": inv.processing_status,
     }
+
+
+async def get_invoice_detail_handler(
+    db: AsyncSession, tenant_id: uuid.UUID, **kwargs: object
+) -> dict:
+    """Get a single invoice detail by ID or numero_fattura."""
+    invoice_id = kwargs.get("invoice_id", "")
+    if not invoice_id:
+        return {"error": "invoice_id richiesto"}
+
+    # Try by UUID first
+    try:
+        uid = uuid.UUID(str(invoice_id))
+        result = await db.execute(
+            select(Invoice).where(
+                and_(Invoice.id == uid, Invoice.tenant_id == tenant_id)
+            )
+        )
+        inv = result.scalar_one_or_none()
+        if inv:
+            return _format_invoice(inv)
+    except (ValueError, AttributeError):
+        pass
+
+    # Try by numero_fattura (exact match)
+    result = await db.execute(
+        select(Invoice).where(
+            and_(
+                Invoice.numero_fattura == str(invoice_id),
+                Invoice.tenant_id == tenant_id,
+            )
+        )
+    )
+    inv = result.scalar_one_or_none()
+    if inv:
+        return _format_invoice(inv)
+
+    # Try partial match
+    result = await db.execute(
+        select(Invoice).where(
+            and_(
+                Invoice.numero_fattura.ilike(f"%{invoice_id}%"),
+                Invoice.tenant_id == tenant_id,
+            )
+        ).limit(1)
+    )
+    inv = result.scalar_one_or_none()
+    if inv:
+        return _format_invoice(inv)
+
+    return {"error": f"Fattura '{invoice_id}' non trovata"}
 
 
 async def get_dashboard_summary_handler(
@@ -637,11 +668,11 @@ TOOLS: list[dict] = [
     },
     {
         "name": "get_invoice_detail",
-        "description": "Ottieni i dettagli di una fattura specifica dato il suo ID",
+        "description": "Mostra i dettagli di una fattura specifica. Accetta ID fattura o numero fattura (es. '1/7', 'AQ01809969').",
         "parameters": {
             "type": "object",
             "properties": {
-                "invoice_id": {"type": "string", "description": "UUID della fattura"},
+                "invoice_id": {"type": "string", "description": "UUID o numero fattura (es. '1/7', 'AQ01809969')"},
             },
             "required": ["invoice_id"],
         },

@@ -47,6 +47,18 @@ from api.db.session import engine
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Seed fiscal rules if empty
+    from api.modules.fiscal.seed_rules import seed_fiscal_rules
+    from api.db.session import async_session_factory
+    async with async_session_factory() as session:
+        try:
+            await seed_fiscal_rules(session)
+            await session.commit()
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Seed rules failed: %s", e)
+
     yield
 
 

@@ -8,7 +8,6 @@ from sqlalchemy import select, func as sa_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import (
-    ActiveInvoice,
     Budget,
     Expense,
     FiscalDeadline,
@@ -361,8 +360,9 @@ class CEOService:
     ) -> float:
         """Calculate monthly revenue from active invoices."""
         result = await self.db.execute(
-            select(ActiveInvoice).where(
-                ActiveInvoice.tenant_id == tenant_id,
+            select(Invoice).where(
+                Invoice.tenant_id == tenant_id,
+                Invoice.type == "attiva",
             )
         )
         invoices = result.scalars().all()
@@ -377,8 +377,9 @@ class CEOService:
     ) -> float:
         """Calculate YTD revenue from active invoices."""
         result = await self.db.execute(
-            select(ActiveInvoice).where(
-                ActiveInvoice.tenant_id == tenant_id,
+            select(Invoice).where(
+                Invoice.tenant_id == tenant_id,
+                Invoice.type == "attiva",
             )
         )
         invoices = result.scalars().all()
@@ -422,24 +423,27 @@ class CEOService:
     ) -> list[dict]:
         """Get top clients by revenue."""
         result = await self.db.execute(
-            select(ActiveInvoice).where(
-                ActiveInvoice.tenant_id == tenant_id,
+            select(Invoice).where(
+                Invoice.tenant_id == tenant_id,
+                Invoice.type == "attiva",
             )
         )
         invoices = result.scalars().all()
 
         client_totals: dict[str, dict] = {}
         for inv in invoices:
-            if inv.data_fattura and inv.data_fattura.year != year:
+            if not inv.data_fattura or inv.data_fattura.year != year:
                 continue
-            key = inv.cliente_piva
+            sd = inv.structured_data or {}
+            key = sd.get("destinatario_piva") or inv.emittente_piva
+            name = sd.get("destinatario_nome") or inv.emittente_nome or key
             if key not in client_totals:
                 client_totals[key] = {
-                    "name": inv.cliente_nome,
-                    "piva": inv.cliente_piva,
+                    "name": name,
+                    "piva": key,
                     "total": 0.0,
                 }
-            client_totals[key]["total"] += inv.importo_totale
+            client_totals[key]["total"] += (inv.importo_totale or 0.0)
 
         sorted_clients = sorted(
             client_totals.values(), key=lambda x: x["total"], reverse=True,
@@ -485,8 +489,9 @@ class CEOService:
     async def _months_with_data(self, tenant_id: uuid.UUID, year: int) -> int:
         """Count months with any active invoice data."""
         result = await self.db.execute(
-            select(ActiveInvoice).where(
-                ActiveInvoice.tenant_id == tenant_id,
+            select(Invoice).where(
+                Invoice.tenant_id == tenant_id,
+                Invoice.type == "attiva",
             )
         )
         invoices = result.scalars().all()
@@ -507,9 +512,10 @@ class CEOService:
 
         # Outstanding receivables (unpaid active invoices)
         result = await self.db.execute(
-            select(ActiveInvoice).where(
-                ActiveInvoice.tenant_id == tenant_id,
-                ActiveInvoice.sdi_status.in_(["draft", "sent"]),
+            select(Invoice).where(
+                Invoice.tenant_id == tenant_id,
+                Invoice.type == "attiva",
+                Invoice.processing_status.in_(["pending", "parsed", "categorized"]),
             )
         )
         unpaid = result.scalars().all()
@@ -560,8 +566,9 @@ class CEOService:
             # Simplified: use same formula but for quarter window
             quarter_months = list(range((q - 1) * 3 + 1, q * 3 + 1))
             result = await self.db.execute(
-                select(ActiveInvoice).where(
-                    ActiveInvoice.tenant_id == tenant_id,
+                select(Invoice).where(
+                    Invoice.tenant_id == tenant_id,
+                    Invoice.type == "attiva",
                 )
             )
             invoices = result.scalars().all()
