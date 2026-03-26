@@ -724,3 +724,23 @@ class ConversationMemory(Base):
     memory_type: Mapped[str] = mapped_column(String(30), default="preference")  # preference, fact, context
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class PayrollCost(Base):
+    """Monthly payroll/personnel costs (US-44)."""
+    __tablename__ = "payroll_costs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    mese: Mapped[date] = mapped_column(Date, nullable=False)  # first day of month (2024-01-01)
+    dipendente_nome: Mapped[str] = mapped_column(String(255), nullable=False)
+    dipendente_cf: Mapped[str | None] = mapped_column(String(16))
+    importo_lordo: Mapped[float] = mapped_column(Float, nullable=False)
+    importo_netto: Mapped[float | None] = mapped_column(Float)
+    contributi_inps: Mapped[float | None] = mapped_column(Float)
+    irpef: Mapped[float | None] = mapped_column(Float)
+    tfr: Mapped[float | None] = mapped_column(Float)
+    costo_totale_azienda: Mapped[float] = mapped_column(Float, nullable=False)  # lordo + contributi azienda
+    note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
