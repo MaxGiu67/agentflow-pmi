@@ -385,7 +385,6 @@ class CEOService:
             )
         )
         total_attive = count_res.scalar() or 0
-        print(f"CEO DEBUG: tenant={tenant_id} year={year} total_attive={total_attive}", flush=True)
 
         # Use raw SQL for reliability
         raw = await self.db.execute(
@@ -400,7 +399,6 @@ class CEOService:
             {"tid": str(tenant_id), "yr": year}
         )
         total = raw.scalar() or 0
-        print(f"CEO DEBUG: fatturato_ytd raw SQL = {float(total):.2f}", flush=True)
         return round(float(total), 2)
 
     async def _calc_costi_ytd(
