@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import User
@@ -81,3 +81,147 @@ async def delete_payroll_cost(
         return await service.delete(user.tenant_id, cost_id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+
+@router.post("/import-pdf")
+async def import_payroll_pdf(
+    file: UploadFile = File(...),
+    create_journal: bool = Query(False, description="Crea scritture in partita doppia"),
+    user: User = Depends(get_current_user),
+    service: PayrollService = Depends(get_service),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Import a Riepilogo Paghe e Contributi PDF.
+
+    Parses the PDF, extracts payroll data, and optionally creates
+    journal entries in partita doppia.
+    """
+    if not user.tenant_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Profilo azienda non configurato")
+
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Solo file PDF accettati")
+
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File troppo grande (max 10MB)")
+
+    # Extract text from PDF
+    import subprocess
+    import tempfile
+    import os
+
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    try:
+        # Try pdftotext first (poppler)
+        try:
+            result = subprocess.run(
+                ["pdftotext", "-layout", tmp_path, "-"],
+                capture_output=True, text=True, timeout=30,
+            )
+            text = result.stdout
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            # Fallback: basic Python PDF text extraction
+            text = _extract_text_basic(content)
+
+        if not text or len(text) < 100:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Impossibile estrarre testo dal PDF. Verificare il formato.",
+            )
+
+        # Parse payroll data
+        from api.modules.payroll.pdf_parser import parse_payroll_text, payroll_to_journal_lines
+        summary = parse_payroll_text(text)
+
+        if summary.mese == 0:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Mese non trovato nel PDF. Verificare formato 'Riepilogo Paghe e Contributi'.",
+            )
+
+        # Create PayrollCost aggregate entry
+        from datetime import date as date_type
+        mese_date = date_type(summary.anno, summary.mese, 1)
+
+        payroll_data = {
+            "mese": mese_date,
+            "dipendente_nome": "Riepilogo aziendale",
+            "importo_lordo": summary.salari_stipendi,
+            "importo_netto": summary.netto_in_busta,
+            "contributi_inps": summary.saldo_dm10,
+            "irpef": summary.irpef,
+            "tfr": summary.tfr,
+            "costo_totale_azienda": summary.totale_dare,
+            "note": f"Import da PDF: {file.filename}",
+        }
+        entry = await service.create(user.tenant_id, payroll_data)
+
+        # Optionally create journal entries
+        journal_result = None
+        if create_journal:
+            journal_lines = payroll_to_journal_lines(summary)
+            if journal_lines:
+                from api.db.models import JournalEntry, JournalLine
+                je = JournalEntry(
+                    tenant_id=user.tenant_id,
+                    description=f"Paghe e contributi {summary.mese:02d}/{summary.anno}",
+                    entry_date=mese_date,
+                    total_debit=round(summary.totale_dare, 2),
+                    total_credit=round(summary.totale_avere, 2),
+                    status="posted",
+                )
+                db.add(je)
+                await db.flush()
+
+                for jl in journal_lines:
+                    line = JournalLine(
+                        journal_entry_id=je.id,
+                        account_code=jl["account"],
+                        description=jl["description"][:255],
+                        debit=jl["debit"],
+                        credit=jl["credit"],
+                    )
+                    db.add(line)
+                await db.flush()
+
+                journal_result = {
+                    "journal_entry_id": str(je.id),
+                    "lines": len(journal_lines),
+                    "total_debit": round(summary.totale_dare, 2),
+                    "total_credit": round(summary.totale_avere, 2),
+                }
+
+        return {
+            "payroll_cost_id": str(entry["id"]),
+            "mese": f"{summary.mese:02d}/{summary.anno}",
+            "azienda": summary.azienda,
+            "salari_stipendi": summary.salari_stipendi,
+            "netto_in_busta": summary.netto_in_busta,
+            "contributi_inps": summary.saldo_dm10,
+            "irpef": summary.irpef,
+            "totale_dare": round(summary.totale_dare, 2),
+            "totale_avere": round(summary.totale_avere, 2),
+            "bilanciato": abs(summary.totale_dare - summary.totale_avere) < 0.10,
+            "linee_estratte": len(summary.linee),
+            "journal_entry": journal_result,
+            "message": f"Paghe {summary.mese:02d}/{summary.anno} importate: €{summary.totale_dare:,.2f}",
+        }
+    finally:
+        os.unlink(tmp_path)
+
+
+def _extract_text_basic(pdf_bytes: bytes) -> str:
+    """Basic PDF text extraction without external tools."""
+    # Simple extraction from PDF binary (works for text-based PDFs)
+    import re
+    text_parts = []
+    # Find text streams in PDF
+    content = pdf_bytes.decode("latin-1", errors="replace")
+    # Extract text between BT and ET markers
+    for match in re.finditer(r"\(([^)]+)\)", content):
+        text_parts.append(match.group(1))
+    return "\n".join(text_parts)
