@@ -110,28 +110,62 @@ def _extract_time_params(message: str) -> dict:
 
 def keyword_route(message: str) -> list[dict]:
     """Smart keyword-matching router with time extraction."""
+    import re as _re
     msg_lower = message.lower()
     time_params = _extract_time_params(message)
+
+    # --- Helper: extract search query from message (strips known keywords) ---
+    def _extract_query(msg: str) -> str | None:
+        """Remove known keywords/time refs and return remaining text as search query."""
+        noise = [
+            "fatture", "fattura", "invoice", "invoices", "emesse", "emessa",
+            "ricevute", "ricevuta", "elenco", "lista", "mostrami", "mostra",
+            "quante", "quanti", "numero", "cerca", "di", "del", "per", "il",
+            "la", "le", "lo", "un", "una", "nel", "nel", "da", "a",
+        ]
+        tokens = msg.lower().split()
+        # Remove known words, time refs, numbers
+        filtered = [
+            t for t in tokens
+            if t not in noise
+            and not _re.match(r'^20\d{2}$', t)
+            and t not in MONTH_NAMES
+        ]
+        query = " ".join(filtered).strip()
+        return query if len(query) >= 2 else None
+
+    # --- Type mapping ---
+    inv_type = None
+    if any(kw in msg_lower for kw in ["emess", "attiv"]):
+        inv_type = "attiva"
+    elif any(kw in msg_lower for kw in ["ricevut", "passiv"]):
+        inv_type = "passiva"
 
     # US-A10: Help / skill discovery (check first)
     help_keywords = ["cosa sai fare", "aiuto", "help", "cosa puoi", "come funziona", "cosa fai"]
     if any(k in msg_lower for k in help_keywords):
         return [{"tool": "direct_response", "args": {"message": get_skill_discovery_message()}}]
 
-    # US-A07: Multi-agent detection — broad questions
-    broad_keywords = ["come sta", "panoramica", "riepilogo", "situazione", "come vanno"]
+    # US-A07: Multi-agent detection — broad questions (Bug 6: added "come va", "come stiamo")
+    broad_keywords = [
+        "come sta", "come va", "come stiamo", "panoramica", "riepilogo",
+        "situazione", "come vanno", "stato azien",
+    ]
     if any(k in msg_lower for k in broad_keywords):
         args: dict = {}
         if time_params.get("year"):
             args["year"] = time_params["year"]
         return [
-            {"tool": "get_ceo_kpi", "args": {**args}},
-            {"tool": "get_dashboard_summary", "args": {}},
+            {"tool": "get_period_stats", "args": {**args}},
             {"tool": "get_deadlines", "args": {}},
         ]
 
-    # Period-specific KPI requests (ebitda Q1, fatturato gennaio, etc.)
-    if any(kw in msg_lower for kw in ["kpi", "ceo", "fatturato", "ebitda", "margine", "ricav", "cost"]):
+    # Period-specific KPI requests (Bug 10: added "guadagn", "utile", "profitt", "entrat", "uscit")
+    kpi_keywords = [
+        "kpi", "ceo", "fatturato", "ebitda", "margine", "ricav", "cost",
+        "guadagn", "utile", "profit", "entrat", "uscit",
+    ]
+    if any(kw in msg_lower for kw in kpi_keywords):
         args = {}
         if time_params.get("year"):
             args["year"] = time_params["year"]
@@ -143,8 +177,14 @@ def keyword_route(message: str) -> list[dict]:
             args["month_end"] = time_params["month_num"]
         return [{"tool": "get_period_stats", "args": args}]
 
-    # Top clients/suppliers
-    if any(kw in msg_lower for kw in ["top client", "top fornit", "classifica client", "classifica fornit", "migliori client"]):
+    # Top clients/suppliers (Bug 4: added singular forms)
+    top_keywords = [
+        "top client", "top fornit", "classifica client", "classifica fornit",
+        "migliori client", "miglior client", "migliore client",
+        "principal client", "miglior fornit", "migliore fornit",
+        "principal fornit",
+    ]
+    if any(kw in msg_lower for kw in top_keywords):
         args = {}
         if time_params.get("year"):
             args["year"] = time_params["year"]
@@ -152,23 +192,36 @@ def keyword_route(message: str) -> list[dict]:
             args["type"] = "passiva"
         else:
             args["type"] = "attiva"
-        # Extract limit
-        import re as _re
         limit_match = _re.search(r'\btop\s+(\d+)', msg_lower)
         if limit_match:
             args["limit"] = int(limit_match.group(1))
         return [{"tool": "get_top_clients", "args": args}]
 
-    # Invoice queries with time params
+    # Bug 7: Invoice detail by number — "fattura numero X", "fattura n. X", "fattura #X"
+    detail_match = _re.search(r'fattura\s+(?:numero|n\.?|#)\s*(.+)', msg_lower)
+    if detail_match:
+        invoice_ref = detail_match.group(1).strip()
+        return [{"tool": "get_invoice_detail", "args": {"invoice_id": invoice_ref}}]
+
+    # Invoice queries with time params + query extraction (Bug 2+3)
     if any(kw in msg_lower for kw in ["fattur", "invoice"]):
         args = {}
         if time_params.get("year"):
             args["year"] = time_params["year"]
         if time_params.get("month"):
             args["month"] = time_params["month"]
-        if any(kw in msg_lower for kw in ["quant", "cont", "numer"]):
+        if inv_type:
+            args["type"] = inv_type
+        # Bug 2: extract search query (e.g. "fatture NTT Data" → query="NTT Data")
+        search_query = _extract_query(message)
+        if search_query:
+            args["query"] = search_query
+        if any(kw in msg_lower for kw in ["quant", "cont"]):
             return [{"tool": "count_invoices", "args": args}]
         if any(kw in msg_lower for kw in ["elenc", "list", "mostr"]):
+            return [{"tool": "list_invoices", "args": args}]
+        # Default: if there's a search query, list; otherwise count
+        if search_query:
             return [{"tool": "list_invoices", "args": args}]
         return [{"tool": "count_invoices", "args": args}]
 
@@ -202,11 +255,13 @@ def keyword_route(message: str) -> list[dict]:
     if any(kw in msg_lower for kw in ["cassetto", "sync", "sincronizz"]):
         return [{"tool": "sync_cassetto", "args": {}}]
 
-    # Greetings / generic
-    if any(kw in msg_lower for kw in ["ciao", "buongiorno", "salve", "hello", "hey"]):
+    # Greetings (Bug 14: added buonasera, grazie)
+    if any(kw in msg_lower for kw in ["ciao", "buongiorno", "buonasera", "salve", "hello", "hey", "grazie"]):
+        if "grazie" in msg_lower:
+            return [{"tool": "direct_response", "args": {"message": "Prego! Se hai bisogno di altro, sono qui."}}]
         return [{"tool": "direct_response", "args": {"message": "Ciao! Come posso aiutarti con la contabilit\u00e0 oggi?"}}]
 
-    return [{"tool": "direct_response", "args": {"message": "Non ho capito la richiesta. Puoi riprovare specificando meglio cosa ti serve?"}}]
+    return [{"tool": "direct_response", "args": {"message": "Non ho capito la richiesta. Prova con: fatturato 2024, top 5 clienti, elenco fatture, scadenze."}}]
 
 
 def _has_api_key() -> bool:

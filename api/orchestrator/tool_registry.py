@@ -111,6 +111,19 @@ async def list_invoices_handler(
         except (ValueError, TypeError):
             pass
 
+    # Month filter (YYYY-MM format)
+    month_val = kwargs.get("month")
+    if month_val and isinstance(month_val, str) and "-" in month_val:
+        try:
+            parts = month_val.split("-")
+            y, m = int(parts[0]), int(parts[1])
+            conditions.append(Invoice.data_fattura >= date(y, m, 1))
+            next_m = m + 1 if m < 12 else 1
+            next_y = y if m < 12 else y + 1
+            conditions.append(Invoice.data_fattura < date(next_y, next_m, 1))
+        except (ValueError, TypeError, IndexError):
+            pass
+
     # Search query — search in emittente_nome, numero_fattura, and destinatario_nome
     query = kwargs.get("query")
     if query and isinstance(query, str):
@@ -129,7 +142,7 @@ async def list_invoices_handler(
     result = await db.execute(
         select(Invoice)
         .where(and_(*conditions))
-        .order_by(Invoice.created_at.desc())
+        .order_by(Invoice.data_fattura.desc().nulls_last())
         .limit(limit)
     )
     invoices = result.scalars().all()
@@ -146,7 +159,27 @@ async def list_invoices_handler(
         }
         for inv in invoices
     ]
-    return {"items": items, "count": len(items)}
+
+    # Content blocks for rich rendering
+    content_blocks = []
+    if items:
+        content_blocks.append({
+            "type": "table",
+            "title": f"Fatture ({len(items)} risultati)",
+            "columns": ["Data", "Numero", "Controparte", "Tipo", "Importo"],
+            "rows": [
+                [
+                    it.get("data", "-") or "-",
+                    it.get("numero", "-") or "-",
+                    it.get("destinatario") or it.get("emittente") or "-",
+                    "Emessa" if it.get("type") == "attiva" else "Ricevuta",
+                    f"\u20ac{(it.get('importo_totale') or 0):,.2f}",
+                ]
+                for it in items[:20]
+            ],
+        })
+
+    return {"items": items, "count": len(items), "content_blocks": content_blocks}
 
 
 def _format_invoice(inv: object) -> dict:
