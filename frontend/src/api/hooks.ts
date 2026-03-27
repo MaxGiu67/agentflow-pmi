@@ -700,18 +700,6 @@ export function useImportPayrollPdf() {
   })
 }
 
-export function usePreviewPayrollPdf() {
-  return useMutation({
-    mutationFn: (file: File) => {
-      const formData = new FormData()
-      formData.append('file', file)
-      return api.post('/payroll/preview-pdf', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      }).then((r) => r.data)
-    },
-  })
-}
-
 export function useDeletePayrollCost() {
   const qc = useQueryClient()
   return useMutation({
@@ -719,6 +707,24 @@ export function useDeletePayrollCost() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['payroll'] })
       qc.invalidateQueries({ queryKey: ['payroll-summary'] })
+    },
+  })
+}
+
+export function useCreatePayrollJournal() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ costId, linee_contabili, totale_dare, totale_avere }: {
+      costId: string
+      linee_contabili: { account: string; description: string; debit: number; credit: number }[]
+      totale_dare: number
+      totale_avere: number
+    }) =>
+      api.post(`/payroll/${costId}/create-journal`, { linee_contabili, totale_dare, totale_avere }).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['payroll'] })
+      qc.invalidateQueries({ queryKey: ['payroll-summary'] })
+      qc.invalidateQueries({ queryKey: ['journal-entries'] })
     },
   })
 }

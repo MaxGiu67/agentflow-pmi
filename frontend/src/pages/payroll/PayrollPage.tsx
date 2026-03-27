@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Upload, Plus, Trash2 } from 'lucide-react'
-import { usePayrollCosts, usePayrollSummary, useCreatePayrollCost, useImportPayrollPdf, useDeletePayrollCost } from '../../api/hooks'
+import { usePayrollCosts, usePayrollSummary, useCreatePayrollCost, useImportPayrollPdf, useDeletePayrollCost, useCreatePayrollJournal } from '../../api/hooks'
 import { formatCurrency } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -22,6 +22,7 @@ export default function PayrollPage() {
   const createCost = useCreatePayrollCost()
   const importPdf = useImportPayrollPdf()
   const deleteCost = useDeletePayrollCost()
+  const createJournal = useCreatePayrollJournal()
 
   const costs = costsData?.items ?? []
 
@@ -29,9 +30,28 @@ export default function PayrollPage() {
     const file = e.target.files?.[0]
     if (!file) return
     try {
-      const result = await importPdf.mutateAsync({ file, createJournal: true })
-      setImportResult(result)
-    } catch (err) {
+      // Step 1: Parse PDF without creating journal entries
+      const result = await importPdf.mutateAsync({ file, createJournal: false })
+
+      if (result.bilanciato) {
+        // Step 2a: Balanced — create journal entries automatically
+        const journalResult = await createJournal.mutateAsync({
+          costId: result.payroll_cost_id,
+          linee_contabili: result.linee_contabili,
+          totale_dare: result.totale_dare,
+          totale_avere: result.totale_avere,
+        })
+        setImportResult({ ...result, journal_entry: journalResult })
+      } else {
+        // Step 2b: NOT balanced — navigate to gestione import page for review
+        navigate('/personale/gestione-import', {
+          state: {
+            importData: result,
+          },
+        })
+        return
+      }
+    } catch {
       setImportResult({ error: 'Errore durante l\'importazione' })
     }
     if (fileInputRef.current) fileInputRef.current.value = ''
@@ -78,11 +98,12 @@ export default function PayrollPage() {
               className="hidden"
             />
             <button
-              onClick={() => navigate('/personale/import')}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importPdf.isPending}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
               <Upload className="h-4 w-4" />
-              Importa PDF Paghe
+              {importPdf.isPending ? 'Importando...' : 'Importa PDF Paghe'}
             </button>
             <button
               onClick={() => setShowAddForm(!showAddForm)}

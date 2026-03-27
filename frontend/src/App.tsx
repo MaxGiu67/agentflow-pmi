@@ -64,7 +64,7 @@ import AgentConfigPage from './pages/impostazioni/AgentConfigPage'
 
 // Payroll
 import PayrollPage from './pages/payroll/PayrollPage'
-import PayrollImportPage from './pages/payroll/PayrollImportPage'
+import GestioneImportPage from './pages/payroll/GestioneImportPage'
 
 // Test
 import ChatTestPage from './pages/ChatTestPage'
@@ -151,7 +151,7 @@ export default function App() {
 
               {/* Payroll */}
               <Route path="/personale" element={<PayrollPage />} />
-              <Route path="/personale/import" element={<PayrollImportPage />} />
+              <Route path="/personale/gestione-import" element={<GestioneImportPage />} />
 
               {/* Test */}
               <Route path="/test/chatbot" element={<ChatTestPage />} />

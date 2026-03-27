@@ -1,8 +1,12 @@
 """Router for payroll/personnel costs (US-44)."""
 
+import os
+import subprocess
+import tempfile
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import User
@@ -83,67 +87,6 @@ async def delete_payroll_cost(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
-@router.post("/preview-pdf")
-async def preview_payroll_pdf(
-    file: UploadFile = File(...),
-    user: User = Depends(get_current_user),
-) -> dict:
-    """Preview a payroll PDF — extract data without saving.
-
-    Returns parsed data + PDF as base64 for the split-view UI.
-    """
-    if not user.tenant_id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Profilo azienda non configurato")
-
-    if not file.filename or not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Solo file PDF accettati")
-
-    content = await file.read()
-    if len(content) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File troppo grande (max 10MB)")
-
-    import base64
-
-    from api.modules.payroll.pdf_parser import parse_payroll_pdf_bytes, payroll_to_journal_lines
-    summary = parse_payroll_pdf_bytes(content)
-
-    if summary.mese == 0:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Mese non trovato nel PDF.",
-        )
-
-    pdf_base64 = base64.b64encode(content).decode("ascii")
-    journal_lines = payroll_to_journal_lines(summary)
-
-    return {
-        "pdf_base64": pdf_base64,
-        "mese": summary.mese,
-        "anno": summary.anno,
-        "azienda": summary.azienda,
-        "salari_stipendi": round(summary.salari_stipendi, 2),
-        "netto_in_busta": round(summary.netto_in_busta, 2),
-        "contributi_inps": round(summary.saldo_dm10, 2),
-        "irpef": round(summary.irpef, 2),
-        "tfr": round(summary.tfr, 2),
-        "inail": round(summary.inail, 2),
-        "totale_dare": round(summary.totale_dare, 2),
-        "totale_avere": round(summary.totale_avere, 2),
-        "bilanciato": abs(summary.totale_dare - summary.totale_avere) < 1.0,
-        "linee": [
-            {
-                "descrizione": l.descrizione,
-                "importo": l.importo,
-                "dare_avere": l.dare_avere,
-                "sezione": l.sezione,
-                "conto_suggerito": l.conto_suggerito,
-            }
-            for l in summary.linee
-        ],
-        "journal_lines_preview": journal_lines,
-    }
-
-
 @router.post("/import-pdf")
 async def import_payroll_pdf(
     file: UploadFile = File(...),
@@ -167,16 +110,38 @@ async def import_payroll_pdf(
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File troppo grande (max 10MB)")
 
-    from api.modules.payroll.pdf_parser import parse_payroll_pdf_bytes, payroll_to_journal_lines
-    summary = parse_payroll_pdf_bytes(content)
-
-    if summary.mese == 0:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Mese non trovato nel PDF. Verificare formato 'Riepilogo Paghe e Contributi'.",
-        )
+    # Extract text from PDF
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
 
     try:
+        # Try pdftotext first (poppler)
+        try:
+            result = subprocess.run(
+                ["pdftotext", "-layout", tmp_path, "-"],
+                capture_output=True, text=True, timeout=30,
+            )
+            text = result.stdout
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            # Fallback: basic Python PDF text extraction
+            text = _extract_text_basic(content)
+
+        if not text or len(text) < 100:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Impossibile estrarre testo dal PDF. Verificare il formato.",
+            )
+
+        # Parse payroll data
+        from api.modules.payroll.pdf_parser import parse_payroll_text, payroll_to_journal_lines
+        summary = parse_payroll_text(text)
+
+        if summary.mese == 0:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Mese non trovato nel PDF. Verificare formato 'Riepilogo Paghe e Contributi'.",
+            )
 
         # Create PayrollCost aggregate entry
         from datetime import date as date_type
@@ -231,6 +196,18 @@ async def import_payroll_pdf(
                     "total_credit": round(summary.totale_avere, 2),
                 }
 
+        # Build journal lines for the response (always, for review purposes)
+        journal_lines_data = payroll_to_journal_lines(summary)
+        linee_contabili = [
+            {
+                "account": jl["account"],
+                "description": jl["description"],
+                "debit": jl["debit"],
+                "credit": jl["credit"],
+            }
+            for jl in journal_lines_data
+        ]
+
         return {
             "payroll_cost_id": str(entry["id"]),
             "mese": f"{summary.mese:02d}/{summary.anno}",
@@ -243,11 +220,80 @@ async def import_payroll_pdf(
             "totale_avere": round(summary.totale_avere, 2),
             "bilanciato": abs(summary.totale_dare - summary.totale_avere) < 0.10,
             "linee_estratte": len(summary.linee),
+            "linee_contabili": linee_contabili,
             "journal_entry": journal_result,
             "message": f"Paghe {summary.mese:02d}/{summary.anno} importate: €{summary.totale_dare:,.2f}",
         }
     finally:
         os.unlink(tmp_path)
+
+
+class CreateJournalRequest(BaseModel):
+    """Request to create journal entries from payroll import lines."""
+    linee_contabili: list[dict]
+    totale_dare: float
+    totale_avere: float
+
+
+@router.post("/{cost_id}/create-journal")
+async def create_journal_from_payroll(
+    cost_id: UUID,
+    request: CreateJournalRequest,
+    user: User = Depends(get_current_user),
+    service: PayrollService = Depends(get_service),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Create journal entries from an existing payroll import.
+
+    Used after reviewing an unbalanced import in the gestione-import page,
+    or automatically when the import is balanced.
+    """
+    if not user.tenant_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Profilo azienda non configurato")
+
+    # Verify payroll cost exists and belongs to tenant
+    from sqlalchemy import select
+    from api.db.models import PayrollCost
+    result = await db.execute(
+        select(PayrollCost).where(PayrollCost.id == cost_id, PayrollCost.tenant_id == user.tenant_id)
+    )
+    payroll_cost = result.scalar_one_or_none()
+    if not payroll_cost:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Voce costo personale non trovata")
+
+    mese_str = payroll_cost.mese.strftime("%m/%Y") if payroll_cost.mese else "N/D"
+
+    from api.db.models import JournalEntry, JournalLine
+    je = JournalEntry(
+        tenant_id=user.tenant_id,
+        description=f"Paghe e contributi {mese_str}",
+        entry_date=payroll_cost.mese,
+        total_debit=round(request.totale_dare, 2),
+        total_credit=round(request.totale_avere, 2),
+        status="posted",
+    )
+    db.add(je)
+    await db.flush()
+
+    for jl in request.linee_contabili:
+        line = JournalLine(
+            entry_id=je.id,
+            account_code=jl.get("account", ""),
+            account_name=jl.get("description", "")[:255],
+            description=jl.get("description", "")[:255],
+            debit=jl.get("debit", 0.0),
+            credit=jl.get("credit", 0.0),
+        )
+        db.add(line)
+    await db.flush()
+
+    return {
+        "journal_entry_id": str(je.id),
+        "lines": len(request.linee_contabili),
+        "total_debit": round(request.totale_dare, 2),
+        "total_credit": round(request.totale_avere, 2),
+        "message": f"Scrittura contabile creata per paghe {mese_str}",
+    }
 
 
 def _extract_text_basic(pdf_bytes: bytes) -> str:
