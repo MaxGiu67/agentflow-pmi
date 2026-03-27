@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Upload, Plus, Trash2 } from 'lucide-react'
 import { usePayrollCosts, usePayrollSummary, useCreatePayrollCost, useImportPayrollPdf, useDeletePayrollCost } from '../../api/hooks'
 import { formatCurrency } from '../../lib/utils'
@@ -9,6 +10,7 @@ import EmptyState from '../../components/ui/EmptyState'
 const MONTHS = ['', 'Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
 
 export default function PayrollPage() {
+  const navigate = useNavigate()
   const currentYear = new Date().getFullYear()
   const [year, setYear] = useState(2024)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -76,12 +78,11 @@ export default function PayrollPage() {
               className="hidden"
             />
             <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={importPdf.isPending}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              onClick={() => navigate('/personale/import')}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               <Upload className="h-4 w-4" />
-              {importPdf.isPending ? 'Importando...' : 'Importa PDF Paghe'}
+              Importa PDF Paghe
             </button>
             <button
               onClick={() => setShowAddForm(!showAddForm)}

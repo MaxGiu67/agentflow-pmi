@@ -700,6 +700,18 @@ export function useImportPayrollPdf() {
   })
 }
 
+export function usePreviewPayrollPdf() {
+  return useMutation({
+    mutationFn: (file: File) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      return api.post('/payroll/preview-pdf', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }).then((r) => r.data)
+    },
+  })
+}
+
 export function useDeletePayrollCost() {
   const qc = useQueryClient()
   return useMutation({
