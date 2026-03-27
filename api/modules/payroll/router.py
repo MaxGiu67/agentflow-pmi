@@ -179,8 +179,9 @@ async def import_payroll_pdf(
 
                 for jl in journal_lines:
                     line = JournalLine(
-                        journal_entry_id=je.id,
+                        entry_id=je.id,
                         account_code=jl["account"],
+                        account_name=jl["description"][:255],
                         description=jl["description"][:255],
                         debit=jl["debit"],
                         credit=jl["credit"],
