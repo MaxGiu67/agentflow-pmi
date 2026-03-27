@@ -142,37 +142,105 @@ export default function PayrollImportPage() {
             </div>
           </div>
 
-          {/* Linee estratte */}
+          {/* Linee scrittura contabile — editabili */}
           {preview.linee.length > 0 && (
             <div className="rounded-xl border border-gray-200 bg-white p-6">
-              <h3 className="mb-3 text-sm font-semibold text-gray-800">Voci Estratte ({preview.linee.length})</h3>
-              <div className="max-h-72 overflow-y-auto">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-800">Scrittura Contabile ({preview.linee.length} voci)</h3>
+                <button
+                  type="button"
+                  onClick={() => setPreview({ ...preview, linee: [...preview.linee, { descrizione: '', importo: 0, dare_avere: 'D', sezione: 'manuale', conto_suggerito: '' }] })}
+                  className="rounded-lg border border-gray-300 px-3 py-1 text-xs text-gray-600 hover:bg-gray-50"
+                >
+                  + Aggiungi riga
+                </button>
+              </div>
+              <div className="max-h-96 overflow-y-auto">
                 <table className="min-w-full text-xs">
                   <thead className="sticky top-0 bg-gray-50">
                     <tr>
-                      <th className="px-3 py-2 text-left text-gray-500">Descrizione</th>
-                      <th className="px-3 py-2 text-right text-gray-500">Importo</th>
-                      <th className="px-3 py-2 text-center text-gray-500">D/A</th>
-                      <th className="px-3 py-2 text-left text-gray-500">Sezione</th>
-                      <th className="px-3 py-2 text-left text-gray-500">Conto</th>
+                      <th className="px-2 py-2 text-left text-gray-500">Descrizione</th>
+                      <th className="w-28 px-2 py-2 text-right text-gray-500">Importo</th>
+                      <th className="w-20 px-2 py-2 text-center text-gray-500">D/A</th>
+                      <th className="px-2 py-2 text-left text-gray-500">Conto</th>
+                      <th className="w-8 px-2 py-2"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {preview.linee.map((l, i) => (
                       <tr key={i} className="hover:bg-gray-50">
-                        <td className="px-3 py-1.5 text-gray-700">{l.descrizione}</td>
-                        <td className="px-3 py-1.5 text-right font-mono text-gray-900">{formatCurrency(l.importo)}</td>
-                        <td className="px-3 py-1.5 text-center">
-                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${l.dare_avere === 'D' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
-                            {l.dare_avere === 'D' ? 'DARE' : 'AVERE'}
-                          </span>
+                        <td className="px-2 py-1">
+                          <input
+                            type="text"
+                            value={l.descrizione}
+                            onChange={(e) => {
+                              const updated = [...preview.linee]
+                              updated[i] = { ...updated[i], descrizione: e.target.value }
+                              setPreview({ ...preview, linee: updated })
+                            }}
+                            className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:border-blue-400 focus:outline-none"
+                          />
                         </td>
-                        <td className="px-3 py-1.5 text-gray-500">{l.sezione}</td>
-                        <td className="px-3 py-1.5 text-gray-400">{l.conto_suggerito}</td>
+                        <td className="px-2 py-1">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={l.importo}
+                            onChange={(e) => {
+                              const updated = [...preview.linee]
+                              updated[i] = { ...updated[i], importo: parseFloat(e.target.value) || 0 }
+                              setPreview({ ...preview, linee: updated })
+                            }}
+                            className="w-full rounded border border-gray-200 px-2 py-1 text-right font-mono text-xs focus:border-blue-400 focus:outline-none"
+                          />
+                        </td>
+                        <td className="px-2 py-1 text-center">
+                          <select
+                            value={l.dare_avere}
+                            onChange={(e) => {
+                              const updated = [...preview.linee]
+                              updated[i] = { ...updated[i], dare_avere: e.target.value }
+                              setPreview({ ...preview, linee: updated })
+                            }}
+                            className={`rounded px-2 py-1 text-[10px] font-bold ${l.dare_avere === 'D' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}
+                          >
+                            <option value="D">DARE</option>
+                            <option value="A">AVERE</option>
+                          </select>
+                        </td>
+                        <td className="px-2 py-1">
+                          <input
+                            type="text"
+                            value={l.conto_suggerito}
+                            onChange={(e) => {
+                              const updated = [...preview.linee]
+                              updated[i] = { ...updated[i], conto_suggerito: e.target.value }
+                              setPreview({ ...preview, linee: updated })
+                            }}
+                            className="w-full rounded border border-gray-200 px-2 py-1 text-xs text-gray-500 focus:border-blue-400 focus:outline-none"
+                          />
+                        </td>
+                        <td className="px-2 py-1">
+                          <button
+                            onClick={() => {
+                              const updated = preview.linee.filter((_, idx) => idx !== i)
+                              setPreview({ ...preview, linee: updated })
+                            }}
+                            className="rounded p-0.5 text-gray-300 hover:text-red-500"
+                            title="Elimina riga"
+                          >
+                            &times;
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              </div>
+              {/* Totali calcolati dalle righe */}
+              <div className="mt-3 flex justify-end gap-6 border-t border-gray-100 pt-3 text-xs">
+                <span className="text-gray-500">Totale Dare: <strong className="font-mono text-blue-700">{formatCurrency(preview.linee.filter(l => l.dare_avere === 'D').reduce((s, l) => s + l.importo, 0))}</strong></span>
+                <span className="text-gray-500">Totale Avere: <strong className="font-mono text-orange-700">{formatCurrency(preview.linee.filter(l => l.dare_avere === 'A').reduce((s, l) => s + l.importo, 0))}</strong></span>
               </div>
             </div>
           )}
