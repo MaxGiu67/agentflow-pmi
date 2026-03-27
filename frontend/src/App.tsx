@@ -62,6 +62,9 @@ import ChatPage from './pages/chat/ChatPage'
 // Agent Config
 import AgentConfigPage from './pages/impostazioni/AgentConfigPage'
 
+// Payroll
+import PayrollPage from './pages/payroll/PayrollPage'
+
 // Test
 import ChatTestPage from './pages/ChatTestPage'
 
@@ -144,6 +147,9 @@ export default function App() {
               {/* Impostazioni */}
               <Route path="/impostazioni" element={<ImpostazioniPage />} />
               <Route path="/impostazioni/agenti" element={<AgentConfigPage />} />
+
+              {/* Payroll */}
+              <Route path="/personale" element={<PayrollPage />} />
 
               {/* Test */}
               <Route path="/test/chatbot" element={<ChatTestPage />} />

@@ -12,6 +12,7 @@ import {
   PieChart,
   Settings,
   Package,
+  Users,
   X,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
@@ -27,6 +28,7 @@ const navItems = [
   { to: '/fatture', label: 'Fatture', icon: FileText },
   { to: '/contabilita', label: 'Contabilita', icon: BookOpen },
   { to: '/spese', label: 'Note Spese', icon: Receipt },
+  { to: '/personale', label: 'Personale', icon: Users },
   { to: '/cespiti', label: 'Cespiti', icon: Package },
   { to: '/banca', label: 'Banca', icon: Landmark },
   { to: '/scadenze', label: 'Scadenzario', icon: CalendarClock },

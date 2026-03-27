@@ -654,3 +654,59 @@ export function useCompleteOnboardingStep() {
     },
   })
 }
+
+// ── Payroll / Costi Personale ──
+export function usePayrollCosts(year?: number, month?: number) {
+  return useQuery({
+    queryKey: ['payroll', year, month],
+    queryFn: () => api.get('/payroll', { params: { year, month } }).then((r) => r.data),
+  })
+}
+
+export function usePayrollSummary(year: number) {
+  return useQuery({
+    queryKey: ['payroll-summary', year],
+    queryFn: () => api.get('/payroll/summary', { params: { year } }).then((r) => r.data),
+    enabled: !!year,
+  })
+}
+
+export function useCreatePayrollCost() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) =>
+      api.post('/payroll', data).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['payroll'] })
+      qc.invalidateQueries({ queryKey: ['payroll-summary'] })
+    },
+  })
+}
+
+export function useImportPayrollPdf() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ file, createJournal }: { file: File; createJournal: boolean }) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      return api.post(`/payroll/import-pdf?create_journal=${createJournal}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }).then((r) => r.data)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['payroll'] })
+      qc.invalidateQueries({ queryKey: ['payroll-summary'] })
+    },
+  })
+}
+
+export function useDeletePayrollCost() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/payroll/${id}`).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['payroll'] })
+      qc.invalidateQueries({ queryKey: ['payroll-summary'] })
+    },
+  })
+}
