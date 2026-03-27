@@ -27,6 +27,8 @@ export default function PayrollImportPage() {
   const [fileName, setFileName] = useState('')
   const [saved, setSaved] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [showPdf, setShowPdf] = useState(true)
 
   const [form, setForm] = useState({
     salari_stipendi: 0, netto_in_busta: 0, contributi_inps: 0,
@@ -39,6 +41,7 @@ export default function PayrollImportPage() {
     setFileName(file.name)
     setSelectedFile(file)
     setSaved(false)
+    setPdfUrl(URL.createObjectURL(file))
     try {
       const data = await previewMut.mutateAsync(file)
       setPreview({ mese: data.mese, anno: data.anno, azienda: data.azienda, linee: data.linee, bilanciato: data.bilanciato })
@@ -122,6 +125,25 @@ export default function PayrollImportPage() {
               <button onClick={() => { setPreview(null); setSaved(false) }} className="text-blue-600 hover:underline">Cambia</button>
             </div>
           </div>
+
+          {/* PDF Viewer */}
+          {pdfUrl && (
+            <div className="rounded-xl border border-gray-200 bg-white">
+              <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2">
+                <h3 className="text-sm font-semibold text-gray-800">Documento PDF</h3>
+                <button onClick={() => setShowPdf(!showPdf)} className="text-xs text-blue-600 hover:underline">
+                  {showPdf ? 'Nascondi' : 'Mostra'}
+                </button>
+              </div>
+              {showPdf && (
+                <iframe
+                  src={pdfUrl}
+                  title="Riepilogo Paghe PDF"
+                  className="h-[500px] w-full rounded-b-xl"
+                />
+              )}
+            </div>
+          )}
 
           {/* Form editabile */}
           <div className="rounded-xl border border-gray-200 bg-white p-6">

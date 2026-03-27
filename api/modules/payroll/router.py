@@ -103,71 +103,45 @@ async def preview_payroll_pdf(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File troppo grande (max 10MB)")
 
     import base64
-    import subprocess
-    import tempfile
-    import os
+
+    from api.modules.payroll.pdf_parser import parse_payroll_pdf_bytes, payroll_to_journal_lines
+    summary = parse_payroll_pdf_bytes(content)
+
+    if summary.mese == 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Mese non trovato nel PDF.",
+        )
 
     pdf_base64 = base64.b64encode(content).decode("ascii")
+    journal_lines = payroll_to_journal_lines(summary)
 
-    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-        tmp.write(content)
-        tmp_path = tmp.name
-
-    try:
-        try:
-            result = subprocess.run(
-                ["pdftotext", "-layout", tmp_path, "-"],
-                capture_output=True, text=True, timeout=30,
-            )
-            text = result.stdout
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            text = _extract_text_basic(content)
-
-        if not text or len(text) < 100:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Impossibile estrarre testo dal PDF.",
-            )
-
-        from api.modules.payroll.pdf_parser import parse_payroll_text, payroll_to_journal_lines
-        summary = parse_payroll_text(text)
-
-        if summary.mese == 0:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Mese non trovato nel PDF.",
-            )
-
-        journal_lines = payroll_to_journal_lines(summary)
-
-        return {
-            "pdf_base64": pdf_base64,
-            "mese": summary.mese,
-            "anno": summary.anno,
-            "azienda": summary.azienda,
-            "salari_stipendi": round(summary.salari_stipendi, 2),
-            "netto_in_busta": round(summary.netto_in_busta, 2),
-            "contributi_inps": round(summary.saldo_dm10, 2),
-            "irpef": round(summary.irpef, 2),
-            "tfr": round(summary.tfr, 2),
-            "inail": round(summary.inail, 2),
-            "totale_dare": round(summary.totale_dare, 2),
-            "totale_avere": round(summary.totale_avere, 2),
-            "bilanciato": abs(summary.totale_dare - summary.totale_avere) < 1.0,
-            "linee": [
-                {
-                    "descrizione": l.descrizione,
-                    "importo": l.importo,
-                    "dare_avere": l.dare_avere,
-                    "sezione": l.sezione,
-                    "conto_suggerito": l.conto_suggerito,
-                }
-                for l in summary.linee
-            ],
-            "journal_lines_preview": journal_lines,
-        }
-    finally:
-        os.unlink(tmp_path)
+    return {
+        "pdf_base64": pdf_base64,
+        "mese": summary.mese,
+        "anno": summary.anno,
+        "azienda": summary.azienda,
+        "salari_stipendi": round(summary.salari_stipendi, 2),
+        "netto_in_busta": round(summary.netto_in_busta, 2),
+        "contributi_inps": round(summary.saldo_dm10, 2),
+        "irpef": round(summary.irpef, 2),
+        "tfr": round(summary.tfr, 2),
+        "inail": round(summary.inail, 2),
+        "totale_dare": round(summary.totale_dare, 2),
+        "totale_avere": round(summary.totale_avere, 2),
+        "bilanciato": abs(summary.totale_dare - summary.totale_avere) < 1.0,
+        "linee": [
+            {
+                "descrizione": l.descrizione,
+                "importo": l.importo,
+                "dare_avere": l.dare_avere,
+                "sezione": l.sezione,
+                "conto_suggerito": l.conto_suggerito,
+            }
+            for l in summary.linee
+        ],
+        "journal_lines_preview": journal_lines,
+    }
 
 
 @router.post("/import-pdf")
@@ -193,42 +167,16 @@ async def import_payroll_pdf(
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File troppo grande (max 10MB)")
 
-    # Extract text from PDF
-    import subprocess
-    import tempfile
-    import os
+    from api.modules.payroll.pdf_parser import parse_payroll_pdf_bytes, payroll_to_journal_lines
+    summary = parse_payroll_pdf_bytes(content)
 
-    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-        tmp.write(content)
-        tmp_path = tmp.name
+    if summary.mese == 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Mese non trovato nel PDF. Verificare formato 'Riepilogo Paghe e Contributi'.",
+        )
 
     try:
-        # Try pdftotext first (poppler)
-        try:
-            result = subprocess.run(
-                ["pdftotext", "-layout", tmp_path, "-"],
-                capture_output=True, text=True, timeout=30,
-            )
-            text = result.stdout
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            # Fallback: basic Python PDF text extraction
-            text = _extract_text_basic(content)
-
-        if not text or len(text) < 100:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Impossibile estrarre testo dal PDF. Verificare il formato.",
-            )
-
-        # Parse payroll data
-        from api.modules.payroll.pdf_parser import parse_payroll_text, payroll_to_journal_lines
-        summary = parse_payroll_text(text)
-
-        if summary.mese == 0:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Mese non trovato nel PDF. Verificare formato 'Riepilogo Paghe e Contributi'.",
-            )
 
         # Create PayrollCost aggregate entry
         from datetime import date as date_type

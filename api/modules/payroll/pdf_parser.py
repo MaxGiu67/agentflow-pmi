@@ -1,7 +1,7 @@
 """Parser for Riepilogo Paghe e Contributi PDF (US-44).
 
-Extracts payroll line items (Dare/Avere) from the standard payroll summary PDF.
-Handles the columnar layout: Description | Importo D/A | DARE | AVERE
+Uses pdfplumber for structured table extraction from PDF.
+Falls back to pdftotext + regex if pdfplumber fails.
 """
 
 import logging
@@ -44,7 +44,6 @@ class PayrollSummary:
     inail: float = 0.0
 
 
-# Voci → Conti contabili mapping
 CONTO_MAP = {
     "salari": "costi_personale_salari",
     "stipendi": "costi_personale_stipendi",
@@ -78,39 +77,223 @@ CONTO_MAP = {
     "contributi c/collaboratori": "debiti_vs_inps_cococo",
     "imposta sostit": "debiti_vs_erario_imposta_sost",
     "netto in busta": "debiti_vs_dipendenti",
+    "acconto": "costi_personale_altri",
+    "solidarieta": "contributi_inps_azienda",
 }
 
 
-def _parse_amount(text: str) -> float:
-    text = text.strip().replace(".", "").replace(",", ".")
+def _parse_it_number(text: str | None) -> float:
+    """Parse Italian number: 1.234,56 → 1234.56"""
+    if not text:
+        return 0.0
+    text = str(text).strip().replace(".", "").replace(",", ".")
     try:
         return abs(float(text))
     except ValueError:
         return 0.0
 
 
-def _match_conto(descrizione: str) -> str:
-    desc_lower = descrizione.lower().strip()
+def _match_conto(desc: str) -> str:
+    dl = desc.lower().strip()
     for key, conto in CONTO_MAP.items():
-        if key in desc_lower:
+        if key in dl:
             return conto
     return "costi_personale_altri"
 
 
-def parse_payroll_text(text: str) -> PayrollSummary:
-    """Parse the pdftotext -layout output of a Riepilogo Paghe PDF."""
+def parse_payroll_pdf_bytes(pdf_bytes: bytes) -> PayrollSummary:
+    """Parse payroll PDF using pdfplumber for structured table extraction."""
+    try:
+        import pdfplumber
+        return _parse_with_pdfplumber(pdf_bytes)
+    except ImportError:
+        logger.warning("pdfplumber not installed, falling back to text parser")
+        return _parse_with_text_fallback(pdf_bytes)
+    except Exception as e:
+        logger.error("pdfplumber failed: %s, falling back to text", e)
+        return _parse_with_text_fallback(pdf_bytes)
+
+
+def _parse_with_pdfplumber(pdf_bytes: bytes) -> PayrollSummary:
+    """Extract data using pdfplumber table extraction."""
+    import io
+    import pdfplumber
+
     summary = PayrollSummary()
 
-    # Extract month/year
-    header_match = re.search(r"mese\s+di\s+(\w+)\s+(\d{4})", text, re.IGNORECASE)
-    if header_match:
-        summary.mese = MONTH_MAP.get(header_match.group(1).lower(), 0)
-        summary.anno = int(header_match.group(2))
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        full_text = ""
+        all_rows: list[list[str]] = []
 
-    # Extract azienda
-    az_match = re.search(r"Azienda/Fil\.\s+\d+\s+(.+?)(?:\n|$)", text)
-    if az_match:
-        summary.azienda = az_match.group(1).strip()
+        for page in pdf.pages:
+            text = page.extract_text() or ""
+            full_text += text + "\n"
+
+            # Extract tables
+            tables = page.extract_tables()
+            for table in tables:
+                for row in table:
+                    if row:
+                        all_rows.append([str(c or "").strip() for c in row])
+
+        # Extract month/year from full text
+        hdr = re.search(r"mese\s+di\s+(\w+)\s+(\d{4})", full_text, re.IGNORECASE)
+        if hdr:
+            summary.mese = MONTH_MAP.get(hdr.group(1).lower(), 0)
+            summary.anno = int(hdr.group(2))
+
+        az = re.search(r"(?:Azienda|Fil)\.\s+\d+\s+(.+?)(?:\n|$)", full_text)
+        if az:
+            summary.azienda = az.group(1).strip()
+
+        # Process extracted table rows
+        current_section = "retribuzioni"
+        section_markers = {
+            "RETRIBUZIONI": "retribuzioni",
+            "CONTRIBUTI INPS": "contributi_inps",
+            "TRATTENUTE CO": "cococo",
+            "ALTRI VERSAMENTI": "altri_versamenti",
+            "TRATTENUTE FISCALI": "irpef_versamento",
+            "CREDITI E BONUS": "crediti_bonus",
+            "CREDITI IRPEF": "crediti_irpef",
+        }
+
+        for row in all_rows:
+            # Join row to detect sections
+            row_text = " ".join(row).upper()
+            for marker, section in section_markers.items():
+                if marker in row_text:
+                    current_section = section
+                    break
+
+            # Try to find: Cod.Conto | Descrizione | Importo | D/A | DARE | AVERE
+            # The table typically has 4-6 columns
+            if len(row) < 3:
+                continue
+
+            # Find the description (longest non-numeric cell)
+            desc = ""
+            importo = 0.0
+            da_flag = ""
+            dare_val = 0.0
+            avere_val = 0.0
+
+            for i, cell in enumerate(row):
+                cell = cell.strip()
+                if not cell or cell == "_" * len(cell):
+                    continue
+
+                # Check if it's a D/A flag
+                if cell in ("D", "A"):
+                    da_flag = cell
+                    continue
+
+                # Check if it's a number
+                num = _parse_it_number(cell)
+                if num > 0 and re.match(r"^[\d.,]+$", cell.replace(" ", "")):
+                    if da_flag:
+                        importo = num
+                    elif i >= len(row) - 2:
+                        # Last columns are DARE/AVERE
+                        if i == len(row) - 2:
+                            dare_val = num
+                        else:
+                            avere_val = num
+                    else:
+                        importo = num
+                    continue
+
+                # It's a description
+                if len(cell) > 2 and not cell.startswith("Cod"):
+                    desc = cell
+
+            # Create line if we have data
+            if desc and (importo > 0 or dare_val > 0 or avere_val > 0):
+                dl = desc.lower()
+
+                # Determine D/A
+                if da_flag:
+                    pass  # already set
+                elif dare_val > 0 and avere_val == 0:
+                    da_flag = "D"
+                    importo = dare_val
+                elif avere_val > 0 and dare_val == 0:
+                    da_flag = "A"
+                    importo = avere_val
+                elif dare_val > 0:
+                    da_flag = "D"
+                    importo = dare_val
+                else:
+                    da_flag = "D"  # default
+
+                if importo <= 0:
+                    importo = dare_val or avere_val
+
+                if importo > 0:
+                    conto = _match_conto(desc)
+                    summary.linee.append(PayrollLine(
+                        descrizione=desc, importo=round(importo, 2),
+                        dare_avere=da_flag, sezione=current_section,
+                        conto_suggerito=conto,
+                    ))
+
+                    # Track key totals
+                    if "netto in busta" in dl:
+                        summary.netto_in_busta = importo
+                    elif "salari" in dl and "stipendi" in dl:
+                        summary.salari_stipendi = importo
+                    elif "saldo" in dl and "dm10" in dl:
+                        summary.saldo_dm10 = importo
+
+        # Extract TOTALE GENERALE
+        tg = re.search(r"TOTALE\s+GENERALE\s+([\d.,]+)\s+([\d.,]+)", full_text)
+        if tg:
+            summary.totale_dare = _parse_it_number(tg.group(1))
+            summary.totale_avere = _parse_it_number(tg.group(2))
+        else:
+            summary.totale_dare = sum(l.importo for l in summary.linee if l.dare_avere == "D")
+            summary.totale_avere = sum(l.importo for l in summary.linee if l.dare_avere == "A")
+
+        # Extract IRPEF total
+        irpef_m = re.search(r"(?:Trattenute fiscali|TOTALE irpef)[^\d]+([\d.,]+)", full_text)
+        if irpef_m:
+            summary.irpef = _parse_it_number(irpef_m.group(1))
+
+    return summary
+
+
+def _parse_with_text_fallback(pdf_bytes: bytes) -> PayrollSummary:
+    """Fallback: use pdftotext for extraction."""
+    import subprocess
+    import tempfile
+    import os
+
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        tmp.write(pdf_bytes)
+        tmp_path = tmp.name
+
+    try:
+        result = subprocess.run(
+            ["pdftotext", "-layout", tmp_path, "-"],
+            capture_output=True, text=True, timeout=30,
+        )
+        return parse_payroll_text(result.stdout)
+    finally:
+        os.unlink(tmp_path)
+
+
+def parse_payroll_text(text: str) -> PayrollSummary:
+    """Parse pdftotext output (legacy fallback)."""
+    summary = PayrollSummary()
+
+    hdr = re.search(r"mese\s+di\s+(\w+)\s+(\d{4})", text, re.IGNORECASE)
+    if hdr:
+        summary.mese = MONTH_MAP.get(hdr.group(1).lower(), 0)
+        summary.anno = int(hdr.group(2))
+
+    az = re.search(r"Azienda/Fil\.\s+\d+\s+(.+?)(?:\n|$)", text)
+    if az:
+        summary.azienda = az.group(1).strip()
 
     current_section = "retribuzioni"
     section_markers = {
@@ -120,99 +303,53 @@ def parse_payroll_text(text: str) -> PayrollSummary:
         "ALTRI VERSAMENTI": "altri_versamenti",
         "TRATTENUTE FISCALI": "irpef_versamento",
         "CREDITI E BONUS FISCALI": "crediti_bonus",
-        "CREDITI IRPEF": "crediti_irpef",
     }
 
-    lines = text.split("\n")
-    for line in lines:
+    for line in text.split("\n"):
         stripped = line.strip()
-        if not stripped or stripped.startswith("Cod.Conto"):
+        if not stripped:
             continue
 
-        # Section change
         for marker, section in section_markers.items():
             if marker in stripped.upper():
                 current_section = section
                 break
 
-        # Pattern 1: "Description    1.234,56   D" — single entry with D/A flag
+        # Pattern: "desc    1.234,56   D"
         m1 = re.search(r"^[_\s]*(.+?)\s{2,}([\d.]+,\d{2})\s+([DA])\s*$", line)
         if m1:
-            desc = m1.group(1).strip()
-            importo = _parse_amount(m1.group(2))
-            da = m1.group(3)
+            desc, importo, da = m1.group(1).strip(), _parse_it_number(m1.group(2)), m1.group(3)
             if importo > 0:
-                summary.linee.append(PayrollLine(
-                    descrizione=desc, importo=importo, dare_avere=da,
-                    sezione=current_section, conto_suggerito=_match_conto(desc),
-                ))
+                summary.linee.append(PayrollLine(desc, importo, da, current_section, _match_conto(desc)))
             continue
 
-        # Pattern 2: "Description         123.456,78" — value in DARE column (right-aligned ~col 80-95)
-        # Pattern 3: "Description                                    123.456,78" — value in AVERE column (~col 95+)
-        # Detect by position: DARE column is around position 70-90, AVERE is 90+
+        # Pattern: "desc         123.456,78"
         m2 = re.search(r"^[_\s]*(.+?)\s{3,}([\d.]+,\d{2})\s*$", line)
         if m2:
-            desc = m2.group(1).strip()
-            val = _parse_amount(m2.group(2))
+            desc, val = m2.group(1).strip(), _parse_it_number(m2.group(2))
             if val <= 0 or len(desc) < 3:
                 continue
-
-            # Determine DARE vs AVERE by column position
-            val_start = line.rfind(m2.group(2))
-            is_avere = val_start > 85  # AVERE column is further right
-
-            desc_lower = desc.lower()
-
-            # Known summary lines — extract key totals
-            if "netto in busta" in desc_lower:
+            dl = desc.lower()
+            if "netto in busta" in dl:
                 summary.netto_in_busta = val
-                summary.linee.append(PayrollLine(
-                    descrizione=desc, importo=val, dare_avere="A",
-                    sezione="retribuzioni", conto_suggerito="debiti_vs_dipendenti",
-                ))
-                continue
-            if "salari" in desc_lower and "stipendi" in desc_lower:
+                summary.linee.append(PayrollLine(desc, val, "A", "retribuzioni", "debiti_vs_dipendenti"))
+            elif "salari" in dl and "stipendi" in dl:
                 summary.salari_stipendi = val
-                summary.linee.append(PayrollLine(
-                    descrizione=desc, importo=val, dare_avere="D",
-                    sezione="retribuzioni", conto_suggerito="costi_personale_stipendi",
-                ))
-                continue
-            if "saldo" in desc_lower and "dm10" in desc_lower:
+                summary.linee.append(PayrollLine(desc, val, "D", "retribuzioni", "costi_personale_stipendi"))
+            elif "saldo" in dl and "dm10" in dl:
                 summary.saldo_dm10 = val
-                continue
-            if "totale irpef" in desc_lower:
+            elif "totale irpef" in dl:
                 summary.irpef = val
-                continue
-            if "totale generale" in desc_lower:
-                # This line has both dare and avere
-                continue
+            else:
+                val_start = line.rfind(m2.group(2))
+                da = "A" if val_start > 85 else "D"
+                summary.linee.append(PayrollLine(desc, val, da, current_section, _match_conto(desc)))
 
-            # Generic summary line — determine D/A by section context
-            da = "A" if is_avere else "D"
-
-            # Specific patterns
-            if any(k in desc_lower for k in ["ritenute previdenziali", "trattenute fiscali", "altre trattenute", "totale trattenute"]):
-                da = "A"
-            elif any(k in desc_lower for k in ["contributi", "fondo tfr", "tfr dell", "trasferte", "rimborso", "buoni"]):
-                if current_section == "retribuzioni":
-                    da = "D"  # costs are in DARE
-                elif current_section in ("contributi_inps", "cococo", "altri_versamenti"):
-                    da = "D"
-
-            summary.linee.append(PayrollLine(
-                descrizione=desc, importo=val, dare_avere=da,
-                sezione=current_section, conto_suggerito=_match_conto(desc),
-            ))
-
-    # Match TOTALE GENERALE line (two amounts on same line)
-    tg_match = re.search(r"TOTALE GENERALE\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})", text)
-    if tg_match:
-        summary.totale_dare = _parse_amount(tg_match.group(1))
-        summary.totale_avere = _parse_amount(tg_match.group(2))
+    tg = re.search(r"TOTALE GENERALE\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})", text)
+    if tg:
+        summary.totale_dare = _parse_it_number(tg.group(1))
+        summary.totale_avere = _parse_it_number(tg.group(2))
     else:
-        # Calculate from lines
         summary.totale_dare = sum(l.importo for l in summary.linee if l.dare_avere == "D")
         summary.totale_avere = sum(l.importo for l in summary.linee if l.dare_avere == "A")
 
@@ -220,14 +357,12 @@ def parse_payroll_text(text: str) -> PayrollSummary:
 
 
 def payroll_to_journal_lines(summary: PayrollSummary) -> list[dict]:
-    """Convert parsed payroll into journal entry lines (partita doppia)."""
+    """Convert parsed payroll into journal entry lines."""
     account_totals: dict[str, dict] = {}
-
     for line in summary.linee:
         conto = line.conto_suggerito
         if conto not in account_totals:
             account_totals[conto] = {"debit": 0.0, "credit": 0.0, "descriptions": []}
-
         if line.dare_avere == "D":
             account_totals[conto]["debit"] += line.importo
         else:
@@ -252,5 +387,4 @@ def payroll_to_journal_lines(summary: PayrollSummary) -> list[dict]:
                 "debit": 0.0,
                 "credit": round(totals["credit"], 2),
             })
-
     return journal_lines
