@@ -11,6 +11,7 @@ from api.modules.cashflow.schemas import (
     CashFlowPredictionResponse,
 )
 from api.modules.cashflow.service import CashFlowService
+from api.modules.cashflow.enhanced_service import EnhancedCashFlowService
 
 router = APIRouter(prefix="/cashflow", tags=["cashflow"])
 
@@ -68,3 +69,25 @@ async def get_cashflow_alerts(
         days=days,
     )
     return CashFlowAlertsResponse(**result)
+
+
+# ── US-64: Enhanced Cash Flow ──
+
+def get_enhanced_service(db: AsyncSession = Depends(get_db)) -> EnhancedCashFlowService:
+    return EnhancedCashFlowService(db)
+
+
+@router.get("/enhanced")
+async def get_enhanced_cashflow(
+    days: int = Query(default=90, ge=1, le=365),
+    user: User = Depends(get_current_user),
+    service: EnhancedCashFlowService = Depends(get_enhanced_service),
+) -> dict:
+    """Enhanced cash flow using bank balance + invoices + payroll + deadlines (US-64)."""
+    if not user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Profilo azienda non configurato",
+        )
+
+    return await service.get_enhanced_cashflow(user.tenant_id, days)

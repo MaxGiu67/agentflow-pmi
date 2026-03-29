@@ -42,8 +42,10 @@ async def import_bilancio(
             result = await service.import_csv(user.tenant_id, file.filename, content)
         elif ext == "pdf":
             result = await service.import_pdf(user.tenant_id, file.filename, content)
+        elif ext in ("xbrl", "xml"):
+            result = await service.import_xbrl(user.tenant_id, file.filename, content)
         else:
-            raise ValueError(f"Formato non supportato: .{ext}. Formati ammessi: CSV, PDF")
+            raise ValueError(f"Formato non supportato: .{ext}. Formati ammessi: CSV, PDF, XBRL")
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
 

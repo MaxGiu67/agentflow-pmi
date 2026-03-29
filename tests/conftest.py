@@ -22,6 +22,9 @@ from api.db.models import (
     Corrispettivo,
     CompletenessScore,
     ImportException,
+    F24Versamento,
+    RecurringContract,
+    Loan,
 )
 from api.db.session import get_db
 from api.main import app

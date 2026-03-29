@@ -287,3 +287,53 @@ class ControllerService:
         result["personale"] = float(personale)
 
         return result
+
+    # ── US-63: Cost Analysis — "Dove perdo soldi?" ──
+
+    async def cost_analysis(
+        self, tenant_id: uuid.UUID, year: int, month: int,
+    ) -> dict:
+        """Cost analysis: top 5 categories, prev period comparison, anomalies (US-63)."""
+        actuals = await self._get_monthly_actuals(tenant_id, year, month)
+
+        # Previous month
+        prev_month = month - 1 if month > 1 else 12
+        prev_year = year if month > 1 else year - 1
+        prev_actuals = await self._get_monthly_actuals(tenant_id, prev_year, prev_month)
+
+        # Cost items only (exclude ricavi)
+        cost_items = [(k, v) for k, v in actuals.items() if k != "ricavi" and v > 0]
+        cost_items.sort(key=lambda x: x[1], reverse=True)
+        top_costs = cost_items[:5]
+
+        # Comparison with previous period
+        comparisons = []
+        for category, amount in top_costs:
+            prev_amount = prev_actuals.get(category, 0)
+            change_pct = round(((amount - prev_amount) / prev_amount * 100), 1) if prev_amount > 0 else 0
+            comparisons.append({
+                "category": category,
+                "current": round(amount, 2),
+                "previous": round(prev_amount, 2),
+                "change_pct": change_pct,
+                "direction": "up" if change_pct > 0 else ("down" if change_pct < 0 else "stable"),
+            })
+
+        # Anomalies: categories that grew > 20%
+        anomalies = [c for c in comparisons if c["change_pct"] > 20]
+
+        total_costs = sum(v for k, v in actuals.items() if k != "ricavi")
+        ricavi = actuals.get("ricavi", 0)
+        incidenza_costi = round((total_costs / ricavi * 100), 1) if ricavi > 0 else 0
+
+        return {
+            "year": year,
+            "month": month,
+            "top_costs": comparisons,
+            "total_costs": round(total_costs, 2),
+            "ricavi": round(ricavi, 2),
+            "incidenza_costi_pct": incidenza_costi,
+            "anomalies": anomalies,
+            "anomalies_count": len(anomalies),
+            "message": f"Analisi costi {month}/{year}: totale {round(total_costs, 2)} EUR, incidenza {incidenza_costi}% sui ricavi",
+        }

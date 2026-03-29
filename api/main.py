@@ -41,6 +41,13 @@ from api.modules.corrispettivi.router import router as corrispettivi_router
 from api.modules.completeness.router import router as completeness_router
 from api.modules.bilancio_import.router import router as bilancio_import_router
 from api.modules.controller.router import router as controller_router
+from api.modules.f24_import.router import router as f24_import_router
+from api.modules.home.router import router as home_router
+from api.modules.ammortamenti.router import router as ammortamenti_router
+from api.modules.alerts.router import router as alerts_router
+from api.modules.recurring.router import router as recurring_router
+from api.modules.loans.router import router as loans_router
+from api.modules.communications.router import router as communications_router
 
 from contextlib import asynccontextmanager
 
@@ -135,3 +142,10 @@ app.include_router(corrispettivi_router, prefix="/api/v1")
 app.include_router(completeness_router, prefix="/api/v1")
 app.include_router(bilancio_import_router, prefix="/api/v1")
 app.include_router(controller_router, prefix="/api/v1")
+app.include_router(f24_import_router, prefix="/api/v1")
+app.include_router(home_router, prefix="/api/v1")
+app.include_router(ammortamenti_router, prefix="/api/v1")
+app.include_router(alerts_router, prefix="/api/v1")
+app.include_router(recurring_router, prefix="/api/v1")
+app.include_router(loans_router, prefix="/api/v1")
+app.include_router(communications_router, prefix="/api/v1")

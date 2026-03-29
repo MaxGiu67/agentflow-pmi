@@ -817,3 +817,66 @@ class PayrollCost(Base):
     note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# ============================================================
+# Sprint 14-16: F24 Versamenti, Recurring Contracts, Loans
+# ============================================================
+
+
+class F24Versamento(Base):
+    """F24 payment (versamento) record imported from PDF or manually entered (US-49, US-50)."""
+    __tablename__ = "f24_versamenti"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    codice_tributo: Mapped[str] = mapped_column(String(10), nullable=False)
+    periodo_riferimento: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    importo: Mapped[float] = mapped_column(Float, nullable=False)
+    data_versamento: Mapped[date] = mapped_column(Date, nullable=False)
+    source: Mapped[str] = mapped_column(String(20), default="manual")  # manual, pdf_import
+    journal_entry_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class RecurringContract(Base):
+    """Recurring contract (contratto ricorrente) (US-55, US-56)."""
+    __tablename__ = "recurring_contracts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    description: Mapped[str] = mapped_column(String(500), nullable=False)
+    counterpart: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    frequency: Mapped[str] = mapped_column(String(20), nullable=False, default="monthly")  # monthly, quarterly, annual
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    next_due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    category: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    source: Mapped[str] = mapped_column(String(20), default="manual")  # manual, pdf_import
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active, paused, expired
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class Loan(Base):
+    """Loan/financing (finanziamento/mutuo) record (US-57, US-58)."""
+    __tablename__ = "loans"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    description: Mapped[str] = mapped_column(String(500), nullable=False)
+    lender: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    principal: Mapped[float] = mapped_column(Float, nullable=False)
+    interest_rate: Mapped[float] = mapped_column(Float, nullable=False)  # annual %
+    installment_amount: Mapped[float] = mapped_column(Float, nullable=False)
+    frequency: Mapped[str] = mapped_column(String(20), nullable=False, default="monthly")
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    remaining_principal: Mapped[float] = mapped_column(Float, nullable=False)
+    next_payment_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    source: Mapped[str] = mapped_column(String(20), default="manual")  # manual, pdf_import
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active, closed, defaulted
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

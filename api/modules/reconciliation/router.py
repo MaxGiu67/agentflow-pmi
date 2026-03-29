@@ -14,6 +14,7 @@ from api.modules.reconciliation.schemas import (
     ReconciliationPendingResponse,
 )
 from api.modules.reconciliation.service import ReconciliationService
+from api.modules.reconciliation.auto_match_service import AutoMatchService
 
 router = APIRouter(prefix="/reconciliation", tags=["reconciliation"])
 
@@ -80,3 +81,24 @@ async def match_transaction(
         ) from e
 
     return ReconciliationMatchResponse(**result)
+
+
+# ── US-72: Auto-match ──
+
+def get_auto_match_service(db: AsyncSession = Depends(get_db)) -> AutoMatchService:
+    return AutoMatchService(db)
+
+
+@router.post("/auto-match")
+async def auto_match_transactions(
+    user: User = Depends(get_current_user),
+    service: AutoMatchService = Depends(get_auto_match_service),
+) -> dict:
+    """Auto-match bank transactions to invoices by amount/date (US-72)."""
+    if not user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Profilo azienda non configurato",
+        )
+
+    return await service.auto_match(user.tenant_id)

@@ -14,6 +14,7 @@ from api.modules.notifications.schemas import (
     NotificationTestResponse,
 )
 from api.modules.notifications.service import NotificationService
+from api.modules.notifications.push_service import PushNotificationService
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -93,3 +94,40 @@ async def send_test_notification(
         )
         for r in results
     ]
+
+
+# ── US-67: Push notifications ──
+
+from pydantic import BaseModel as _BaseModel
+
+
+class PushNotificationRequest(_BaseModel):
+    message: str
+    message_type: str = "push"
+    channel: str = "telegram"
+
+
+def get_push_service(db: AsyncSession = Depends(get_db)) -> PushNotificationService:
+    return PushNotificationService(db)
+
+
+@router.post("/push")
+async def send_push_notification(
+    request: PushNotificationRequest,
+    user: User = Depends(get_current_user),
+    service: PushNotificationService = Depends(get_push_service),
+) -> dict:
+    """Send push notification to configured channel (US-67)."""
+    if not user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Profilo azienda non configurato",
+        )
+
+    return await service.send_push(
+        user_id=user.id,
+        tenant_id=user.tenant_id,
+        message=request.message,
+        message_type=request.message_type,
+        channel=request.channel,
+    )

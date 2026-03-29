@@ -10,6 +10,7 @@ from api.db.session import get_db
 from api.middleware.auth import get_current_user
 from api.modules.deadlines.schemas import DeadlinesResponse, FiscalAlertsResponse
 from api.modules.deadlines.service import DeadlineService
+from api.modules.deadlines.proactive_service import ProactiveDeadlineService
 
 router = APIRouter(tags=["deadlines"])
 
@@ -98,3 +99,25 @@ async def get_fiscal_alerts(
         ) from e
 
     return FiscalAlertsResponse(**data)
+
+
+# ── US-65: Proactive deadlines ──
+
+def get_proactive_service(db: AsyncSession = Depends(get_db)) -> ProactiveDeadlineService:
+    return ProactiveDeadlineService(db)
+
+
+@router.get("/deadlines/proactive")
+async def get_proactive_deadlines(
+    days: int = Query(default=60, ge=1, le=365),
+    user: User = Depends(get_current_user),
+    service: ProactiveDeadlineService = Depends(get_proactive_service),
+) -> dict:
+    """Get upcoming deadlines with calculated amounts (US-65)."""
+    if not user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Profilo azienda non configurato",
+        )
+
+    return await service.get_proactive_deadlines(user.tenant_id, days)

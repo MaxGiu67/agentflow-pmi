@@ -85,3 +85,18 @@ async def get_summary(
     if not user.tenant_id:
         raise HTTPException(status_code=400, detail="Profilo azienda non configurato")
     return await service.get_summary(user.tenant_id, year, month)
+
+
+# ── US-63: Cost Analysis — "Dove perdo soldi?" ──
+
+@router.get("/cost-analysis")
+async def cost_analysis(
+    year: int = Query(...),
+    month: int = Query(..., ge=1, le=12),
+    user: User = Depends(get_current_user),
+    service: ControllerService = Depends(get_service),
+) -> dict:
+    """Cost analysis — top 5 categories, comparison with prev period, anomalies (US-63)."""
+    if not user.tenant_id:
+        raise HTTPException(status_code=400, detail="Profilo azienda non configurato")
+    return await service.cost_analysis(user.tenant_id, year, month)
