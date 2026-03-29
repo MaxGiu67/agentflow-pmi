@@ -8,6 +8,22 @@
 
 ---
 
+### PIVOT 5: Da Gestionale Contabile a Controller Aziendale AI
+- **Data**: 2026-03-28
+- **Causa**: Cambio posizionamento fondamentale. AgentFlow non sostituisce il gestionale contabile — lo affianca come controller AI. Zero data entry, massima interpretazione. L'imprenditore vuole capire come va l'azienda, non fare il contabile.
+- **Impatto**: 3 file da rifare (stories, sprint plan, wireframes), 6 da aggiornare (vision, PRD, tech spec, schema DB, test strategy, test map), 6 invariati
+- **Nuove stories**: US-44 a US-71 (28 stories, ~148 SP, 6-7 sprint stimati)
+- **Nuovi Epic**: EPIC 10 (Import Pipeline silenzioso + CRUD), EPIC 11 (Management Agents doppio canale), EPIC 12 (UX Controller)
+- **Feature core aggiunte**: Budget Agent conversazionale, Controller Agent (budget vs consuntivo), import banca (PDF+LLM+CSV+API), corrispettivi XML, F24 import, saldi bilancio (Excel/PDF/XBRL), CRUD manuale per ogni voce, Completeness Score, doppio canale notifiche, home conversazionale, import silenzioso (max 3 azioni)
+- **Nuove tabelle DB**: corrispettivi, budget_entries, budget_lines, recurring_contracts, loans, bank_statement_imports, completeness_scores
+- **Nuovi endpoint API**: 62-76 (15 nuovi)
+- **Principi di design**: (1) zero data entry, (2) import silenzioso, (3) eccezioni segnalate, (4) max 3 azioni, (5) CRUD come base import come acceleratore, (6) framing positivo onboarding, (7) doppio canale (dashboard + messaging)
+- **File esempio disponibili**: esempi_import/ (banca UniCredit+Credit Agricole, bilancio TAAL 2023, 90 XML corrispettivi, 24 PDF paghe)
+- **Analisi completa**: brainstorm/07-compare-llm.md + specs/technical/pivot-impact-analysis-v3.md
+- **Ordine riesecuzione**: /dev-prd → /dev-stories → /dev-spec → /dev-sprint → /dev-review → /dev-implement
+
+---
+
 ### PIVOT 4: Fatturazione Attiva Completa + Costi del Personale
 - **Data**: 2026-03-27
 - **Causa**: La fatturazione attiva (US-21) è incompleta (mancano XML completo, PDF cortesia, impostazioni ricorrenti, multi-linea). Serve importazione costi personale per EBITDA reale.

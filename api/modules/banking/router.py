@@ -1,8 +1,8 @@
-"""Router for banking / Open Banking (US-24)."""
+"""Router for banking / Open Banking (US-24) + Statement Import (US-44, US-45)."""
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import User
@@ -19,7 +19,11 @@ from api.modules.banking.schemas import (
     BankTransactionListResponse,
     BankTransactionResponse,
     BankUnsupportedResponse,
+    ConfirmImportRequest,
+    ConfirmImportResponse,
+    ImportStatementResponse,
 )
+from api.modules.banking.import_service import BankImportService
 from api.modules.banking.service import BankingService
 
 router = APIRouter(prefix="/bank-accounts", tags=["banking"])
@@ -27,6 +31,10 @@ router = APIRouter(prefix="/bank-accounts", tags=["banking"])
 
 def get_service(db: AsyncSession = Depends(get_db)) -> BankingService:
     return BankingService(db)
+
+
+def get_import_service(db: AsyncSession = Depends(get_db)) -> BankImportService:
+    return BankImportService(db)
 
 
 @router.post("/connect-session")
@@ -212,3 +220,132 @@ async def revoke_consent(
         ) from e
 
     return BankRevokeResponse(**result)
+
+
+# ── Statement Import (US-44) ──
+
+
+@router.post("/{account_id}/import-statement", response_model=ImportStatementResponse)
+async def import_bank_statement(
+    account_id: UUID,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    service: BankImportService = Depends(get_import_service),
+) -> ImportStatementResponse:
+    """Import bank statement from PDF using LLM extraction (US-44).
+
+    Extracts movements and returns preview for user confirmation.
+    Use POST /{account_id}/confirm-import to save the movements.
+    """
+    if not user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Profilo azienda non configurato",
+        )
+
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Solo file PDF accettati",
+        )
+
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File troppo grande (max 10MB)",
+        )
+
+    try:
+        result = await service.import_pdf_statement(
+            tenant_id=user.tenant_id,
+            account_id=account_id,
+            filename=file.filename,
+            pdf_content=content,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e),
+        ) from e
+
+    return ImportStatementResponse(**result)
+
+
+@router.post("/{account_id}/confirm-import", response_model=ConfirmImportResponse)
+async def confirm_bank_import(
+    account_id: UUID,
+    request: ConfirmImportRequest,
+    user: User = Depends(get_current_user),
+    service: BankImportService = Depends(get_import_service),
+) -> ConfirmImportResponse:
+    """Confirm and save imported bank movements (US-44).
+
+    Called after the user reviews the preview from import-statement.
+    """
+    if not user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Profilo azienda non configurato",
+        )
+
+    try:
+        result = await service.confirm_import(
+            tenant_id=user.tenant_id,
+            account_id=account_id,
+            movements=[m.model_dump() for m in request.movements],
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+    return ConfirmImportResponse(**result)
+
+
+@router.post("/{account_id}/import-csv", response_model=ImportStatementResponse)
+async def import_bank_csv(
+    account_id: UUID,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    service: BankImportService = Depends(get_import_service),
+) -> ImportStatementResponse:
+    """Import bank statement from CSV with auto-detect columns (US-45).
+
+    Auto-detects separator (, ; tab) and column names.
+    Returns preview for user confirmation.
+    """
+    if not user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Profilo azienda non configurato",
+        )
+
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Solo file CSV accettati",
+        )
+
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File troppo grande (max 5MB)",
+        )
+
+    try:
+        result = await service.import_csv_statement(
+            tenant_id=user.tenant_id,
+            account_id=account_id,
+            filename=file.filename,
+            csv_content=content,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e),
+        ) from e
+
+    return ImportStatementResponse(**result)

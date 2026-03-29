@@ -53,11 +53,45 @@
 | US-39 | Dashboard CEO — cruscotto direzionale | E9: Cruscotto CEO | C1 | Could | 8 | v0.4 | US-13, US-14, US-24 |
 | US-40 | Dashboard CEO — KPI e budget vs consuntivo | E9: Cruscotto CEO | C1,C3 | Could | 8 | v0.4 | US-39 |
 
-**Totale:** 40 stories | **Story Points totali:** 224
+| US-44 | Import estratto conto bancario (PDF + LLM) | EC: Import Pipeline | IC1 | Must | 8 | v0.5 | US-24 |
+| US-45 | Import estratto conto bancario (CSV) | EC: Import Pipeline | IC2 | Must | 3 | v0.5 | US-24 |
+| US-46 | CRUD manuale movimenti bancari | EC: Import Pipeline | IC4 | Must | 5 | v0.5 | US-24 |
+| US-47 | Import corrispettivi telematici (XML COR10) | EC: Import Pipeline | IC5 | Must | 5 | v0.5 | US-04 |
+| US-48 | CRUD manuale corrispettivi | EC: Import Pipeline | IC6 | Must | 3 | v0.5 | US-47 |
+| US-49 | Import F24 versamenti (PDF + LLM) | EC: Import Pipeline | IC7 | Must | 5 | v0.6 | US-38 |
+| US-50 | CRUD manuale F24 versamenti | EC: Import Pipeline | IC8 | Must | 3 | v0.6 | — |
+| US-51 | Import saldi bilancio (Excel/CSV + mapping LLM) | EC: Import Pipeline | IC9 | Must | 8 | v0.5 | US-12 |
+| US-52 | Import saldi bilancio (PDF + LLM) | EC: Import Pipeline | IC10 | Must | 5 | v0.5 | US-12 |
+| US-53 | Import saldi bilancio (XBRL tassonomia CEE) | EC: Import Pipeline | IC11 | Should | 5 | v0.6 | US-12 |
+| US-54 | CRUD manuale saldi bilancio (wizard guidato) | EC: Import Pipeline | IC12 | Must | 3 | v0.5 | US-12 |
+| US-55 | Import contratti ricorrenti (PDF + LLM) | EC: Import Pipeline | IC13 | Should | 5 | v0.7 | — |
+| US-56 | CRUD manuale contratti ricorrenti | EC: Import Pipeline | IC14 | Should | 3 | v0.7 | — |
+| US-57 | Import piano ammortamento finanziamenti (PDF + LLM) | EC: Import Pipeline | IC15 | Should | 5 | v0.7 | — |
+| US-58 | CRUD manuale finanziamenti/mutui | EC: Import Pipeline | IC16 | Should | 3 | v0.7 | — |
+| US-59 | Ammortamenti cespiti auto da fatture | EC: Import Pipeline | IC17 | Should | 5 | v0.7 | US-31, US-05 |
+| US-60 | Budget Agent — creazione conversazionale | ED: Mgmt Agents | MA1 | Must | 8 | v0.6 | US-13 |
+| US-61 | Budget Agent — controllo consuntivo mensile | ED: Mgmt Agents | MA2 | Must | 8 | v0.6 | US-60 |
+| US-62 | Controller Agent — "Come sto andando?" | ED: Mgmt Agents | MA3 | Must | 5 | v0.6 | US-60, US-44 |
+| US-63 | Controller Agent — "Dove perdo soldi?" | ED: Mgmt Agents | MA4 | Should | 5 | v0.7 | US-62 |
+| US-64 | Cash Flow Agent potenziato (dati banca reali) | ED: Mgmt Agents | MA5 | Must | 5 | v0.6 | US-44, US-25 |
+| US-65 | Adempimenti Agent proattivo | ED: Mgmt Agents | MA6 | Must | 5 | v0.6 | US-17, US-49 |
+| US-66 | Alert Agent (anomalie, fatture scadute, sbilanciamenti) | ED: Mgmt Agents | MA7 | Should | 5 | v0.7 | US-62 |
+| US-67 | Doppio canale notifiche (dashboard + WhatsApp/Telegram) | ED: Mgmt Agents | MA9 | Must | 5 | v0.6 | US-18 |
+| US-68 | Home conversazionale (non tabellare) | EE: UX Controller | UX1 | Must | 8 | v0.6 | US-14, US-62 |
+| US-69 | Completeness Score (framing positivo) | EE: UX Controller | UX2 | Must | 5 | v0.5 | US-16 |
+| US-70 | Email auto-generata per commercialista | EE: UX Controller | UX4 | Should | 3 | v0.7 | — |
+| US-71 | Import silenzioso con eccezioni (max 3 azioni) | EE: UX Controller | UX3,IC18 | Must | 5 | v0.5 | — |
+
+| US-72 | Riconciliazione Agent (match fatture ↔ movimenti banca) | ED: Mgmt Agents | MA8 | Must | 5 | v0.6 | US-44, US-26 |
+
+**Totale:** 69 stories | **Story Points totali:** 377
 **v0.1 (Must Have):** 12 stories, 69 SP
 **v0.2 (Should Have):** 7 stories, 32 SP
 **v0.3 (Could Have):** 14 stories, 79 SP
 **v0.4 (Could Have):** 7 stories, 44 SP
+**v0.5 (Must — Pivot 5 Import):** 10 stories, 50 SP
+**v0.6 (Must — Pivot 5 Agents+UX):** 10 stories, 54 SP
+**v0.7 (Should — Pivot 5):** 8 stories, 34 SP
 
 ---
 
@@ -1389,5 +1423,490 @@ US-20, US-21, US-22, US-23, US-24, US-25, US-26, US-29, US-30, US-31, US-32, US-
 ### v0.4 — Could Have (7 stories, 44 SP)
 US-27, US-28, US-34, US-37, US-38, US-39, US-40
 
+### v0.5 — Must Have Pivot 5 Import (10 stories, 50 SP)
+US-44, US-45, US-46, US-47, US-48, US-51, US-52, US-54, US-69, US-71
+
+### v0.6 — Must Have Pivot 5 Agents+UX (10 stories, 54 SP)
+US-49, US-50, US-60, US-61, US-62, US-64, US-65, US-67, US-68, US-53
+
+### v0.7 — Should Have Pivot 5 (8 stories, 34 SP)
+US-55, US-56, US-57, US-58, US-59, US-63, US-66, US-70
+
 ---
+
+## Dettaglio User Stories — Pivot 5
+
+---
+
+### EPIC C: Import Pipeline Silenzioso + CRUD
+
+---
+
+#### US-44: Import estratto conto bancario (PDF + LLM)
+
+**Come** imprenditore
+**Voglio** caricare il PDF dell'estratto conto dalla mia banca
+**In modo da** avere i movimenti bancari importati automaticamente senza inserirli a mano
+
+**Acceptance Criteria:**
+
+- **AC-44.1**: DATO un PDF estratto conto (UniCredit o Credit Agricole), QUANDO lo carico tramite il dialog di upload, ALLORA il sistema estrae il testo con pdftotext e usa LLM per estrarre i movimenti in formato strutturato (data, valuta, descrizione, dare, avere)
+- **AC-44.2**: DATO un estratto conto parsato, QUANDO viene mostrata la preview dei movimenti, ALLORA posso confermare l'import o modificare singole righe prima di salvare
+- **AC-44.3**: DATO un import confermato, QUANDO i movimenti vengono salvati, ALLORA ogni movimento ha source="import_pdf" e il sistema lancia automaticamente la riconciliazione con le fatture
+- **AC-44.4**: DATO un PDF non leggibile o con layout sconosciuto, QUANDO il LLM non riesce a estrarre i dati, ALLORA viene mostrato un errore chiaro con suggerimento di usare il formato CSV
+
+**SP:** 8 | **Versione:** v0.5 | **Deps:** US-24
+
+---
+
+#### US-45: Import estratto conto bancario (CSV)
+
+**Come** imprenditore
+**Voglio** caricare un file CSV di movimenti esportato dal mio home banking
+**In modo da** avere un fallback se il PDF non viene parsato correttamente
+
+**Acceptance Criteria:**
+
+- **AC-45.1**: DATO un file CSV, QUANDO lo carico, ALLORA il sistema auto-detecta separatore (virgola, punto e virgola, tab) e colonne (data, descrizione, importo, saldo)
+- **AC-45.2**: DATO un CSV con colonne non riconosciute automaticamente, QUANDO viene mostrata la preview, ALLORA posso mappare manualmente le colonne
+- **AC-45.3**: DATO un import CSV confermato, QUANDO i movimenti vengono salvati, ALLORA ogni movimento ha source="import_csv"
+
+**SP:** 3 | **Versione:** v0.5 | **Deps:** US-24
+
+---
+
+#### US-46: CRUD manuale movimenti bancari
+
+**Come** imprenditore
+**Voglio** poter aggiungere, modificare ed eliminare singoli movimenti bancari a mano
+**In modo da** avere sempre il controllo sui dati anche senza import automatico
+
+**Acceptance Criteria:**
+
+- **AC-46.1**: DATO il modulo movimenti bancari, QUANDO clicco "Aggiungi", ALLORA posso inserire: data, descrizione, importo, dare/avere, conto banca
+- **AC-46.2**: DATO un movimento esistente (importato o manuale), QUANDO clicco "Modifica", ALLORA posso cambiare qualsiasi campo e salvare
+- **AC-46.3**: DATO un movimento esistente, QUANDO clicco "Elimina" e confermo, ALLORA il movimento viene rimosso e la riconciliazione aggiornata
+- **AC-46.4**: DATO un movimento inserito manualmente, QUANDO viene salvato, ALLORA ha source="manual"
+
+**SP:** 5 | **Versione:** v0.5 | **Deps:** US-24
+
+---
+
+#### US-47: Import corrispettivi telematici (XML COR10)
+
+**Come** imprenditore con registratore di cassa
+**Voglio** che i corrispettivi giornalieri vengano scaricati dal cassetto fiscale automaticamente
+**In modo da** avere il fatturato completo (vendite al dettaglio + fatture)
+
+**Acceptance Criteria:**
+
+- **AC-47.1**: DATO un file XML corrispettivi formato COR10, QUANDO viene processato, ALLORA il sistema estrae: P.IVA esercente, data, riepilogo per aliquota IVA, totale contanti, totale elettronico, numero documenti
+- **AC-47.2**: DATO un corrispettivo parsato, QUANDO viene confermato, ALLORA il sistema crea automaticamente la scrittura contabile: Dare Cassa/Banca, Avere Ricavi + IVA c/vendite
+- **AC-47.3**: DATO il sync cassetto fiscale, QUANDO sono presenti corrispettivi nuovi, ALLORA vengono importati silenziosamente insieme alle fatture
+
+**SP:** 5 | **Versione:** v0.5 | **Deps:** US-04
+
+---
+
+#### US-48: CRUD manuale corrispettivi
+
+**Come** imprenditore
+**Voglio** inserire corrispettivi giornalieri a mano
+**In modo da** registrare vendite anche quando i dati XML non sono disponibili
+
+**Acceptance Criteria:**
+
+- **AC-48.1**: DATO il modulo corrispettivi, QUANDO clicco "Aggiungi", ALLORA posso inserire: data, importo totale, suddivisione per aliquota IVA, incasso contanti/elettronico
+- **AC-48.2**: DATO un corrispettivo (importato o manuale), QUANDO lo modifico o elimino, ALLORA le scritture contabili vengono aggiornate di conseguenza
+
+**SP:** 3 | **Versione:** v0.5 | **Deps:** US-47
+
+---
+
+#### US-49: Import F24 versamenti (PDF + LLM)
+
+**Come** imprenditore
+**Voglio** caricare la ricevuta F24 telematica in PDF
+**In modo da** tracciare automaticamente quanto ho versato per IRPEF, INPS, IVA
+
+**Acceptance Criteria:**
+
+- **AC-49.1**: DATO un PDF ricevuta F24, QUANDO lo carico, ALLORA il LLM estrae: codice tributo, periodo di riferimento, importo, totale versato, data versamento
+- **AC-49.2**: DATO un F24 parsato, QUANDO viene confermato, ALLORA il sistema crea la scrittura contabile: Dare conti erario (per tributo), Avere Banca c/c
+- **AC-49.3**: DATO un F24 importato, QUANDO il sistema ha scadenze F24 previste (da US-38), ALLORA abbina automaticamente il versamento alla scadenza corrispondente
+
+**SP:** 5 | **Versione:** v0.6 | **Deps:** US-38
+
+---
+
+#### US-50: CRUD manuale F24 versamenti
+
+**Come** imprenditore
+**Voglio** inserire un versamento F24 a mano
+**In modo da** registrare pagamenti fiscali anche senza il PDF della ricevuta
+
+**Acceptance Criteria:**
+
+- **AC-50.1**: DATO il modulo F24, QUANDO clicco "Aggiungi versamento", ALLORA posso inserire: data, codice tributo, periodo, importo, e la scrittura contabile viene generata
+- **AC-50.2**: DATO un versamento F24 (importato o manuale), QUANDO lo modifico o elimino, ALLORA le scritture vengono aggiornate
+
+**SP:** 3 | **Versione:** v0.6 | **Deps:** —
+
+---
+
+#### US-51: Import saldi bilancio (Excel/CSV + mapping LLM)
+
+**Come** imprenditore che inizia a usare AgentFlow
+**Voglio** caricare il bilancio di verifica dal commercialista in formato Excel o CSV
+**In modo da** avere i saldi iniziali corretti per la mia contabilita
+
+**Acceptance Criteria:**
+
+- **AC-51.1**: DATO un file Excel/CSV con bilancio di verifica, QUANDO lo carico, ALLORA il sistema auto-detecta le colonne (codice conto, descrizione, saldo dare, saldo avere)
+- **AC-51.2**: DATO un bilancio parsato, QUANDO viene mostrata la preview, ALLORA il sistema suggerisce il mapping tra conti sorgente e conti AgentFlow usando LLM
+- **AC-51.3**: DATO un mapping confermato, QUANDO il bilancio viene importato, ALLORA viene creata la scrittura di apertura e verificato che totale dare == totale avere
+- **AC-51.4**: DATO un bilancio non bilanciato, QUANDO dare != avere, ALLORA viene mostrata la pagina di revisione (come GestioneImportPage) con differenza evidenziata e possibilita di correzione
+
+**SP:** 8 | **Versione:** v0.5 | **Deps:** US-12
+
+---
+
+#### US-52: Import saldi bilancio (PDF + LLM)
+
+**Come** imprenditore
+**Voglio** caricare il PDF del bilancio di verifica
+**In modo da** importare i saldi anche quando ho solo il PDF dal commercialista
+
+**Acceptance Criteria:**
+
+- **AC-52.1**: DATO un PDF bilancio di verifica, QUANDO lo carico, ALLORA il sistema usa pdftotext + LLM per estrarre i conti con saldi in formato strutturato
+- **AC-52.2**: DATO un bilancio estratto, QUANDO viene mostrata la preview, ALLORA posso modificare righe e confermare il mapping conti
+- **AC-52.3**: DATO il bilancio TAAL 2023 come formato di test, QUANDO viene processato, ALLORA estrae correttamente la struttura a 2 colonne (Attivita/Passivita) con codici 6+3 cifre
+
+**SP:** 5 | **Versione:** v0.5 | **Deps:** US-12
+
+---
+
+#### US-53: Import saldi bilancio (XBRL)
+
+**Come** imprenditore con bilancio depositato
+**Voglio** importare il file XBRL del bilancio ufficiale
+**In modo da** avere i saldi dell'anno precedente come base
+
+**Acceptance Criteria:**
+
+- **AC-53.1**: DATO un file XBRL con tassonomia itcc-ci, QUANDO lo carico, ALLORA il parser estrae tutte le voci CEE con i relativi importi
+- **AC-53.2**: DATO un bilancio XBRL parsato, QUANDO viene mostrato il mapping, ALLORA ogni voce CEE viene mappata al conto AgentFlow corrispondente
+
+**SP:** 5 | **Versione:** v0.6 | **Deps:** US-12
+
+---
+
+#### US-54: CRUD manuale saldi bilancio (wizard guidato)
+
+**Come** imprenditore senza file del commercialista
+**Voglio** inserire i saldi principali a mano tramite un wizard
+**In modo da** partire con dati di base anche senza import
+
+**Acceptance Criteria:**
+
+- **AC-54.1**: DATO il wizard saldi iniziali, QUANDO lo avvio, ALLORA mi vengono chiesti i saldi principali: banca c/c, crediti clienti, debiti fornitori, capitale sociale, e opzionalmente: magazzino, immobilizzazioni
+- **AC-54.2**: DATO un inserimento completato, QUANDO confermo, ALLORA viene creata la scrittura di apertura con verifica dare==avere
+- **AC-54.3**: DATO che non conosco un saldo, QUANDO seleziono "Non lo so, chiedo al commercialista", ALLORA il sistema genera un'email pre-compilata da inviare
+
+**SP:** 3 | **Versione:** v0.5 | **Deps:** US-12
+
+---
+
+#### US-55: Import contratti ricorrenti (PDF + LLM)
+
+**Come** imprenditore
+**Voglio** caricare un PDF di contratto (affitto, leasing, utenza)
+**In modo da** avere le spese ricorrenti nel cash flow predittivo
+
+**Acceptance Criteria:**
+
+- **AC-55.1**: DATO un PDF contratto, QUANDO lo carico, ALLORA il LLM estrae: controparte, importo, frequenza (mensile/trimestrale/annuale), data inizio/fine, descrizione
+- **AC-55.2**: DATO un contratto importato, QUANDO viene confermato, ALLORA genera automaticamente le previsioni di uscita nel cash flow
+
+**SP:** 5 | **Versione:** v0.7 | **Deps:** —
+
+---
+
+#### US-56: CRUD manuale contratti ricorrenti
+
+**Come** imprenditore
+**Voglio** inserire spese ricorrenti a mano
+**In modo da** avere un cash flow predittivo completo
+
+**Acceptance Criteria:**
+
+- **AC-56.1**: DATO il modulo contratti, QUANDO aggiungo un contratto, ALLORA inserisco: descrizione, controparte, importo, frequenza, data inizio/fine, categoria
+- **AC-56.2**: DATO un contratto attivo, QUANDO lo modifico o termino, ALLORA le previsioni cash flow si aggiornano
+
+**SP:** 3 | **Versione:** v0.7 | **Deps:** —
+
+---
+
+#### US-57: Import piano ammortamento finanziamenti (PDF + LLM)
+
+**Come** imprenditore con finanziamenti
+**Voglio** caricare il piano ammortamento del mutuo/finanziamento
+**In modo da** avere le rate future nel cash flow
+
+**Acceptance Criteria:**
+
+- **AC-57.1**: DATO un PDF piano ammortamento, QUANDO lo carico, ALLORA il LLM estrae: rata, quota capitale, quota interessi, debito residuo per ogni periodo
+- **AC-57.2**: DATO un piano importato, QUANDO viene confermato, ALLORA genera previsioni di uscita con split capitale/interessi
+
+**SP:** 5 | **Versione:** v0.7 | **Deps:** —
+
+---
+
+#### US-58: CRUD manuale finanziamenti/mutui
+
+**Come** imprenditore
+**Voglio** inserire un finanziamento e le sue rate a mano
+**In modo da** tracciare il debito residuo e l'impatto sul cash flow
+
+**Acceptance Criteria:**
+
+- **AC-58.1**: DATO il modulo finanziamenti, QUANDO aggiungo un finanziamento, ALLORA inserisco: banca, importo originale, tasso, durata, rata mensile, data inizio
+- **AC-58.2**: DATO un finanziamento attivo, QUANDO registro un pagamento rata, ALLORA il debito residuo si aggiorna
+
+**SP:** 3 | **Versione:** v0.7 | **Deps:** —
+
+---
+
+#### US-59: Ammortamenti cespiti auto da fatture
+
+**Come** imprenditore
+**Voglio** che il sistema rilevi automaticamente le fatture di acquisto beni strumentali
+**In modo da** avere gli ammortamenti calcolati senza intervento manuale
+
+**Acceptance Criteria:**
+
+- **AC-59.1**: DATO una fattura categorizzata come "Immobilizzazione materiale/immateriale", QUANDO viene confermata, ALLORA l'agente propone: tipo bene, aliquota ministeriale, prima quota ammortamento
+- **AC-59.2**: DATO un bene con importo < €516,46, QUANDO viene rilevato, ALLORA l'agente propone la deduzione integrale nell'anno
+- **AC-59.3**: DATO un bene confermato, QUANDO arriva la fine dell'esercizio, ALLORA il sistema genera la scrittura di ammortamento (Dare ammortamento, Avere fondo)
+
+**SP:** 5 | **Versione:** v0.7 | **Deps:** US-31, US-05
+
+---
+
+### EPIC D: Agenti di Gestione Aziendale
+
+---
+
+#### US-60: Budget Agent — creazione conversazionale
+
+**Come** imprenditore
+**Voglio** creare il budget annuale parlando con l'agente
+**In modo da** avere un piano finanziario senza compilare fogli Excel
+
+**Acceptance Criteria:**
+
+- **AC-60.1**: DATO che chiedo all'agente di creare il budget, QUANDO ci sono dati storici (anno precedente), ALLORA l'agente propone un budget basato sullo storico con crescita stimata
+- **AC-60.2**: DATO che rispondo in linguaggio naturale (es. "perdo il cliente Rossi da 50k"), QUANDO l'agente elabora, ALLORA aggiusta il budget e mostra la proposta aggiornata
+- **AC-60.3**: DATO un budget confermato, QUANDO viene salvato, ALLORA e' suddiviso per mese e per categoria (ricavi, personale, fornitori, utenze, altro)
+- **AC-60.4**: DATO che non ci sono dati storici (primo anno), QUANDO l'agente crea il budget, ALLORA fa domande guidate: fatturato previsto, dipendenti, affitto, investimenti
+
+**SP:** 8 | **Versione:** v0.6 | **Deps:** US-13
+
+---
+
+#### US-61: Budget Agent — controllo consuntivo mensile
+
+**Come** imprenditore
+**Voglio** vedere ogni mese il confronto tra budget e consuntivo
+**In modo da** capire se sono in linea o devo intervenire
+
+**Acceptance Criteria:**
+
+- **AC-61.1**: DATO un budget attivo, QUANDO finisce il mese, ALLORA l'agente calcola automaticamente il consuntivo dalle fatture, banca, paghe e lo confronta con il budget
+- **AC-61.2**: DATO uno scostamento > 20% su una categoria, QUANDO l'agente lo rileva, ALLORA segnala l'anomalia con analisi causa (es. "Costi fornitori +37%, 2 fatture straordinarie da TechSupply")
+- **AC-61.3**: DATO il confronto budget vs consuntivo, QUANDO lo visualizzo, ALLORA vedo: tabella mensile con colonne Budget/Consuntivo/Scostamento/% con colori (verde <10%, giallo 10-20%, rosso >20%)
+
+**SP:** 8 | **Versione:** v0.6 | **Deps:** US-60
+
+---
+
+#### US-62: Controller Agent — "Come sto andando?"
+
+**Come** imprenditore
+**Voglio** chiedere all'agente come va la mia azienda e avere una risposta chiara
+**In modo da** prendere decisioni informate senza leggere tabelle contabili
+
+**Acceptance Criteria:**
+
+- **AC-62.1**: DATO che chiedo "come sto andando?" (o varianti), QUANDO l'agente risponde, ALLORA mostra: fatturato mese (vs budget), costi principali, margine, trend rispetto al mese precedente
+- **AC-62.2**: DATO che l'agente risponde, QUANDO ci sono anomalie, ALLORA le segnala proattivamente (fatture scadute, sbilanciamenti, scostamenti budget)
+- **AC-62.3**: DATO che i dati banca sono collegati, QUANDO l'agente risponde, ALLORA include il saldo corrente e la previsione cash flow a 30gg
+
+**SP:** 5 | **Versione:** v0.6 | **Deps:** US-60, US-44
+
+---
+
+#### US-63: Controller Agent — "Dove perdo soldi?"
+
+**Come** imprenditore
+**Voglio** chiedere all'agente dove vanno i miei soldi
+**In modo da** identificare sprechi e ottimizzare i costi
+
+**Acceptance Criteria:**
+
+- **AC-63.1**: DATO che chiedo "dove perdo soldi?" (o varianti), QUANDO l'agente analizza, ALLORA mostra: top 5 categorie di costo, confronto con periodi precedenti, anomalie
+- **AC-63.2**: DATO un confronto tra periodi, QUANDO c'e un incremento significativo, ALLORA l'agente identifica le fatture/voci responsabili
+
+**SP:** 5 | **Versione:** v0.7 | **Deps:** US-62
+
+---
+
+#### US-64: Cash Flow Agent potenziato (dati banca reali)
+
+**Come** imprenditore
+**Voglio** una previsione cash flow basata su dati bancari reali
+**In modo da** sapere se riusciro a pagare tutto nei prossimi 90 giorni
+
+**Acceptance Criteria:**
+
+- **AC-64.1**: DATO un conto banca collegato (API o import), QUANDO calcolo il cash flow, ALLORA usa il saldo reale + fatture in scadenza + rate finanziamenti + contratti ricorrenti + F24 previsti + stipendi
+- **AC-64.2**: DATO che il saldo previsto scende sotto una soglia (default €5.000), QUANDO l'agente lo rileva, ALLORA invia un alert proattivo con suggerimenti (solleciti fatture, posticipo pagamenti)
+
+**SP:** 5 | **Versione:** v0.6 | **Deps:** US-44, US-25
+
+---
+
+#### US-65: Adempimenti Agent proattivo
+
+**Come** imprenditore
+**Voglio** essere avvisato in anticipo delle scadenze fiscali con gli importi calcolati
+**In modo da** non dimenticare pagamenti e non avere sorprese
+
+**Acceptance Criteria:**
+
+- **AC-65.1**: DATO una scadenza F24/IVA/INPS, QUANDO mancano 10 giorni, ALLORA l'agente invia notifica con: tipo scadenza, importo calcolato dai dati reali, dettaglio tributi
+- **AC-65.2**: DATO che l'adempimento e' stato versato (F24 importato o manuale), QUANDO la scadenza arriva, ALLORA l'agente la marca come completata
+- **AC-65.3**: DATO il doppio canale attivo, QUANDO viene inviato l'alert, ALLORA arriva sia in dashboard sia su WhatsApp/Telegram
+
+**SP:** 5 | **Versione:** v0.6 | **Deps:** US-17, US-49
+
+---
+
+#### US-66: Alert Agent (anomalie, fatture scadute, sbilanciamenti)
+
+**Come** imprenditore
+**Voglio** essere avvisato di situazioni anomale senza doverle cercare
+**In modo da** intervenire tempestivamente
+
+**Acceptance Criteria:**
+
+- **AC-66.1**: DATO che una fattura attiva e' scaduta da piu di 30 giorni, QUANDO l'agente la rileva, ALLORA segnala con importo, cliente, giorni di ritardo e propone azione (sollecito)
+- **AC-66.2**: DATO che un fornitore ha P.IVA cessata (check AdE), QUANDO arriva una nuova fattura, ALLORA l'agente lo segnala come anomalia
+- **AC-66.3**: DATO un importo fattura anomalo (> 3x deviazione standard rispetto alla media del fornitore), QUANDO viene importata, ALLORA l'agente chiede conferma
+
+**SP:** 5 | **Versione:** v0.7 | **Deps:** US-62
+
+---
+
+#### US-67: Doppio canale notifiche (dashboard + WhatsApp/Telegram)
+
+**Come** imprenditore che non apre l'app ogni giorno
+**Voglio** ricevere gli alert critici su WhatsApp o Telegram
+**In modo da** non perdere scadenze o anomalie importanti
+
+**Acceptance Criteria:**
+
+- **AC-67.1**: DATO un alert di priorita alta (scadenza fiscale, cash flow critico, fattura anomala), QUANDO viene generato, ALLORA viene inviato sia in dashboard sia sul canale messaging configurato
+- **AC-67.2**: DATO che l'utente ha configurato Telegram/WhatsApp, QUANDO riceve un alert, ALLORA puo rispondere con un'azione rapida (es. "Conferma", "Rimanda")
+- **AC-67.3**: DATO un alert di priorita bassa (riconciliazione, categorizzazione), QUANDO viene generato, ALLORA appare solo in dashboard
+
+**SP:** 5 | **Versione:** v0.6 | **Deps:** US-18
+
+---
+
+### EPIC E: UX Controller
+
+---
+
+#### US-68: Home conversazionale (non tabellare)
+
+**Come** imprenditore
+**Voglio** che la home page mi parli come un assistente
+**In modo da** capire subito la situazione senza navigare tabelle
+
+**Acceptance Criteria:**
+
+- **AC-68.1**: DATO che accedo alla home, QUANDO carica, ALLORA vedo: saluto personalizzato + situazione mese (fatturato vs target) + saldo banca + prossime uscite importanti + max 3 azioni da fare
+- **AC-68.2**: DATO che ci sono piu di 3 azioni pendenti, QUANDO la home mostra le azioni, ALLORA mostra solo le 3 piu urgenti con link "Vedi tutte" per il backlog
+- **AC-68.3**: DATO che il cash flow a 30gg e' critico, QUANDO la home carica, ALLORA mostra un alert con la previsione e suggerimenti
+
+**SP:** 8 | **Versione:** v0.6 | **Deps:** US-14, US-62
+
+---
+
+#### US-69: Completeness Score (framing positivo)
+
+**Come** nuovo utente
+**Voglio** capire cosa ho gia sbloccato e cosa posso sbloccare
+**In modo da** essere motivato a collegare nuove fonti dati
+
+**Acceptance Criteria:**
+
+- **AC-69.1**: DATO che accedo alla sezione onboarding/setup, QUANDO vedo il Completeness Score, ALLORA mostra: fonti collegate con check verde + funzionalita sbloccate + prossimo sblocco suggerito con beneficio
+- **AC-69.2**: DATO che collego una nuova fonte (es. banca), QUANDO torno al Completeness Score, ALLORA le nuove funzionalita (Cash Flow, Riconciliazione) appaiono come sbloccate
+- **AC-69.3**: DATO il framing positivo, QUANDO il sistema mostra il progresso, ALLORA usa "Hai sbloccato X" (non "Ti manca il 55%")
+
+**SP:** 5 | **Versione:** v0.5 | **Deps:** US-16
+
+---
+
+#### US-70: Email auto-generata per commercialista
+
+**Come** imprenditore che non sa cosa chiedere al commercialista
+**Voglio** che il sistema generi un'email pre-compilata
+**In modo da** richiedere i dati giusti (bilancio, saldi) senza sforzo
+
+**Acceptance Criteria:**
+
+- **AC-70.1**: DATO che mi serve il bilancio di verifica, QUANDO clicco "Chiedi al commercialista", ALLORA il sistema genera un'email con: oggetto, corpo con richiesta specifica del formato, nome azienda pre-compilato
+- **AC-70.2**: DATO l'email generata, QUANDO la invio, ALLORA posso copiarla o aprirla nel client email predefinito
+
+**SP:** 3 | **Versione:** v0.7 | **Deps:** —
+
+---
+
+#### US-71: Import silenzioso con eccezioni (max 3 azioni)
+
+**Come** imprenditore
+**Voglio** che gli import funzionino in background senza chiedermi conferma per ogni voce
+**In modo da** non perdere tempo con data entry
+
+**Acceptance Criteria:**
+
+- **AC-71.1**: DATO un import automatico (sync cassetto, banca, corrispettivi), QUANDO completa con successo, ALLORA mostra un messaggio sintetico ("47 fatture importate") senza richiedere azione
+- **AC-71.2**: DATO un import con anomalie (duplicati, importi anomali, formato non riconosciuto), QUANDO vengono rilevate, ALLORA mostra solo le eccezioni come azioni pendenti (max 3 visibili)
+- **AC-71.3**: DATO che ci sono piu di 3 eccezioni, QUANDO le mostro, ALLORA le prime 3 sono visibili con conteggio totale e link "Vedi tutte le eccezioni"
+
+**SP:** 5 | **Versione:** v0.5 | **Deps:** —
+
+#### US-72: Riconciliazione Agent (match fatture ↔ movimenti banca)
+
+**Come** imprenditore
+**Voglio** che il sistema abbini automaticamente i movimenti bancari alle fatture
+**In modo da** sapere quali fatture sono pagate e quali no
+
+**Acceptance Criteria:**
+
+- **AC-72.1**: DATO un sync banca completato (import o API), QUANDO i nuovi movimenti arrivano, ALLORA l'agente propone abbinamenti automatici basati su importo, data, descrizione
+- **AC-72.2**: DATO un abbinamento proposto con confidenza > 80%, QUANDO l'utente non interviene entro 48h, ALLORA viene confermato automaticamente
+- **AC-72.3**: DATO un movimento non abbinabile automaticamente, QUANDO l'agente lo segnala, ALLORA mostra una lista di fatture candidate con punteggio di matching
+- **AC-72.4**: DATO il budget vs consuntivo (UX5), QUANDO viene visualizzato, ALLORA mostra la tabella mensile con colonne Budget/Consuntivo/Scostamento con colori (verde <10%, giallo 10-20%, rosso >20%) come widget dashboard
+
+**SP:** 5 | **Versione:** v0.6 | **Deps:** US-44, US-26
+
+**Nota:** UX5 (Budget vs Consuntivo widget) e' coperto da US-61 AC-61.3 + US-72 AC-72.4. UX6 (Import wizard universale) e' un pattern condiviso trasversale a US-44, US-45, US-49, US-51, US-52, US-53 — ogni story implementa lo stesso pattern (selezione file → preview → conferma).
+
+---
+_Aggiornato con Pivot 5: Controller Aziendale AI — 2026-03-29_
 _Aggiornato con analisi gap CEO — 2026-03-22_

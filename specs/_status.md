@@ -1,26 +1,31 @@
 # Status Progetto: AgentFlow PMI
-Ultimo aggiornamento: 2026-03-22
+Ultimo aggiornamento: 2026-03-28
 
 ## Progetto
 - **Nome**: AgentFlow PMI
-- **MVP**: ContaBot — "L'agente contabile che impara da te"
+- **MVP**: ContaBot — "Il controller aziendale AI per PMI italiane"
 - **Visione finale**: AgentFlow Pro — Copilota AI del CEO di PMI italiana
 - **Metodologia**: SDD (Spec-Driven Development)
 - **Pivot 1**: Cassetto fiscale come fonte primaria (non email)
 - **Pivot 2**: Integrazione analisi gap CEO (gap contabili, adempimenti, cruscotto CEO, roadmap v1.0-v2.0)
 - **Pivot 3**: Sistema Agentico Conversazionale — orchestratore OpenClaw-like, chat persistente, agent naming, tools/skills
+- **Pivot 5**: **DA GESTIONALE CONTABILE A CONTROLLER AZIENDALE AI** — zero data entry, massima interpretazione, import silenziosi, CRUD manuale per ogni voce, Budget Agent conversazionale, 6 agenti di gestione con doppio canale
+
+## ⚠️ PIVOT 5 IN CORSO
+28 nuove stories (US-44 a US-71), 3 nuovi Epic (Import Pipeline, Management Agents, UX Controller).
+Ordine riesecuzione: /dev-prd → /dev-stories → /dev-spec → /dev-sprint → /dev-review → /dev-implement
 
 ## Fasi Dev-Methodology
 | Fase | File | Status | Progresso |
 |------|------|--------|-----------|
-| 1 - Vision | specs/01-vision.md | ✅ Aggiornato post analisi gap CEO | 95% |
-| 2 - PRD | specs/02-prd.md | ✅ Aggiornato post analisi gap CEO | 95% |
-| 3 - User Stories | specs/03-user-stories.md | ✅ Aggiornato post analisi gap CEO | 95% |
-| 4 - Tech Spec | specs/04-tech-spec.md | ✅ Review PASS (post-fix) — 61 endpoints, 18 tabelle, 10 BR | 100% |
-| 5 - Sprint Planning | specs/05-sprint-plan.md | ✅ 10 sprint, 224 SP, velocity 20-24 SP/sprint | 100% |
+| 1 - Vision | specs/01-vision.md | ⚠️ Da aggiornare (Pivot 5 — nuovo posizionamento) | 95% → DA AGG. |
+| 2 - PRD | specs/02-prd.md | ⚠️ Da aggiornare (Pivot 5 — EPIC 10-12) | 95% → DA AGG. |
+| 3 - User Stories | specs/03-user-stories.md | 🔄 Da rifare (Pivot 5 — US-44 a US-71) | 95% → DA RIFARE |
+| 4 - Tech Spec | specs/04-tech-spec.md | ⚠️ Da aggiornare (Pivot 5 — endpoint 62-76, nuove tabelle) | 100% → DA AGG. |
+| 5 - Sprint Planning | specs/05-sprint-plan.md | 🔄 Da rifare (Pivot 5 — Sprint 11-16) | 100% → DA RIFARE |
 | 6 - Setup | — | ✅ Struttura progetto creata | 100% |
-| 7 - Implementazione | specs/07-implementation.md | ✅ COMPLETATA — 40/40 stories, 10/10 sprint | 100% (40/40 stories, 224 SP) |
-| 8 - Validazione | specs/08-validation.md | ✅ APPROVED — 369 test PASS, 72.84% coverage, 0 bug | 100% |
+| 7 - Implementazione | specs/07-implementation.md | ✅ v0.1-v0.4 COMPLETATA — 40/40 stories | 100% (storico) |
+| 8 - Validazione | specs/08-validation.md | ✅ v0.1-v0.4 APPROVED — 369 test PASS | 100% (storico) |
 
 ## Pivot 1: Cassetto Fiscale come Fonte Primaria
 Gerarchia fonti dati:

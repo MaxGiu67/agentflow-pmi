@@ -297,19 +297,92 @@ class BankAccount(Base):
 
 
 class BankTransaction(Base):
-    """Bank transaction from Open Banking sync (US-24)."""
+    """Bank transaction from Open Banking sync or PDF import (US-24, US-44)."""
     __tablename__ = "bank_transactions"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     bank_account_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
-    transaction_id: Mapped[str] = mapped_column(String(255), nullable=False)  # external transaction ID
+    transaction_id: Mapped[str] = mapped_column(String(255), nullable=False)
     date: Mapped[date] = mapped_column(Date, nullable=False)
+    value_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     amount: Mapped[float] = mapped_column(Float, nullable=False)
     direction: Mapped[str] = mapped_column(String(10), nullable=False)  # credit, debit
     counterpart: Mapped[str | None] = mapped_column(String(255), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     reconciled: Mapped[bool] = mapped_column(Boolean, default=False)
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="open_banking")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class BankStatementImport(Base):
+    """Log of bank statement PDF/CSV imports (US-44, US-45)."""
+    __tablename__ = "bank_statement_imports"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    bank_account_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    filename: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    period_from: Mapped[date | None] = mapped_column(Date, nullable=True)
+    period_to: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    extraction_method: Mapped[str] = mapped_column(String(20), nullable=False, default="llm")
+    movements_count: Mapped[int] = mapped_column(Integer, default=0)
+    raw_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class Corrispettivo(Base):
+    """Daily receipt total from electronic cash register (US-47)."""
+    __tablename__ = "corrispettivi"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    data: Mapped[date] = mapped_column(Date, nullable=False)
+    dispositivo_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    piva_esercente: Mapped[str | None] = mapped_column(String(11), nullable=True)
+    aliquota_iva: Mapped[float | None] = mapped_column(Float, nullable=True)
+    imponibile: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    imposta: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    totale_contanti: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    totale_elettronico: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    num_documenti: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="import_xml")
+    journal_entry_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    raw_xml: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class ImportException(Base):
+    """Exception/anomaly from an import that requires user attention (US-71)."""
+    __tablename__ = "import_exceptions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    source_type: Mapped[str] = mapped_column(String(50), nullable=False)  # fatture, banca, corrispettivi, paghe
+    severity: Mapped[str] = mapped_column(String(20), nullable=False, default="warning")  # info, warning, error
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    action_label: Mapped[str | None] = mapped_column(String(100), nullable=True)  # "Verifica", "Categorizza", "Correggi"
+    action_url: Mapped[str | None] = mapped_column(String(500), nullable=True)  # deep link
+    related_entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    resolved: Mapped[bool] = mapped_column(Boolean, default=False)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class CompletenessScore(Base):
+    """Tracks which data sources are connected and what features are unlocked (US-69)."""
+    __tablename__ = "completeness_scores"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    source_type: Mapped[str] = mapped_column(String(50), nullable=False)  # fatture, banca, paghe, corrispettivi, bilancio, f24
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="not_configured")  # connected, pending, not_configured
+    last_sync: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
 class VatSettlement(Base):

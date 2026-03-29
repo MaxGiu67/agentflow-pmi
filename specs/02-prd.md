@@ -1,10 +1,10 @@
 # Product Requirements Document — AgentFlow PMI
 
 **Progetto:** AgentFlow PMI
-**MVP:** AgentFlow — "L'agente contabile con cui parli"
-**Data:** 2026-03-24
-**Stato:** Aggiornato post Pivot 3 (Sistema Agentico Conversazionale)
-**Fonte:** brainstorm/03-market-research.md, brainstorm/04-mvp-scope.md, brainstorm/specialists/security.md
+**MVP:** AgentFlow — "Il controller aziendale AI per PMI italiane"
+**Data:** 2026-03-29
+**Stato:** Aggiornato post Pivot 5 (Da Gestionale Contabile a Controller Aziendale AI)
+**Fonte:** brainstorm/07-compare-llm.md, specs/technical/pivot-impact-analysis-v3.md
 
 ---
 
@@ -27,6 +27,8 @@ Il mercato della gestione contabile per PMI italiane è saturo di soluzioni trad
 - **Pennylane** (Francia) — Contabilità AI B2B2C, possibile competitor futuro in Italia.
 
 **Gap confermato:** Nessun competitor offre agenticità, learning personalizzato, o cash flow predittivo. Finestra di opportunità first-mover.
+
+**Pivot 5 — Nuovo posizionamento:** AgentFlow NON sostituisce il gestionale contabile — lo affianca come **controller aziendale AI**. Zero data entry, massima interpretazione. I dati arrivano da soli (cassetto fiscale, banca, paghe dal consulente). L'agente li interpreta e parla all'utente in linguaggio naturale. La contabilita funziona sotto il cofano, l'utente non la vede.
 
 ### Dati di Mercato
 - ~60% PMI italiane delega tutto al commercialista (CGIA Mestre, Istat)
@@ -216,6 +218,66 @@ Il mercato della gestione contabile per PMI italiane è saturo di soluzioni trad
 | DB9 | Chatbot proattivo con notifiche contestuali | Should | "3 fatture da verificare, scadenza IVA tra 12gg" |
 | DB10 | Template dashboard per settore (basato su ATECO) | Could | Onboarding veloce con layout pre-configurato |
 
+### EPIC C: Import Pipeline Silenzioso + CRUD Manuale (v0.5-v0.6) — Must Have (Pivot 5)
+
+**Principio: il CRUD e' la base, l'import e' l'acceleratore.** L'utente deve SEMPRE poter inserire/modificare/eliminare qualsiasi voce a mano. L'import automatico e' una comodita, non un obbligo. Tutti gli import funzionano in background (silenzioso) — solo le anomalie vengono segnalate.
+
+| # | Requisito | Priorita | Giustificazione |
+|---|-----------|----------|-----------------|
+| IC1 | Import estratto conto bancario (PDF + LLM extraction) | Must | Cash flow reale, riconciliazione. LLM per parsing universale (no regex fragile) |
+| IC2 | Import estratto conto bancario (CSV fallback) | Must | Fallback per chi preferisce export CSV da home banking |
+| IC3 | Open Banking API (Fabrick/Salt Edge AISP) — sync automatico | Must | Dati bancari freschi ogni 6h, zero intervento utente |
+| IC4 | CRUD manuale movimenti bancari | Must | Inserisci/modifica/elimina singolo movimento a mano |
+| IC5 | Import corrispettivi telematici (XML COR10 da cassetto fiscale) | Must | Completa fatturato per PMI retail, stessa fonte di FiscoAPI |
+| IC6 | CRUD manuale corrispettivi | Must | Inserimento giornaliero manuale |
+| IC7 | Import F24 versamenti (PDF + LLM extraction codici tributo) | Must | Quadratura fiscale, verifica versamenti |
+| IC8 | CRUD manuale F24 | Must | Inserimento versamento manuale |
+| IC9 | Import saldi bilancio iniziali (Excel/CSV + mapping LLM) | Must | Punto partenza contabile — auto-detect colonne, mapping conti |
+| IC10 | Import saldi bilancio (PDF + LLM extraction) | Must | Il commercialista manda PDF, noi estraiamo con LLM |
+| IC11 | Import saldi bilancio (XBRL tassonomia CEE) | Should | Bilancio depositato Camera Commercio — formato standard |
+| IC12 | CRUD manuale saldi bilancio (wizard guidato) | Must | Inserimento saldi principali per chi non ha file |
+| IC13 | Import contratti ricorrenti (PDF + LLM) | Should | Affitto, leasing, utenze → cash flow predittivo |
+| IC14 | CRUD manuale contratti ricorrenti | Should | Inserisci ricorrenza a mano |
+| IC15 | Import piano ammortamento finanziamenti (PDF + LLM) | Should | Rate, debito residuo → cash flow |
+| IC16 | CRUD manuale finanziamenti/mutui | Should | Inserisci rata manuale |
+| IC17 | Ammortamenti cespiti auto da fatture | Should | Auto-detect immobilizzazioni dal cassetto, aliquota ministeriale, conferma |
+| IC18 | Import silenzioso con segnalazione eccezioni (max 3 azioni) | Must | Background import, solo anomalie segnalate all'utente |
+
+**File esempio disponibili:** esempi_import/ (4 PDF banca UniCredit+Credit Agricole, 1 PDF bilancio TAAL 2023, 90 XML corrispettivi, 24 PDF paghe)
+
+---
+
+### EPIC D: Agenti di Gestione Aziendale — Doppio Canale (v0.6-v0.7) — Must Have (Pivot 5)
+
+**Principio: l'agente dice all'utente cosa deve sapere e cosa deve fare.** Due modalita: dashboard (sempre visibile) e conversazione (chatbot). Alert critici anche su WhatsApp/Telegram.
+
+| # | Requisito | Priorita | Giustificazione |
+|---|-----------|----------|-----------------|
+| MA1 | Budget Agent — creazione conversazionale | Must | Propone budget da storico, Q&A naturale, l'utente aggiusta parlando |
+| MA2 | Budget Agent — controllo consuntivo mensile | Must | Budget vs actual automatico, scostamenti, analisi cause |
+| MA3 | Controller Agent — "Come sto andando?" | Must | KPI sintetici, trend, confronto periodi, linguaggio naturale |
+| MA4 | Controller Agent — "Dove perdo soldi?" | Should | Analisi costi per categoria, anomalie, suggerimenti |
+| MA5 | Cash Flow Agent potenziato (dati banca + contratti ricorrenti) | Must | Previsione con movimenti reali + rate fisse + scadenze |
+| MA6 | Adempimenti Agent proattivo | Must | Push 10gg prima scadenza, calcolo importi da dati reali |
+| MA7 | Alert Agent (anomalie, fatture scadute, sbilanciamenti) | Should | Pattern detection, P.IVA cessate, importi anomali |
+| MA8 | Riconciliazione Agent (match fatture ↔ movimenti banca) | Must | Dopo ogni sync banca, propone abbinamenti |
+| MA9 | Doppio canale notifiche (dashboard + WhatsApp/Telegram) | Must | Ogni alert → push su messaging per chi non apre l'app |
+
+---
+
+### EPIC E: UX Controller — Non Gestionale (v0.6) — Must Have (Pivot 5)
+
+**Principio: l'app non sembra un gestionale, sembra un assistente.** La home e' una conversazione, non una tabella. Max 3 azioni visibili.
+
+| # | Requisito | Priorita | Giustificazione |
+|---|-----------|----------|-----------------|
+| UX1 | Home conversazionale (saluto + situazione + azioni) | Must | "Buongiorno, fatturato a €38k su €45k target. Prossime uscite: stipendi + F24." |
+| UX2 | Completeness Score con framing positivo | Must | "Hai sbloccato Fatture + Paghe. Prossimo: collega la banca → attivi Cash Flow" |
+| UX3 | Max 3 azioni pendenti visibili | Must | Le altre in backlog — non sopraffare l'utente |
+| UX4 | Email auto-generata per commercialista | Should | Template per richiesta bilancio/dati |
+| UX5 | Budget vs Consuntivo come widget dashboard | Must | Tabella mensile con scostamenti e colori (verde/giallo/rosso) |
+| UX6 | Import wizard universale (selezione file, preview, conferma) | Must | Pattern unico per tutti i tipi di import (banca, bilancio, F24, paghe) |
+
 ---
 
 ## MoSCoW Prioritization (MVP v0.1)
@@ -261,12 +323,38 @@ Il mercato della gestione contabile per PMI italiane è saturo di soluzioni trad
 6. Onboarding conversazionale (ContoEconomicoAgent integrato)
 7. Frontend chat UI (diventa interfaccia principale)
 
+### Must Have (v0.5-v0.7 — Pivot 5: Controller Aziendale AI)
+1. Import banca (PDF+LLM, CSV, Open Banking) + CRUD manuale movimenti
+2. Import corrispettivi XML COR10 + CRUD manuale
+3. Import F24 (PDF+LLM) + CRUD manuale
+4. Import saldi bilancio (Excel/CSV/PDF/XBRL) + CRUD manuale + wizard
+5. Budget Agent conversazionale (creazione + consuntivo mensile)
+6. Controller Agent ("Come sto andando?", budget vs actual)
+7. Cash Flow Agent potenziato (dati banca reali + contratti ricorrenti)
+8. Adempimenti Agent proattivo (push 10gg prima scadenza)
+9. Riconciliazione Agent (match fatture ↔ banca)
+10. Home conversazionale (non tabellare, max 3 azioni)
+11. Completeness Score (framing positivo)
+12. Import silenzioso (background, solo anomalie segnalate)
+13. Doppio canale notifiche (dashboard + WhatsApp/Telegram)
+14. CRUD manuale per ogni voce importata
+15. Import wizard universale (pattern unico per tutti i tipi)
+
+### Should Have (v0.7-v0.8 — Pivot 5)
+1. Import contratti ricorrenti (PDF+LLM) + CRUD
+2. Import finanziamenti/mutui (PDF+LLM) + CRUD
+3. Ammortamenti cespiti auto da fatture
+4. Alert Agent (anomalie, P.IVA cessate, importi anomali)
+5. Controller Agent — "Dove perdo soldi?" (analisi costi per categoria)
+6. Email auto-generata per commercialista
+7. Import saldi XBRL (tassonomia CEE)
+
 ### Could Have (v1.0)
-1. ControllerAgent (centri di costo, budget vs consuntivo, KPI personalizzabili)
-2. HRAgent base (anagrafica, costo personale, budget HR, scadenzario)
-3. CommAgent base (CRM, pipeline, preventivi, dashboard commerciale)
-4. Multi-tenant + white-label commercialisti
-5. Marketplace agenti + billing Stripe
+1. HRAgent base (anagrafica, costo personale, budget HR, scadenzario)
+2. CommAgent base (CRM, pipeline, preventivi, dashboard commerciale)
+3. Multi-tenant + white-label commercialisti
+4. Marketplace agenti + billing Stripe
+5. KPI personalizzabili, simulazioni what-if
 
 ### Could Have (v1.5-v2.0)
 1. ProjectAgent (commesse, timesheet, margine progetto, SAL)
@@ -291,12 +379,13 @@ Il mercato della gestione contabile per PMI italiane è saturo di soluzioni trad
 
 ## Out of Scope (Anti-Scope Permanente)
 
-1. **App mobile nativa** — Web responsive sufficiente. Solo se retention lo giustifica.
-2. **Buste paga/cedolini in-house** — Troppo complesso (CCNL, addizionali, detrazioni). Sempre integrazione con provider (Zucchetti, TeamSystem).
-3. **Diventare intermediario telematico AdE** — Cambia completamente i requisiti normativi.
-4. **LLM API per categorizzazione base** — Rules + similarity engine (ADR-003). LLM usato solo per orchestratore conversazionale e onboarding.
-5. **ERP completo** — AgentFlow e un copilota AI conversazionale, non un SAP. AccountingEngine interno (ADR-007: Odoo rimosso).
-6. **Gestione magazzino/inventario** — Troppo specifico per settore, fuori target PMI di servizi.
+1. **Sostituzione del gestionale contabile** — AgentFlow AFFIANCA il gestionale, non lo sostituisce. Non deve essere rigido o richiedere data entry obbligatorio. (Pivot 5)
+2. **App mobile nativa** — Web responsive sufficiente. Solo se retention lo giustifica.
+3. **Buste paga/cedolini in-house** — Troppo complesso (CCNL, addizionali, detrazioni). Sempre integrazione con provider (Zucchetti, TeamSystem).
+4. **Diventare intermediario telematico AdE** — Cambia completamente i requisiti normativi.
+5. **LLM API per categorizzazione base** — Rules + similarity engine (ADR-003). LLM usato per: orchestratore conversazionale, onboarding, PDF extraction banca/F24/bilancio (Pivot 5).
+6. **ERP completo** — AgentFlow e' un controller AI, non un SAP. AccountingEngine interno (ADR-007).
+7. **Gestione magazzino/inventario** — Troppo specifico per settore, fuori target PMI di servizi.
 
 ---
 
@@ -386,18 +475,34 @@ Il mercato della gestione contabile per PMI italiane è saturo di soluzioni trad
 
 ---
 
-## Posizionamento
+## Posizionamento (aggiornato Pivot 5)
 
-**"Non è un software che usi. È un agente che lavora per te."**
+**"Non e' un gestionale. E' il controller aziendale che ogni PMI dovrebbe avere."**
 
-| Dimensione | Competitor tradizionali | ContaBot |
-|------------|------------------------|----------|
+AgentFlow non sostituisce il programma di contabilita — lo affianca. Non e' rigido, e' di supporto. L'imprenditore non vuole fare il contabile, vuole capire come va la sua azienda.
+
+| Dimensione | Gestionale classico | AgentFlow |
+|------------|-------------------|-----------|
+| Data entry | L'utente inserisce tutto | I dati arrivano da soli |
+| Interfaccia | Tabelle, griglie, form | Conversazione naturale + insight |
 | Paradigma | Software reattivo (tu agisci) | Agente proattivo (lui agisce) |
-| Categorizzazione | Manuale o regole fisse | Learning progressivo dal tuo stile |
+| Valore | "Registra correttamente" | "Capisci cosa sta succedendo" |
+| Budget | Foglio Excel da compilare | Chiacchierata con l'agente |
+| Bilancio | L'utente lo legge (se sa come) | L'agente lo spiega |
 | Cash flow | Consuntivo (passato) | Predittivo (futuro 90gg) |
+| Errori | "Risolvi tu" | "Ho trovato questo, vuoi che sistemi?" |
 | Notifiche | Email generiche | WhatsApp/Telegram contestuali |
-| Onboarding | Setup manuale, ore di configurazione | Autentica con SPID, parti in 5 minuti |
-| Evoluzione | Aggiornamenti software periodici | Migliora continuamente imparando |
+| Onboarding | Setup manuale, ore di configurazione | SPID + sblocchi progressivi |
+| Competizione | Fatture in Cloud, TeamSystem | Nessuna diretta — nuovo posizionamento |
+
+### Principi di design (Pivot 5)
+1. **Zero data entry** — I dati arrivano da fonti automatiche
+2. **Import silenzioso** — Background, solo anomalie segnalate
+3. **Max 3 azioni** — Mai sopraffare l'utente
+4. **CRUD come base** — L'utente puo sempre inserire/modificare a mano
+5. **Framing positivo** — "Hai sbloccato X", non "Ti manca il 55%"
+6. **Doppio canale** — Dashboard + messaging (l'imprenditore non apre l'app ogni giorno)
+7. **Supporto, non problema** — Il sistema aiuta, non crea lavoro
 
 ---
 
@@ -409,4 +514,5 @@ Il mercato della gestione contabile per PMI italiane è saturo di soluzioni trad
 4. **Import da caos** — Migration wizard critico: l'utente viene da Excel/carta.
 
 ---
+_Aggiornato con Pivot 5: Controller Aziendale AI — 2026-03-29_
 _Aggiornato con analisi gap CEO — 2026-03-22_

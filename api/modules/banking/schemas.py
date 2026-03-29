@@ -99,6 +99,45 @@ class BankRevokeResponse(BaseModel):
     message: str
 
 
+# ── Import Statement (US-44, US-45) ──
+
+class ImportMovementPreview(BaseModel):
+    """Single movement extracted from PDF/CSV for preview."""
+    data_operazione: str
+    data_valuta: str | None = None
+    descrizione: str
+    dare: float = 0
+    avere: float = 0
+    importo: float = 0
+    direzione: str = "debit"
+
+
+class ImportStatementResponse(BaseModel):
+    """Response from bank statement import (preview before confirm)."""
+    import_id: str
+    bank_account_id: str
+    filename: str
+    extraction_method: str
+    movements_count: int
+    period_from: str | None = None
+    period_to: str | None = None
+    movements: list[ImportMovementPreview]
+    status: str
+
+
+class ConfirmImportRequest(BaseModel):
+    """Request to confirm imported movements."""
+    movements: list[ImportMovementPreview]
+
+
+class ConfirmImportResponse(BaseModel):
+    """Response from confirmed import."""
+    saved: int
+    bank_account_id: str
+    source: str
+    message: str
+
+
 class BankUnsupportedResponse(BaseModel):
     """Response when bank is not supported."""
     iban: str

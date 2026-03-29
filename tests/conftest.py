@@ -18,6 +18,10 @@ from api.db.models import (
     F24Document, Budget,
     Conversation, Message, AgentConfig, ConversationMemory,
     DashboardLayout,
+    BankStatementImport,
+    Corrispettivo,
+    CompletenessScore,
+    ImportException,
 )
 from api.db.session import get_db
 from api.main import app

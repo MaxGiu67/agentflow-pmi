@@ -736,5 +736,186 @@ Dettaglio completo in `specs/testing/test-strategy.md`.
 | US-39 | `GET /ceo/dashboard`, `GET /ceo/dashboard/yoy`, `GET /ceo/alerts` | Dashboard CEO |
 | US-40 | `GET /ceo/budget`, `POST /ceo/budget`, `GET /ceo/budget/projection` | Budget vs consuntivo |
 
+| US-44 | `POST /bank-accounts/{id}/import-statement` | Import PDF estratto conto (LLM extraction) |
+| US-45 | `POST /bank-accounts/{id}/import-csv` | Import CSV movimenti bancari |
+| US-46 | `POST/GET/PUT/DELETE /bank-transactions` | CRUD manuale movimenti |
+| US-47 | `POST /corrispettivi/import-xml`, `GET /corrispettivi/sync` | Import XML corrispettivi COR10 |
+| US-48 | `POST/GET/PUT/DELETE /corrispettivi` | CRUD manuale corrispettivi |
+| US-49 | `POST /f24/import-pdf` | Import PDF ricevuta F24 (LLM) |
+| US-50 | `POST/PUT/DELETE /f24/payments` | CRUD manuale versamenti F24 |
+| US-51 | `POST /accounting/import-bilancio` (multipart: Excel/CSV) | Import saldi bilancio con mapping LLM |
+| US-52 | `POST /accounting/import-bilancio` (multipart: PDF) | Import saldi bilancio da PDF |
+| US-53 | `POST /accounting/import-bilancio` (multipart: XBRL) | Import saldi bilancio da XBRL |
+| US-54 | `POST/GET/PUT/DELETE /accounting/initial-balances` | CRUD manuale saldi iniziali |
+| US-55 | `POST /recurring-contracts/import-pdf` | Import contratti ricorrenti (LLM) |
+| US-56 | `POST/GET/PUT/DELETE /recurring-contracts` | CRUD manuale contratti ricorrenti |
+| US-57 | `POST /loans/import-pdf` | Import piano ammortamento (LLM) |
+| US-58 | `POST/GET/PUT/DELETE /loans` | CRUD manuale finanziamenti |
+| US-59 | (interno: auto-detect da LearningAgent + aliquote ministeriali) | Ammortamenti cespiti auto da fatture |
+| US-60 | `POST /budget/generate`, `POST /budget/chat` | Budget Agent conversazionale |
+| US-61 | `GET /budget/vs-actual/{year}/{month}` | Consuntivo mensile |
+| US-62 | `GET /controller/summary`, `POST /controller/ask` | Controller Agent "Come sto andando?" |
+| US-63 | `GET /controller/cost-analysis` | Controller Agent "Dove perdo soldi?" |
+| US-64 | (interno: CashFlowAgent potenziato + dati banca) | Cash Flow con saldi reali |
+| US-65 | (interno: AdempimentiAgent + push notifiche) | Adempimenti Agent proattivo |
+| US-66 | (interno: AlertAgent + pattern detection) | Alert anomalie |
+| US-67 | `POST /notifications/configure`, `POST /notifications/push` | Doppio canale notifiche |
+| US-68 | `GET /home/summary` | Home conversazionale |
+| US-69 | `GET /completeness-score` | Completeness Score |
+| US-70 | `POST /communications/generate-email` | Email per commercialista |
+| US-71 | (interno: import pipeline background + exception queue) | Import silenzioso |
+
 ---
+
+## Pivot 5 — Architettura aggiuntiva
+
+### ADR-008: LLM Extraction per PDF (banca, F24, bilancio)
+
+**Decisione:** Usare LLM (Claude Haiku) per estrarre dati strutturati da PDF non standard, invece di parser regex specifici per ogni formato.
+
+**Motivazione:** I parser regex sono fragili — l'abbiamo visto con le paghe (6/7 sbilanciati). Ogni banca/consulente ha un layout diverso. LLM extraction e' universale, costa <€0.01 per documento, e non richiede manutenzione parser.
+
+**Flusso:**
+```
+PDF → pdftotext -layout → testo grezzo
+  → LLM prompt strutturato (estrai campi X, Y, Z in JSON)
+  → Validazione schema (Pydantic)
+  → Preview utente → Conferma → Salvataggio
+```
+
+**Fallback:** Se LLM non riesce → errore + suggerimento CSV manuale
+
+**Costo stimato:** ~€0.01 per documento (Haiku), ~€50/mese per 5000 documenti
+
+### Nuove tabelle DB (Pivot 5)
+
+```sql
+-- Corrispettivi telematici (XML COR10 da cassetto fiscale)
+CREATE TABLE corrispettivi (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id),
+    data DATE NOT NULL,
+    dispositivo_id VARCHAR(50),
+    piva_esercente VARCHAR(11),
+    aliquota_iva DECIMAL(5,2),
+    imponibile DECIMAL(12,2),
+    imposta DECIMAL(12,2),
+    totale_contanti DECIMAL(12,2),
+    totale_elettronico DECIMAL(12,2),
+    num_documenti INTEGER,
+    source VARCHAR(20) NOT NULL DEFAULT 'import_xml', -- import_xml, manual
+    journal_entry_id UUID REFERENCES journal_entries(id),
+    raw_xml TEXT,
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now()
+);
+
+-- Budget entries (header per anno)
+CREATE TABLE budget_entries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id),
+    year INTEGER NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'draft', -- draft, active, archived
+    created_by_agent BOOLEAN DEFAULT false,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now(),
+    UNIQUE(tenant_id, year)
+);
+
+-- Budget lines (dettaglio mensile per categoria)
+CREATE TABLE budget_lines (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    budget_entry_id UUID NOT NULL REFERENCES budget_entries(id) ON DELETE CASCADE,
+    month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
+    category VARCHAR(100) NOT NULL, -- ricavi, personale, fornitori, utenze, altro...
+    description VARCHAR(255),
+    amount_planned DECIMAL(12,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT now(),
+    UNIQUE(budget_entry_id, month, category)
+);
+
+-- Contratti ricorrenti (affitti, leasing, utenze)
+CREATE TABLE recurring_contracts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id),
+    description VARCHAR(255) NOT NULL,
+    counterpart VARCHAR(255),
+    amount DECIMAL(12,2) NOT NULL,
+    frequency VARCHAR(20) NOT NULL DEFAULT 'monthly', -- monthly, quarterly, annual
+    category VARCHAR(100),
+    start_date DATE NOT NULL,
+    end_date DATE,
+    source VARCHAR(20) NOT NULL DEFAULT 'manual', -- import_pdf, manual
+    active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now()
+);
+
+-- Finanziamenti e mutui
+CREATE TABLE loans (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id),
+    description VARCHAR(255) NOT NULL,
+    bank VARCHAR(255),
+    original_amount DECIMAL(12,2) NOT NULL,
+    interest_rate DECIMAL(5,2),
+    start_date DATE NOT NULL,
+    end_date DATE,
+    monthly_payment DECIMAL(12,2),
+    remaining_balance DECIMAL(12,2),
+    source VARCHAR(20) NOT NULL DEFAULT 'manual', -- import_pdf, manual
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now()
+);
+
+-- Import statements log
+CREATE TABLE bank_statement_imports (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id),
+    bank_account_id UUID REFERENCES bank_accounts(id),
+    filename VARCHAR(500),
+    period_from DATE,
+    period_to DATE,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending, processed, error
+    extraction_method VARCHAR(20), -- llm, csv, api
+    raw_text TEXT,
+    movements_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT now()
+);
+
+-- Completeness Score tracking
+CREATE TABLE completeness_scores (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id),
+    source_type VARCHAR(50) NOT NULL, -- fatture, banca, paghe, corrispettivi, bilancio, f24
+    status VARCHAR(20) NOT NULL DEFAULT 'not_configured', -- connected, pending, not_configured
+    last_sync TIMESTAMP,
+    unlocked_features JSONB DEFAULT '[]',
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now(),
+    UNIQUE(tenant_id, source_type)
+);
+```
+
+### Modifiche a tabelle esistenti
+
+```sql
+-- Aggiungere source a bank_transactions (se non presente)
+ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS
+    source VARCHAR(20) NOT NULL DEFAULT 'open_banking'; -- import_pdf, import_csv, open_banking, manual
+
+-- Aggiungere source a f24_documents
+ALTER TABLE f24_documents ADD COLUMN IF NOT EXISTS
+    source VARCHAR(20) NOT NULL DEFAULT 'calculated'; -- import_pdf, calculated, manual
+
+-- Aggiungere auto-detection cespiti
+ALTER TABLE assets ADD COLUMN IF NOT EXISTS
+    source VARCHAR(20) NOT NULL DEFAULT 'manual'; -- auto_from_invoice, manual
+ALTER TABLE assets ADD COLUMN IF NOT EXISTS
+    detected_from_invoice_id UUID REFERENCES invoices(id);
+```
+
+---
+_Tech Spec aggiornata post Pivot 5: Controller Aziendale AI — 2026-03-29_
 _Tech Spec aggiornata post review v3 — 2026-03-22_

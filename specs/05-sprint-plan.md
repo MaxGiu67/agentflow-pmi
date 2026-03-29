@@ -11,9 +11,10 @@
 
 - **Velocity**: 20-24 SP/sprint
 - **Durata Sprint**: 2 settimane
-- **Sprint Totali**: 10
-- **SP Totali Progetto**: 224
-- **Must Have SP**: 69 (Sprint 1-3) | **Should Have SP**: 32 (Sprint 4-5) | **Could Have SP**: 123 (Sprint 5-10)
+- **Sprint Totali**: 16 (10 completati + 6 Pivot 5)
+- **SP Totali Progetto**: 365 (224 completati + 141 Pivot 5)
+- **v0.1-v0.4 (Sprint 1-10):** 224 SP — COMPLETATO
+- **v0.5-v0.7 (Sprint 11-16):** 141 SP — Pivot 5: Controller Aziendale AI
 
 ---
 
@@ -655,4 +656,188 @@ Chiudere la roadmap v0.4: compilazione F24 multi-sezione e dashboard CEO con KPI
 | Sprint 1 overloaded (24 SP) | Sprint 1 | Team allineato su priorità, US-12 può slittare a Sprint 2 se necessario |
 
 ---
+
+## PIVOT 5 — Sprint 11-16: Controller Aziendale AI
+
+**Nuove Stories:** US-44 a US-71 (28 stories, 148 SP)
+**Velocity confermata:** 24 SP/sprint
+**Sprint aggiuntivi:** 6 (Sprint 11-16)
+
+---
+
+## Sprint 11: Import Banca + Corrispettivi + Completeness Score (v0.5)
+
+### Objective
+Sbloccare i movimenti bancari e i corrispettivi — le due fonti dati piu critiche dopo le fatture. Il Completeness Score motiva l'utente a collegare nuove fonti.
+
+### Stories
+
+| ID | Titolo | SP | Priority | Dependencies |
+|----|--------|:--:|----------|-------------|
+| US-44 | Import estratto conto bancario (PDF + LLM) | 8 | Must | US-24 |
+| US-45 | Import estratto conto bancario (CSV) | 3 | Must | US-24 |
+| US-47 | Import corrispettivi telematici (XML COR10) | 5 | Must | US-04 |
+| US-69 | Completeness Score (framing positivo) | 5 | Must | US-16 |
+| US-71 | Import silenzioso con eccezioni (max 3 azioni) | 5 | Must | — |
+
+**SP Totale:** 26 | **Focus:** Import Pipeline + UX base
+
+### Acceptance Tests
+- Upload PDF UniCredit → movimenti estratti correttamente con LLM
+- Upload PDF Credit Agricole → formato diverso, stessa qualita estrazione
+- Upload CSV → auto-detect colonne
+- Upload XML corrispettivi → parsing COR10, scrittura contabile automatica
+- Completeness Score → mostra "Hai sbloccato Fatture. Prossimo: Banca"
+
+### Risks
+- LLM extraction imprecisa su layout banca non visti → fallback CSV
+- XML corrispettivi: varianti namespace → testare con i 90 file esempio
+
+---
+
+## Sprint 12: Saldi Bilancio + CRUD Banca/Corrispettivi (v0.5)
+
+### Objective
+Importare i saldi iniziali del bilancio (punto di partenza contabile) e completare i CRUD manuali per banca e corrispettivi.
+
+### Stories
+
+| ID | Titolo | SP | Priority | Dependencies |
+|----|--------|:--:|----------|-------------|
+| US-51 | Import saldi bilancio (Excel/CSV + mapping LLM) | 8 | Must | US-12 |
+| US-52 | Import saldi bilancio (PDF + LLM) | 5 | Must | US-12 |
+| US-46 | CRUD manuale movimenti bancari | 5 | Must | US-24 |
+| US-48 | CRUD manuale corrispettivi | 3 | Must | US-47 |
+| US-54 | CRUD manuale saldi bilancio (wizard) | 3 | Must | US-12 |
+
+**SP Totale:** 24 | **Focus:** Saldi iniziali + CRUD
+
+### Acceptance Tests
+- Upload Excel bilancio TAAL → auto-detect, mapping LLM, preview, import
+- Upload PDF bilancio TAAL 2023 → estrazione 856 righe, mapping conti
+- CRUD movimenti: aggiungi/modifica/elimina con source="manual"
+- Wizard saldi: inserimento guidato → scrittura apertura bilanciata
+
+### Risks
+- Mapping conti sorgente → conti AgentFlow: LLM puo suggerire mapping errato → preview obbligatorio con conferma utente
+
+---
+
+## Sprint 13: Budget Agent + Controller Agent (v0.6)
+
+### Objective
+Feature core del pivot: l'agente aiuta a creare il budget e confrontare con il consuntivo. Il controller risponde a "Come sto andando?".
+
+### Stories
+
+| ID | Titolo | SP | Priority | Dependencies |
+|----|--------|:--:|----------|-------------|
+| US-60 | Budget Agent — creazione conversazionale | 8 | Must | US-13 |
+| US-61 | Budget Agent — controllo consuntivo mensile | 8 | Must | US-60 |
+| US-62 | Controller Agent — "Come sto andando?" | 5 | Must | US-60, US-44 |
+
+**SP Totale:** 21 | **Focus:** Budget + Controller
+
+### Acceptance Tests
+- Budget Agent: propone budget da storico, utente aggiusta via chat, salva mese per mese
+- Consuntivo: confronto automatico con dati reali, scostamenti con colori
+- Controller: risponde in linguaggio naturale con KPI, trend, anomalie
+
+### Risks
+- Budget Agent conversazionale: rischio allucinazioni LLM su numeri → validazione stretta Pydantic + conferma utente
+
+---
+
+## Sprint 14: F24 Import + Cash Flow + Adempimenti + Home (v0.6)
+
+### Objective
+Completare il ciclo fiscale (F24 import), potenziare cash flow con dati reali, attivare l'agente adempimenti proattivo e la home conversazionale.
+
+### Stories
+
+| ID | Titolo | SP | Priority | Dependencies |
+|----|--------|:--:|----------|-------------|
+| US-49 | Import F24 versamenti (PDF + LLM) | 5 | Must | US-38 |
+| US-50 | CRUD manuale F24 versamenti | 3 | Must | — |
+| US-64 | Cash Flow Agent potenziato | 5 | Must | US-44, US-25 |
+| US-65 | Adempimenti Agent proattivo | 5 | Must | US-17, US-49 |
+| US-67 | Doppio canale notifiche | 5 | Must | US-18 |
+| US-72 | Riconciliazione Agent (match fatture ↔ banca) | 5 | Must | US-44, US-26 |
+
+**SP Totale:** 28 | **Focus:** Ciclo fiscale + notifiche proattive + riconciliazione
+
+### Acceptance Tests
+- Upload PDF F24 → estrazione codici tributo + importi → scrittura contabile
+- Cash Flow: previsione con saldo banca reale + scadenze + rate
+- Adempimenti: notifica 10gg prima di scadenza con importo calcolato
+- Doppio canale: alert su dashboard + Telegram
+
+---
+
+## Sprint 15: Home Conversazionale + XBRL + Doppio Canale (v0.6)
+
+### Objective
+La home diventa conversazionale. Import XBRL per bilanci depositati. Consolidamento UX.
+
+### Stories
+
+| ID | Titolo | SP | Priority | Dependencies |
+|----|--------|:--:|----------|-------------|
+| US-68 | Home conversazionale (non tabellare) | 8 | Must | US-14, US-62 |
+| US-53 | Import saldi bilancio (XBRL) | 5 | Should | US-12 |
+| US-59 | Ammortamenti cespiti auto da fatture | 5 | Should | US-31, US-05 |
+| US-66 | Alert Agent (anomalie, scadute, sbilanciamenti) | 5 | Should | US-62 |
+
+**SP Totale:** 23 | **Focus:** UX conversazionale + completamento import
+
+### Acceptance Tests
+- Home: mostra saluto + fatturato vs target + saldo + max 3 azioni
+- XBRL: parsing tassonomia itcc-ci, mapping CEE → conti AgentFlow
+- Ammortamenti: rileva fattura "Server Dell €5.000" → propone ammortamento 20%
+- Alert: fattura scaduta 45gg → notifica con azione "Invia sollecito"
+
+---
+
+## Sprint 16: Contratti + Finanziamenti + Completamento (v0.7)
+
+### Objective
+Completare il quadro con contratti ricorrenti, finanziamenti, email commercialista e l'analisi costi.
+
+### Stories
+
+| ID | Titolo | SP | Priority | Dependencies |
+|----|--------|:--:|----------|-------------|
+| US-55 | Import contratti ricorrenti (PDF + LLM) | 5 | Should | — |
+| US-56 | CRUD manuale contratti ricorrenti | 3 | Should | — |
+| US-57 | Import piano ammortamento finanziamenti | 5 | Should | — |
+| US-58 | CRUD manuale finanziamenti | 3 | Should | — |
+| US-63 | Controller Agent — "Dove perdo soldi?" | 5 | Should | US-62 |
+| US-70 | Email auto-generata per commercialista | 3 | Should | — |
+
+**SP Totale:** 24 | **Focus:** Completamento + analisi avanzata
+
+### Acceptance Tests
+- Upload PDF contratto affitto → estrazione importo, frequenza, controparte
+- Upload PDF piano mutuo → rate future nel cash flow
+- Controller: analisi top 5 costi, confronto periodi, anomalie
+- Email: template pre-compilato per richiesta bilancio
+
+---
+
+## Riepilogo Sprint 11-16
+
+| Sprint | Stories | SP | Versione | Focus |
+|--------|---------|:--:|----------|-------|
+| Sprint 11 | US-44,45,47,69,71 | 26 | v0.5 | Import Banca + Corrispettivi + Completeness |
+| Sprint 12 | US-51,52,46,48,54 | 24 | v0.5 | Saldi Bilancio + CRUD |
+| Sprint 13 | US-60,61,62 | 21 | v0.6 | Budget Agent + Controller |
+| Sprint 14 | US-49,50,64,65,67,72 | 28 | v0.6 | F24 + Cash Flow + Adempimenti + Riconciliazione |
+| Sprint 15 | US-68,53,59,66 | 23 | v0.6 | Home Conversazionale + XBRL + Alert |
+| Sprint 16 | US-55,56,57,58,63,70 | 24 | v0.7 | Contratti + Finanziamenti + Completamento |
+| **TOTALE** | **29 stories** | **146** | **v0.5-v0.7** | — |
+
+**Timeline stimata:** 12 settimane (6 sprint × 2 settimane)
+
+---
+_Sprint Plan aggiornato post Pivot 5 — 2026-03-29_
 _Sprint Plan generato — 2026-03-22_
