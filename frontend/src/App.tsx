@@ -15,9 +15,19 @@ import OnboardingPage from './pages/onboarding/OnboardingPage'
 
 // Main pages
 import DashboardPage from './pages/DashboardPage'
+import HomePage from './pages/HomePage'
 import ScadenzarioPage from './pages/ScadenzarioPage'
 import ReportPage from './pages/ReportPage'
 import ImpostazioniPage from './pages/ImpostazioniPage'
+
+// Pivot 5 pages
+import CompletenessPage from './pages/onboarding/CompletenessPage'
+import ImportWizardPage from './pages/import/ImportWizardPage'
+import ControllerPage from './pages/controller/ControllerPage'
+import AlertsPage from './pages/alerts/AlertsPage'
+import CorrispettiviPage from './pages/corrispettivi/CorrispettiviPage'
+import RecurringPage from './pages/recurring/RecurringPage'
+import LoansPage from './pages/loans/LoansPage'
 
 // Fatture
 import FattureListPage from './pages/fatture/FattureListPage'
@@ -96,7 +106,8 @@ export default function App() {
 
             {/* Main app layout */}
             <Route element={<AppLayout />}>
-              <Route path="/" element={<DashboardPage />} />
+              <Route path="/" element={<HomePage />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
 
               {/* Chat */}
               <Route path="/chat" element={<ChatPage />} />
@@ -152,6 +163,15 @@ export default function App() {
               {/* Payroll */}
               <Route path="/personale" element={<PayrollPage />} />
               <Route path="/personale/gestione-import" element={<GestioneImportPage />} />
+
+              {/* Pivot 5 */}
+              <Route path="/setup" element={<CompletenessPage />} />
+              <Route path="/import" element={<ImportWizardPage />} />
+              <Route path="/controller" element={<ControllerPage />} />
+              <Route path="/alert" element={<AlertsPage />} />
+              <Route path="/corrispettivi" element={<CorrispettiviPage />} />
+              <Route path="/contratti" element={<RecurringPage />} />
+              <Route path="/finanziamenti" element={<LoansPage />} />
 
               {/* Test */}
               <Route path="/test/chatbot" element={<ChatTestPage />} />

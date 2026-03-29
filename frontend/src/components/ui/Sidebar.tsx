@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import {
+  Home,
   LayoutDashboard,
   MessageSquare,
   FileText,
@@ -14,6 +15,11 @@ import {
   Package,
   Users,
   X,
+  Upload,
+  Gauge,
+  Bell,
+  FileSignature,
+  Banknote,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
@@ -23,16 +29,23 @@ interface SidebarProps {
 }
 
 const navItems = [
+  { to: '/', label: 'Home', icon: Home },
   { to: '/chat', label: 'Chat', icon: MessageSquare },
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/controller', label: 'Controller', icon: Gauge },
+  { to: '/import', label: 'Import', icon: Upload },
   { to: '/fatture', label: 'Fatture', icon: FileText },
+  { to: '/corrispettivi', label: 'Corrispettivi', icon: Receipt },
   { to: '/contabilita', label: 'Contabilita', icon: BookOpen },
-  { to: '/spese', label: 'Note Spese', icon: Receipt },
+  { to: '/contratti', label: 'Contratti', icon: FileSignature },
+  { to: '/finanziamenti', label: 'Finanziamenti', icon: Banknote },
   { to: '/personale', label: 'Personale', icon: Users },
   { to: '/cespiti', label: 'Cespiti', icon: Package },
+  { to: '/spese', label: 'Note Spese', icon: Receipt },
   { to: '/banca', label: 'Banca', icon: Landmark },
   { to: '/scadenze', label: 'Scadenzario', icon: CalendarClock },
   { to: '/fisco', label: 'Fisco', icon: Calculator },
+  { to: '/alert', label: 'Alert', icon: Bell },
   { to: '/ceo', label: 'Cruscotto CEO', icon: PieChart },
   { to: '/report', label: 'Report', icon: BarChart3 },
   { to: '/impostazioni', label: 'Impostazioni', icon: Settings },

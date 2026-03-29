@@ -728,3 +728,207 @@ export function useCreatePayrollJournal() {
     },
   })
 }
+
+// ── Home ──
+export function useHomeSummary() {
+  return useQuery({
+    queryKey: ['home-summary'],
+    queryFn: () => api.get('/home/summary').then((r) => r.data),
+  })
+}
+
+// ── Completeness ──
+export function useCompletenessScore() {
+  return useQuery({
+    queryKey: ['completeness'],
+    queryFn: () => api.get('/completeness-score').then((r) => r.data),
+  })
+}
+
+// ── Controller ──
+export function useBudgetGenerate() {
+  return useMutation({
+    mutationFn: (params: { year: number; growth_rate?: number }) =>
+      api
+        .post(`/controller/budget/generate?year=${params.year}&growth_rate=${params.growth_rate || 0.05}`)
+        .then((r) => r.data),
+  })
+}
+
+export function useBudgetVsActual(year: number, month: number) {
+  return useQuery({
+    queryKey: ['budget-vs-actual', year, month],
+    queryFn: () => api.get('/controller/budget/vs-actual', { params: { year, month } }).then((r) => r.data),
+    enabled: !!year && !!month,
+  })
+}
+
+export function useControllerSummary(year: number, month: number) {
+  return useQuery({
+    queryKey: ['controller-summary', year, month],
+    queryFn: () => api.get('/controller/summary', { params: { year, month } }).then((r) => r.data),
+    enabled: !!year && !!month,
+  })
+}
+
+// ── Alerts ──
+export function useAlertsScan() {
+  return useQuery({
+    queryKey: ['alerts'],
+    queryFn: () => api.get('/alerts/scan').then((r) => r.data),
+  })
+}
+
+// ── Corrispettivi ──
+export function useCorrispettivi(year?: number, month?: number) {
+  return useQuery({
+    queryKey: ['corrispettivi', year, month],
+    queryFn: () => api.get('/corrispettivi', { params: { year, month } }).then((r) => r.data),
+  })
+}
+
+export function useImportCorrispettivo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      return api.post('/corrispettivi/import-xml', fd).then((r) => r.data)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['corrispettivi'] }),
+  })
+}
+
+// ── Import ──
+export function useImportBankStatement() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ accountId, file }: { accountId: string; file: File }) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      return api.post(`/bank-accounts/${accountId}/import-statement`, fd).then((r) => r.data)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['bank-transactions'] }),
+  })
+}
+
+export function useImportBankCsv() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ accountId, file }: { accountId: string; file: File }) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      return api.post(`/bank-accounts/${accountId}/import-csv`, fd).then((r) => r.data)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['bank-transactions'] }),
+  })
+}
+
+export function useImportBilancio() {
+  return useMutation({
+    mutationFn: (file: File) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      return api.post('/accounting/import-bilancio', fd).then((r) => r.data)
+    },
+  })
+}
+
+export function useConfirmBilancio() {
+  return useMutation({
+    mutationFn: (data: { lines: Record<string, unknown>[]; description?: string }) =>
+      api.post('/accounting/confirm-bilancio', data).then((r) => r.data),
+  })
+}
+
+export function useImportF24Pdf() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      return api.post('/f24/import-pdf', fd).then((r) => r.data)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['f24s'] }),
+  })
+}
+
+// ── Recurring Contracts ──
+export function useRecurringContracts() {
+  return useQuery({
+    queryKey: ['recurring'],
+    queryFn: () => api.get('/recurring-contracts').then((r) => r.data),
+  })
+}
+
+export function useCreateRecurring() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) =>
+      api.post('/recurring-contracts', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recurring'] }),
+  })
+}
+
+export function useUpdateRecurring() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
+      api.put(`/recurring-contracts/${id}`, data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recurring'] }),
+  })
+}
+
+export function useDeleteRecurring() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/recurring-contracts/${id}`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recurring'] }),
+  })
+}
+
+export function useImportRecurringPdf() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      return api.post('/recurring-contracts/import-pdf', fd).then((r) => r.data)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recurring'] }),
+  })
+}
+
+// ── Loans ──
+export function useLoans() {
+  return useQuery({
+    queryKey: ['loans'],
+    queryFn: () => api.get('/loans').then((r) => r.data),
+  })
+}
+
+export function useCreateLoan() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) =>
+      api.post('/loans', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['loans'] }),
+  })
+}
+
+export function useUpdateLoan() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
+      api.put(`/loans/${id}`, data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['loans'] }),
+  })
+}
+
+export function useDeleteLoan() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/loans/${id}`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['loans'] }),
+  })
+}
