@@ -133,9 +133,13 @@ async def import_payroll_pdf(
                 detail="Impossibile estrarre testo dal PDF. Verificare il formato.",
             )
 
-        # Parse payroll data
-        from api.modules.payroll.pdf_parser import parse_payroll_text, payroll_to_journal_lines
-        summary = parse_payroll_text(text)
+        # Parse payroll data — LLM first, regex fallback (ADR-008)
+        from api.modules.payroll.pdf_parser import parse_payroll_text, parse_payroll_llm, payroll_to_journal_lines
+        try:
+            summary = await parse_payroll_llm(text)
+        except Exception as e:
+            logger.warning("LLM payroll parsing failed (%s), fallback to regex", e)
+            summary = parse_payroll_text(text)
 
         if summary.mese == 0:
             raise HTTPException(

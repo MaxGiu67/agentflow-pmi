@@ -254,3 +254,178 @@ def payroll_to_journal_lines(summary: PayrollSummary) -> list[dict]:
             })
 
     return journal_lines
+
+
+# ═══════════════════════════════════════════════
+# LLM-based parser (ADR-008) — replaces regex parser
+# ═══════════════════════════════════════════════
+
+LLM_PAYROLL_PROMPT = """Analizza questo Riepilogo Paghe e Contributi ed estrai i dati strutturati.
+
+Restituisci un JSON con questa struttura:
+{
+  "azienda": "nome azienda",
+  "mese": 1,
+  "anno": 2025,
+  "salari_stipendi": 5000.00,
+  "netto_in_busta": 3800.00,
+  "contributi_inps_azienda": 1200.00,
+  "saldo_dm10": 1500.00,
+  "irpef": 800.00,
+  "tfr": 350.00,
+  "inail": 50.00,
+  "totale_dare": 8500.00,
+  "totale_avere": 8500.00,
+  "linee": [
+    {"descrizione": "Salari & stipendi", "importo": 5000.00, "dare_avere": "D", "sezione": "retribuzioni"},
+    {"descrizione": "Contributi inps c/ditta", "importo": 1200.00, "dare_avere": "D", "sezione": "contributi_inps"},
+    {"descrizione": "NETTO IN BUSTA", "importo": 3800.00, "dare_avere": "A", "sezione": "retribuzioni"},
+    {"descrizione": "Irpef", "importo": 800.00, "dare_avere": "A", "sezione": "irpef_versamento"}
+  ]
+}
+
+REGOLE:
+- dare_avere: "D" per costi/spese aziendali (costi personale, contributi c/ditta, TFR, trasferte), "A" per debiti da pagare (netto busta, ritenute IRPEF, contributi c/dipendente, enti bilaterali)
+- Il TOTALE DARE deve essere uguale al TOTALE AVERE (partita doppia bilanciata)
+- Se trovi "TOTALE GENERALE" con due importi, usali come totale_dare e totale_avere
+- Importi in formato numerico (1234.56), non italiano (1.234,56)
+- Mese come numero (1-12), anno come 4 cifre
+- Includi TUTTE le voci con importo > 0, non solo i subtotali
+
+Testo estratto dal PDF:
+---
+{text}
+---
+
+JSON:"""
+
+
+async def parse_payroll_llm(text: str) -> PayrollSummary:
+    """Parse payroll text using LLM extraction (ADR-008).
+
+    More accurate than regex for varying PDF layouts.
+    Cost: ~€0.01 per document with Claude Haiku.
+    """
+    import json
+    import os
+    from api.modules.banking.import_service import _call_anthropic, _call_openai, _parse_json_response
+
+    prompt = LLM_PAYROLL_PROMPT.replace("{text}", text[:15000])
+
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    openai_key = os.environ.get("OPENAI_API_KEY", "")
+
+    import httpx
+
+    # Call LLM directly (not via _call_anthropic which expects array)
+    data = None
+    if anthropic_key:
+        data = await _call_anthropic_payroll(anthropic_key, prompt)
+    if data is None and openai_key:
+        data = await _call_openai_payroll(openai_key, prompt)
+
+    if data is None:
+        logger.warning("LLM non disponibile, fallback a parser regex")
+        return parse_payroll_text(text)
+
+    return _llm_response_to_summary(data)
+
+
+async def _call_anthropic_payroll(api_key: str, prompt: str) -> dict | None:
+    """Call Anthropic for payroll — expects JSON object (not array)."""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=90) as client:
+            resp = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": "claude-haiku-4-5-20251001",
+                    "max_tokens": 4096,
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+            )
+            resp.raise_for_status()
+            content = resp.json()["content"][0]["text"]
+            return _parse_json_object(content)
+    except Exception as e:
+        logger.warning("Anthropic payroll error: %s", e)
+        return None
+
+
+async def _call_openai_payroll(api_key: str, prompt: str) -> dict | None:
+    """Call OpenAI for payroll — expects JSON object."""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=90) as client:
+            resp = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={
+                    "model": "gpt-4o-mini",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_completion_tokens": 4096,
+                    "temperature": 0,
+                },
+            )
+            resp.raise_for_status()
+            content = resp.json()["choices"][0]["message"]["content"]
+            return _parse_json_object(content)
+    except Exception as e:
+        logger.warning("OpenAI payroll error: %s", e)
+        return None
+
+
+def _parse_json_object(content: str) -> dict:
+    """Parse JSON object from LLM response, handling markdown code blocks."""
+    import json
+    content = content.strip()
+    if content.startswith("```"):
+        content = content.split("\n", 1)[1] if "\n" in content else content[3:]
+        if content.endswith("```"):
+            content = content[:-3]
+        content = content.strip()
+    result = json.loads(content)
+    if isinstance(result, list) and len(result) == 1:
+        return result[0]
+    if isinstance(result, dict):
+        return result
+    raise ValueError(f"Expected JSON object, got {type(result)}")
+
+
+def _llm_response_to_summary(data: dict) -> PayrollSummary:
+    """Convert LLM JSON response to PayrollSummary."""
+    summary = PayrollSummary()
+    summary.azienda = str(data.get("azienda", ""))
+    summary.mese = int(data.get("mese", 0))
+    summary.anno = int(data.get("anno", 0))
+    summary.salari_stipendi = float(data.get("salari_stipendi", 0))
+    summary.netto_in_busta = float(data.get("netto_in_busta", 0))
+    summary.contributi_inps_azienda = float(data.get("contributi_inps_azienda", 0))
+    summary.saldo_dm10 = float(data.get("saldo_dm10", 0))
+    summary.irpef = float(data.get("irpef", 0))
+    summary.tfr = float(data.get("tfr", 0))
+    summary.inail = float(data.get("inail", 0))
+    summary.totale_dare = float(data.get("totale_dare", 0))
+    summary.totale_avere = float(data.get("totale_avere", 0))
+
+    for line_data in data.get("linee", []):
+        desc = str(line_data.get("descrizione", ""))
+        importo = float(line_data.get("importo", 0))
+        da = str(line_data.get("dare_avere", "D"))
+        sezione = str(line_data.get("sezione", "altro"))
+
+        if importo > 0:
+            summary.linee.append(PayrollLine(
+                descrizione=desc,
+                importo=importo,
+                dare_avere=da,
+                sezione=sezione,
+                conto_suggerito=_match_conto(desc),
+            ))
+
+    return summary
