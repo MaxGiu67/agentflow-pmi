@@ -354,6 +354,21 @@ class Corrispettivo(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class ImportPromptTemplate(Base):
+    """Saved LLM prompt templates optimized per tenant/format (US-74 Self-Healing)."""
+    __tablename__ = "import_prompt_templates"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    source_type: Mapped[str] = mapped_column(String(50), nullable=False)  # banca, paghe, f24, bilancio
+    format_key: Mapped[str] = mapped_column(String(255), nullable=False, default="default")  # e.g. "unicredit", "zucchetti"
+    prompt_text: Mapped[str] = mapped_column(Text, nullable=False)
+    success_count: Mapped[int] = mapped_column(Integer, default=0)
+    failure_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class ImportException(Base):
     """Exception/anomaly from an import that requires user attention (US-71)."""
     __tablename__ = "import_exceptions"

@@ -25,6 +25,7 @@ from api.db.models import (
     F24Versamento,
     RecurringContract,
     Loan,
+    ImportPromptTemplate,
 )
 from api.db.session import get_db
 from api.main import app

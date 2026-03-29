@@ -8,6 +8,16 @@
 
 ---
 
+### Feature: Self-Healing Import (Livello 1 + 2)
+- **Data**: 2026-03-30
+- **Causa**: I parser LLM falliscono sul 17% dei PDF (formati non previsti). Servono retry automatico e auto-tuning del prompt.
+- **Impatto**: 2 nuove stories (US-73, US-74), 1 nuova tabella DB (import_prompt_templates)
+- **Stories**: US-73 (Retry prompt adattato, 5 SP), US-74 (Meta-prompt per-tenant, 5 SP)
+- **Approccio**: NON genera codice — migliora i prompt LLM. Il sistema impara dal formato di ogni commercialista.
+- **Analisi**: brainstorm/08-self-healing-compare.md
+
+---
+
 ### PIVOT 5: Da Gestionale Contabile a Controller Aziendale AI
 - **Data**: 2026-03-28
 - **Causa**: Cambio posizionamento fondamentale. AgentFlow non sostituisce il gestionale contabile — lo affianca come controller AI. Zero data entry, massima interpretazione. L'imprenditore vuole capire come va l'azienda, non fare il contabile.
