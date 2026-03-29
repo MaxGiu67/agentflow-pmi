@@ -89,3 +89,102 @@ async def list_corrispettivi(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Profilo azienda non configurato")
 
     return await service.list_corrispettivi(user.tenant_id, year=year, month=month, page=page, page_size=page_size)
+
+
+# ── CRUD manuale (US-48) ──
+
+from pydantic import BaseModel
+from datetime import date as date_type
+from uuid import UUID
+
+
+class CorrispettivoCreate(BaseModel):
+    data: date_type
+    imponibile: float
+    imposta: float
+    totale_contanti: float = 0
+    totale_elettronico: float = 0
+    num_documenti: int = 0
+    aliquota_iva: float | None = None
+
+
+class CorrispettivoUpdate(BaseModel):
+    imponibile: float | None = None
+    imposta: float | None = None
+    totale_contanti: float | None = None
+    totale_elettronico: float | None = None
+    num_documenti: int | None = None
+
+
+@router.post("", status_code=status.HTTP_201_CREATED)
+async def create_corrispettivo_manual(
+    request: CorrispettivoCreate,
+    user: User = Depends(get_current_user),
+    service: CorrispettiviService = Depends(get_service),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Create a manual corrispettivo entry (US-48)."""
+    if not user.tenant_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Profilo azienda non configurato")
+
+    from api.db.models import Corrispettivo
+    corr = Corrispettivo(
+        tenant_id=user.tenant_id,
+        data=request.data,
+        imponibile=request.imponibile,
+        imposta=request.imposta,
+        totale_contanti=request.totale_contanti,
+        totale_elettronico=request.totale_elettronico,
+        num_documenti=request.num_documenti,
+        aliquota_iva=request.aliquota_iva,
+        source="manual",
+    )
+    db.add(corr)
+    await db.flush()
+    return {"id": str(corr.id), "source": "manual", "message": "Corrispettivo creato"}
+
+
+@router.put("/{corr_id}")
+async def update_corrispettivo(
+    corr_id: UUID,
+    request: CorrispettivoUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Update a corrispettivo (US-48)."""
+    if not user.tenant_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Profilo azienda non configurato")
+
+    from sqlalchemy import select as sel
+    from api.db.models import Corrispettivo
+    corr = await db.scalar(sel(Corrispettivo).where(Corrispettivo.id == corr_id, Corrispettivo.tenant_id == user.tenant_id))
+    if not corr:
+        raise HTTPException(status_code=404, detail="Corrispettivo non trovato")
+
+    for field in ("imponibile", "imposta", "totale_contanti", "totale_elettronico", "num_documenti"):
+        val = getattr(request, field, None)
+        if val is not None:
+            setattr(corr, field, val)
+    await db.flush()
+    return {"id": str(corr.id), "updated": True}
+
+
+@router.delete("/{corr_id}")
+async def delete_corrispettivo(
+    corr_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Delete a corrispettivo (US-48)."""
+    if not user.tenant_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Profilo azienda non configurato")
+
+    from sqlalchemy import select as sel
+    from api.db.models import Corrispettivo
+    corr = await db.scalar(sel(Corrispettivo).where(Corrispettivo.id == corr_id, Corrispettivo.tenant_id == user.tenant_id))
+    if not corr:
+        raise HTTPException(status_code=404, detail="Corrispettivo non trovato")
+
+    await db.delete(corr)
+    await db.flush()
+    return {"id": str(corr_id), "deleted": True}

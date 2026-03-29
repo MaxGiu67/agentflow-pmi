@@ -1,6 +1,7 @@
 """Pydantic schemas for banking / Open Banking module (US-24)."""
 
 from datetime import date, datetime
+from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, field_validator
@@ -97,6 +98,27 @@ class BankRevokeResponse(BaseModel):
     account_id: UUID
     status: str
     message: str
+
+
+# ── CRUD Bank Transactions (US-46) ──
+
+class BankTransactionCreate(BaseModel):
+    """Create a manual bank transaction."""
+    bank_account_id: UUID
+    date: date
+    value_date: Optional[date] = None
+    description: str
+    amount: float
+    direction: str  # credit, debit
+
+
+class BankTransactionUpdate(BaseModel):
+    """Update a bank transaction."""
+    date: Optional[date] = None
+    value_date: Optional[date] = None
+    description: Optional[str] = None
+    amount: Optional[float] = None
+    direction: Optional[str] = None
 
 
 # ── Import Statement (US-44, US-45) ──

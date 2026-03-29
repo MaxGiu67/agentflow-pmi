@@ -39,6 +39,8 @@ from api.modules.dashboard.layout_router import router as layout_router
 from api.modules.payroll.router import router as payroll_router
 from api.modules.corrispettivi.router import router as corrispettivi_router
 from api.modules.completeness.router import router as completeness_router
+from api.modules.bilancio_import.router import router as bilancio_import_router
+from api.modules.controller.router import router as controller_router
 
 from contextlib import asynccontextmanager
 
@@ -131,3 +133,5 @@ app.include_router(layout_router, prefix="/api/v1")
 app.include_router(payroll_router, prefix="/api/v1")
 app.include_router(corrispettivi_router, prefix="/api/v1")
 app.include_router(completeness_router, prefix="/api/v1")
+app.include_router(bilancio_import_router, prefix="/api/v1")
+app.include_router(controller_router, prefix="/api/v1")

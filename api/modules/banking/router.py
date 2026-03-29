@@ -1,11 +1,13 @@
-"""Router for banking / Open Banking (US-24) + Statement Import (US-44, US-45)."""
+"""Router for banking / Open Banking (US-24) + Import (US-44/45) + CRUD (US-46)."""
 
+import uuid as uuid_mod
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.db.models import User
+from api.db.models import BankAccount, BankTransaction, User
 from api.db.session import get_db
 from api.middleware.auth import get_current_user
 from api.modules.banking.schemas import (
@@ -16,8 +18,10 @@ from api.modules.banking.schemas import (
     BankAccountResponse,
     BankRevokeResponse,
     BankSyncResponse,
+    BankTransactionCreate,
     BankTransactionListResponse,
     BankTransactionResponse,
+    BankTransactionUpdate,
     BankUnsupportedResponse,
     ConfirmImportRequest,
     ConfirmImportResponse,
@@ -349,3 +353,90 @@ async def import_bank_csv(
         ) from e
 
     return ImportStatementResponse(**result)
+
+
+# ── CRUD Bank Transactions (US-46) ──
+
+
+@router.post("/transactions", status_code=status.HTTP_201_CREATED)
+async def create_bank_transaction(
+    request: BankTransactionCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Create a manual bank transaction (US-46)."""
+    if not user.tenant_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Profilo azienda non configurato")
+
+    acct = await db.scalar(
+        select(BankAccount).where(BankAccount.id == request.bank_account_id, BankAccount.tenant_id == user.tenant_id)
+    )
+    if not acct:
+        raise HTTPException(status_code=404, detail="Conto bancario non trovato")
+
+    tx = BankTransaction(
+        bank_account_id=request.bank_account_id,
+        transaction_id=f"MAN-{uuid_mod.uuid4().hex[:12]}",
+        date=request.date,
+        amount=abs(request.amount),
+        direction=request.direction,
+        description=request.description,
+        source="manual",
+    )
+    db.add(tx)
+    await db.flush()
+    return {"id": str(tx.id), "source": "manual", "message": "Movimento creato"}
+
+
+@router.put("/transactions/{tx_id}")
+async def update_bank_transaction(
+    tx_id: UUID,
+    request: BankTransactionUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Update a bank transaction (US-46)."""
+    if not user.tenant_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Profilo azienda non configurato")
+
+    tx = await db.scalar(
+        select(BankTransaction).select_from(BankTransaction).join(
+            BankAccount, BankTransaction.bank_account_id == BankAccount.id
+        ).where(BankTransaction.id == tx_id, BankAccount.tenant_id == user.tenant_id)
+    )
+    if not tx:
+        raise HTTPException(status_code=404, detail="Movimento non trovato")
+
+    if request.date is not None:
+        tx.date = request.date
+    if request.description is not None:
+        tx.description = request.description
+    if request.amount is not None:
+        tx.amount = abs(request.amount)
+    if request.direction is not None:
+        tx.direction = request.direction
+    await db.flush()
+    return {"id": str(tx.id), "updated": True}
+
+
+@router.delete("/transactions/{tx_id}")
+async def delete_bank_transaction(
+    tx_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Delete a bank transaction (US-46)."""
+    if not user.tenant_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Profilo azienda non configurato")
+
+    tx = await db.scalar(
+        select(BankTransaction).select_from(BankTransaction).join(
+            BankAccount, BankTransaction.bank_account_id == BankAccount.id
+        ).where(BankTransaction.id == tx_id, BankAccount.tenant_id == user.tenant_id)
+    )
+    if not tx:
+        raise HTTPException(status_code=404, detail="Movimento non trovato")
+
+    await db.delete(tx)
+    await db.flush()
+    return {"id": str(tx_id), "deleted": True}
