@@ -278,17 +278,22 @@ class BankImportService:
 
         saved = 0
         for m in movements:
-            tx = BankTransaction(
-                bank_account_id=account_id,
-                transaction_id=f"IMP-{uuid.uuid4().hex[:12]}",
-                date=date.fromisoformat(m["data_operazione"]),
-                value_date=date.fromisoformat(m["data_valuta"]) if m.get("data_valuta") else None,
-                amount=abs(m.get("importo", 0)),
-                direction=m.get("direzione", "debit"),
-                counterpart=None,
-                description=m.get("descrizione", ""),
-                source=source,
-            )
+            kwargs = {
+                "bank_account_id": account_id,
+                "transaction_id": f"IMP-{uuid.uuid4().hex[:12]}",
+                "date": date.fromisoformat(m["data_operazione"]),
+                "amount": abs(m.get("importo", 0)),
+                "direction": m.get("direzione", "debit"),
+                "counterpart": None,
+                "description": m.get("descrizione", ""),
+            }
+            # value_date and source may not exist in DB yet (pre-migration)
+            try:
+                kwargs["value_date"] = date.fromisoformat(m["data_valuta"]) if m.get("data_valuta") else None
+                kwargs["source"] = source
+            except Exception:
+                pass
+            tx = BankTransaction(**kwargs)
             self.db.add(tx)
             saved += 1
 

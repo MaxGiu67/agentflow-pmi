@@ -51,6 +51,20 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+        # Pivot 5: add missing columns to existing tables (safe ALTER TABLE IF NOT EXISTS)
+        from sqlalchemy import text
+        for stmt in [
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS value_date DATE",
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS source VARCHAR(20) DEFAULT 'open_banking'",
+            "ALTER TABLE f24_documents ADD COLUMN IF NOT EXISTS source VARCHAR(20) DEFAULT 'calculated'",
+            "ALTER TABLE assets ADD COLUMN IF NOT EXISTS source VARCHAR(20) DEFAULT 'manual'",
+            "ALTER TABLE assets ADD COLUMN IF NOT EXISTS detected_from_invoice_id UUID",
+        ]:
+            try:
+                await conn.execute(text(stmt))
+            except Exception:
+                pass  # Column already exists or table doesn't exist yet
+
     # Seed fiscal rules if empty
     from api.modules.fiscal.seed_rules import seed_fiscal_rules
     from api.db.session import async_session_factory
