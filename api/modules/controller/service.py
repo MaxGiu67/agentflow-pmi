@@ -18,6 +18,8 @@ DEFAULT_CATEGORIES = ["ricavi", "personale", "fornitori", "utenze", "affitto", "
 
 
 class ControllerService:
+    """Servizio Controller: budget, consuntivo mensile e analisi costi (US-60/61/62/63)."""
+
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 

@@ -65,6 +65,8 @@ SOURCE_DEFINITIONS = [
 
 
 class CompletenessService:
+    """Servizio Completeness Score: rileva sorgenti collegate e funzionalita sbloccate (US-69)."""
+
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 

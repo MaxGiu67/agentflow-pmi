@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 class CorrispettiviService:
+    """Servizio per import e gestione corrispettivi telematici (XML COR10)."""
+
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 

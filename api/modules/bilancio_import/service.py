@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 
 
 class BilancioImportService:
+    """Servizio per import saldi bilancio: CSV, XBRL, PDF (LLM) e wizard manuale."""
+
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 

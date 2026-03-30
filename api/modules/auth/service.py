@@ -20,6 +20,8 @@ def _utcnow() -> datetime:
 
 
 class AuthService:
+    """Servizio di autenticazione: registrazione, login, JWT, reset password."""
+
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
@@ -57,6 +59,19 @@ class AuthService:
         return result.scalar_one_or_none()
 
     async def register(self, email: str, password: str, name: str | None = None) -> User:
+        """Registra un nuovo utente e invia email di verifica.
+
+        Args:
+            email: Indirizzo email dell'utente.
+            password: Password in chiaro (verra hashata).
+            name: Nome opzionale dell'utente.
+
+        Returns:
+            L'oggetto User creato.
+
+        Raises:
+            ValueError: Se l'email e gia registrata.
+        """
         existing = await self._get_user_by_email(email)
         if existing:
             raise ValueError("Email gia registrata")
@@ -83,6 +98,11 @@ class AuthService:
         await send_verification_email(email, token)
 
     async def verify_email(self, token: str) -> User:
+        """Verifica l'email dell'utente tramite token.
+
+        Raises:
+            ValueError: Se il token non e valido.
+        """
         result = await self.db.execute(
             select(User).where(User.verification_token == token)
         )
@@ -98,6 +118,16 @@ class AuthService:
         return user
 
     async def login(self, email: str, password: str) -> dict:
+        """Autentica l'utente e restituisce access + refresh token.
+
+        Gestisce brute-force protection con lockout dopo N tentativi falliti.
+
+        Returns:
+            Dict con access_token, refresh_token, token_type, expires_in.
+
+        Raises:
+            ValueError: Credenziali non valide, account bloccato o email non verificata.
+        """
         user = await self._get_user_by_email(email)
         if not user:
             raise ValueError("Credenziali non valide")
@@ -154,6 +184,14 @@ class AuthService:
         await send_lockout_notification(email)
 
     async def refresh_token(self, refresh_token_str: str) -> dict:
+        """Rinnova access token usando un refresh token valido.
+
+        Returns:
+            Dict con nuovi access_token e refresh_token.
+
+        Raises:
+            ValueError: Se il refresh token e scaduto o non valido.
+        """
         try:
             payload = jwt.decode(
                 refresh_token_str, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
@@ -180,6 +218,7 @@ class AuthService:
         }
 
     async def request_password_reset(self, email: str) -> None:
+        """Invia email per reset password. Non rivela se l'email esiste (anti-enumeration)."""
         user = await self._get_user_by_email(email)
         # Always return success to avoid email enumeration
         if not user:
@@ -199,6 +238,11 @@ class AuthService:
         await send_password_reset_email(email, token)
 
     async def reset_password(self, token: str, new_password: str) -> None:
+        """Resetta la password usando il token di reset.
+
+        Raises:
+            ValueError: Se il token non e valido o e scaduto.
+        """
         result = await self.db.execute(
             select(User).where(User.password_reset_token == token)
         )
@@ -219,6 +263,14 @@ class AuthService:
         logger.info("Password reset successful for: %s", user.email)
 
     def decode_access_token(self, token: str) -> dict:
+        """Decodifica e valida un access token JWT.
+
+        Returns:
+            Payload del token (sub, email, type, exp).
+
+        Raises:
+            ValueError: Se il token non e valido o non e di tipo access.
+        """
         try:
             payload = jwt.decode(
                 token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
