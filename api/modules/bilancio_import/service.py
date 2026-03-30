@@ -170,19 +170,47 @@ class BilancioImportService:
         filename: str,
         pdf_content: bytes,
     ) -> dict:
-        """Import bilancio from PDF via LLM extraction (US-52)."""
+        """Import bilancio from PDF (US-52).
+
+        For large PDFs, splits into chunks to avoid LLM timeout.
+        Each chunk is processed separately and results are merged + deduplicated.
+        """
         from api.modules.banking.import_service import extract_text_from_pdf
 
         text = extract_text_from_pdf(pdf_content)
         if not text or len(text) < 100:
             raise ValueError("Impossibile estrarre testo dal PDF")
 
-        # LLM extraction
-        lines = await _extract_bilancio_llm(text)
+        # Split large text into chunks to avoid LLM timeout
+        CHUNK_SIZE = 6000
+        if len(text) > CHUNK_SIZE:
+            all_lines = []
+            chunks = [text[i:i + CHUNK_SIZE] for i in range(0, len(text), CHUNK_SIZE)]
+            logger.info("Bilancio PDF grande (%d chars): split in %d chunk", len(text), len(chunks))
+            for i, chunk in enumerate(chunks):
+                try:
+                    chunk_lines = await _extract_bilancio_llm(chunk)
+                    all_lines.extend(chunk_lines)
+                    logger.info("Chunk %d/%d: %d linee estratte", i + 1, len(chunks), len(chunk_lines))
+                except Exception as e:
+                    logger.warning("Chunk %d/%d fallito: %s", i + 1, len(chunks), e)
+            lines = all_lines
+        else:
+            lines = await _extract_bilancio_llm(text)
+
+        # Deduplicate by codice_conto + dare + avere
+        seen = set()
+        unique_lines = []
+        for ln in lines:
+            key = (ln["codice_conto"], ln["dare"], ln["avere"])
+            if key not in seen:
+                seen.add(key)
+                unique_lines.append(ln)
+        lines = unique_lines
 
         totale_dare = sum(ln["dare"] for ln in lines)
         totale_avere = sum(ln["avere"] for ln in lines)
-        bilanciato = abs(totale_dare - totale_avere) < 1.0  # tolleranza piu ampia per LLM
+        bilanciato = abs(totale_dare - totale_avere) < 1.0
 
         return {
             "filename": filename,
