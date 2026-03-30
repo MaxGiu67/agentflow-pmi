@@ -1,11 +1,19 @@
 """Salt Edge Open Banking adapter — AISP (account info + transactions).
 
-Uses Salt Edge Account Information API v5.
-Docs: https://docs.saltedge.com/account_information/v5/
+Uses Salt Edge Account Information API v6.
+Docs: https://docs.saltedge.com/v6/
+
+Key v5 → v6 changes:
+- Scopes: account_details → accounts, transactions_details → transactions
+- Connect: connect_sessions/create → connections/connect
+- Customer field: id → customer_id
+- Refresh: PUT → POST
+- Transactions pending/duplicate: separate endpoints → query params
 """
 
 import logging
 from datetime import date
+from typing import Optional
 
 import httpx
 
@@ -15,10 +23,10 @@ logger = logging.getLogger(__name__)
 
 
 class SaltEdgeClient:
-    """Client for Salt Edge Open Banking API."""
+    """Client for Salt Edge Open Banking API v6."""
 
     def __init__(self) -> None:
-        self.base_url = settings.saltedge_base_url
+        self.base_url = settings.saltedge_base_url.rstrip("/")
         self.app_id = settings.saltedge_app_id
         self.secret = settings.saltedge_secret
 
@@ -33,12 +41,13 @@ class SaltEdgeClient:
     # ── Customers ─────────────────────────────────────────
 
     async def create_customer(self, identifier: str) -> dict:
-        """Create a Salt Edge customer (maps to our tenant).
+        """Crea un customer Salt Edge (mappato al nostro tenant).
 
         Args:
-            identifier: unique ID (e.g. tenant UUID)
+            identifier: ID univoco (es. tenant UUID)
+
         Returns:
-            { id, identifier, secret }
+            dict con customer_id, identifier, created_at
         """
         async with httpx.AsyncClient() as client:
             resp = await client.post(
@@ -50,45 +59,65 @@ class SaltEdgeClient:
             resp.raise_for_status()
             return resp.json()["data"]
 
-    # ── Connect Session (bank link) ──────────────────────
+    async def list_customers(self) -> list[dict]:
+        """Lista tutti i customer."""
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{self.base_url}/customers",
+                headers=self._headers(),
+                timeout=30,
+            )
+            resp.raise_for_status()
+            return resp.json()["data"]
+
+    # ── Connect (bank link) — v6: /connections/connect ────
 
     async def create_connect_session(
         self,
         customer_id: str,
-        country_code: str = "IT",
+        country_code: str = "XF",
         return_url: str = "",
     ) -> dict:
-        """Create a connect session — returns a URL where the user authenticates with their bank.
+        """Crea una sessione di connessione banca — restituisce URL per autenticazione.
 
         Args:
-            customer_id: Salt Edge customer ID
-            country_code: ISO country code (default IT)
-            return_url: URL to redirect after bank auth
+            customer_id: Salt Edge customer_id
+            country_code: ISO country (default XF=Fake per test, IT per produzione)
+            return_url: URL di redirect dopo auth banca (opzionale in test mode)
 
         Returns:
-            { expires_at, connect_url } — redirect user to connect_url
+            dict con connect_url, expires_at
         """
-        if not return_url:
-            return_url = f"{settings.frontend_url}/impostazioni?bank=connected"
+        payload: dict = {
+            "customer_id": customer_id,
+            "consent": {
+                "scopes": ["accounts", "transactions"],
+                "from_date": str(date.today().replace(month=max(1, date.today().month - 3), day=1)),
+            },
+            "allowed_countries": [country_code],
+        }
+
+        # return_to e' opzionale — deve essere nella whitelist della dashboard
+        if return_url:
+            payload["attempt"] = {"return_to": return_url}
 
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                f"{self.base_url}/connect_sessions/create",
+                f"{self.base_url}/connections/connect",
                 headers=self._headers(),
-                json={
-                    "data": {
-                        "customer_id": customer_id,
-                        "consent": {
-                            "scopes": ["account_details", "transactions_details"],
-                            "from_date": str(date.today().replace(day=1)),
-                        },
-                        "attempt": {
-                            "return_to": return_url,
-                            "fetch_scopes": ["accounts", "transactions"],
-                        },
-                        "allowed_countries": [country_code],
-                    }
-                },
+                json={"data": payload},
+                timeout=30,
+            )
+            resp.raise_for_status()
+            return resp.json()["data"]
+
+    async def reconnect(self, connection_id: str) -> dict:
+        """Riconnetti una connessione scaduta (rinnovo consent PSD2)."""
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{self.base_url}/connections/{connection_id}/reconnect",
+                headers=self._headers(),
+                json={"data": {"consent": {"scopes": ["accounts", "transactions"]}}},
                 timeout=30,
             )
             resp.raise_for_status()
@@ -97,7 +126,7 @@ class SaltEdgeClient:
     # ── Connections ───────────────────────────────────────
 
     async def list_connections(self, customer_id: str) -> list[dict]:
-        """List all bank connections for a customer."""
+        """Lista tutte le connessioni bancarie di un customer."""
         async with httpx.AsyncClient() as client:
             resp = await client.get(
                 f"{self.base_url}/connections",
@@ -109,7 +138,7 @@ class SaltEdgeClient:
             return resp.json()["data"]
 
     async def get_connection(self, connection_id: str) -> dict:
-        """Get a single connection."""
+        """Dettaglio di una singola connessione."""
         async with httpx.AsyncClient() as client:
             resp = await client.get(
                 f"{self.base_url}/connections/{connection_id}",
@@ -120,19 +149,22 @@ class SaltEdgeClient:
             return resp.json()["data"]
 
     async def refresh_connection(self, connection_id: str) -> dict:
-        """Refresh connection data (re-fetch accounts and transactions)."""
+        """Aggiorna dati connessione (ri-scarica conti e transazioni).
+
+        v6: POST (era PUT in v5).
+        """
         async with httpx.AsyncClient() as client:
-            resp = await client.put(
+            resp = await client.post(
                 f"{self.base_url}/connections/{connection_id}/refresh",
                 headers=self._headers(),
-                json={"data": {"fetch_scopes": ["accounts", "transactions"]}},
+                json={"data": {"consent": {"scopes": ["accounts", "transactions"]}}},
                 timeout=30,
             )
             resp.raise_for_status()
             return resp.json()["data"]
 
     async def remove_connection(self, connection_id: str) -> bool:
-        """Remove/revoke a bank connection."""
+        """Rimuovi/revoca una connessione bancaria."""
         async with httpx.AsyncClient() as client:
             resp = await client.delete(
                 f"{self.base_url}/connections/{connection_id}",
@@ -145,9 +177,10 @@ class SaltEdgeClient:
     # ── Accounts (balances) ──────────────────────────────
 
     async def list_accounts(self, connection_id: str) -> list[dict]:
-        """Get accounts (with balances) for a connection.
+        """Lista conti con saldi per una connessione.
 
-        Returns list of: { id, name, nature, balance, currency_code, iban, ... }
+        Returns:
+            list di dict con: id, name, nature, balance, currency_code, iban, ...
         """
         async with httpx.AsyncClient() as client:
             resp = await client.get(
@@ -165,11 +198,19 @@ class SaltEdgeClient:
         self,
         connection_id: str,
         account_id: str,
-        from_date: str | None = None,
+        from_date: Optional[str] = None,
+        include_pending: bool = False,
     ) -> list[dict]:
-        """Get transactions for an account.
+        """Lista transazioni per un conto.
 
-        Returns list of: { id, amount, currency_code, description, category, made_on, status }
+        Args:
+            connection_id: ID connessione Salt Edge
+            account_id: ID conto Salt Edge
+            from_date: data inizio (YYYY-MM-DD)
+            include_pending: include transazioni in sospeso (v6: query param)
+
+        Returns:
+            list di dict con: id, amount, currency_code, description, category, made_on, status
         """
         params: dict = {
             "connection_id": connection_id,
@@ -177,29 +218,55 @@ class SaltEdgeClient:
         }
         if from_date:
             params["from_date"] = from_date
+        if include_pending:
+            params["pending"] = "true"
 
+        all_transactions = []
         async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{self.base_url}/transactions",
-                headers=self._headers(),
-                params=params,
-                timeout=30,
-            )
-            resp.raise_for_status()
-            return resp.json()["data"]
+            while True:
+                resp = await client.get(
+                    f"{self.base_url}/transactions",
+                    headers=self._headers(),
+                    params=params,
+                    timeout=30,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                all_transactions.extend(data["data"])
+
+                # Paginazione: next_id
+                next_id = data.get("meta", {}).get("next_id")
+                if not next_id:
+                    break
+                params["from_id"] = next_id
+
+        return all_transactions
 
     # ── Providers (list available banks) ─────────────────
 
-    async def list_providers(self, country_code: str = "IT") -> list[dict]:
-        """List available banks/providers for a country.
+    async def list_providers(
+        self,
+        country_code: str = "IT",
+        include_sandboxes: bool = True,
+    ) -> list[dict]:
+        """Lista banche/provider disponibili per un paese.
 
-        Returns list of: { code, name, country_code, status, ... }
+        Args:
+            country_code: ISO country (IT, XF per fake)
+            include_sandboxes: include sandbox provider per testing
+
+        Returns:
+            list di dict con: code, name, country_code, status, mode, ...
         """
+        params: dict = {"country_code": country_code}
+        if include_sandboxes:
+            params["include_sandboxes"] = "true"
+
         async with httpx.AsyncClient() as client:
             resp = await client.get(
                 f"{self.base_url}/providers",
                 headers=self._headers(),
-                params={"country_code": country_code},
+                params=params,
                 timeout=30,
             )
             resp.raise_for_status()
