@@ -172,14 +172,25 @@ class BilancioImportService:
     ) -> dict:
         """Import bilancio from PDF (US-52).
 
-        For large PDFs, splits into chunks to avoid LLM timeout.
-        Each chunk is processed separately and results are merged + deduplicated.
+        Strategy:
+        1. Try regex parser first (instant, works for standard Italian formats)
+        2. If regex extracts enough data → use it directly
+        3. If not → fall back to LLM with chunking (async, slower)
         """
         from api.modules.banking.import_service import extract_text_from_pdf
 
         text = extract_text_from_pdf(pdf_content)
         if not text or len(text) < 100:
             raise ValueError("Impossibile estrarre testo dal PDF")
+
+        # Try regex parser first (instant)
+        from api.modules.bilancio_import.pdf_parser import parse_bilancio_pdf_text
+        regex_result = parse_bilancio_pdf_text(text)
+
+        # If regex found totals from PDF, use them as quick import
+        if regex_result.get("totale_attivo_pdf", 0) > 0:
+            regex_result["filename"] = filename
+            return regex_result
 
         # Split large text into chunks to avoid LLM timeout
         CHUNK_SIZE = 6000
