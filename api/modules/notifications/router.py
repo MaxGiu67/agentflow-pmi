@@ -1,6 +1,7 @@
 """Router for notifications (US-18)."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel as _BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import User
@@ -97,8 +98,6 @@ async def send_test_notification(
 
 
 # ── US-67: Push notifications ──
-
-from pydantic import BaseModel as _BaseModel
 
 
 class PushNotificationRequest(_BaseModel):

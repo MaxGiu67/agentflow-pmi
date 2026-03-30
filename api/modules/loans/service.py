@@ -53,7 +53,7 @@ class LoanService:
         return {
             "filename": filename,
             "loans_count": len(loans),
-            "loans": [self._to_dict(l) for l in loans],
+            "loans": [self._to_dict(ln) for ln in loans],
             "message": f"Importati {len(loans)} finanziamenti da PDF",
         }
 
@@ -85,7 +85,7 @@ class LoanService:
         )
         loans = result.scalars().all()
         return {
-            "loans": [self._to_dict(l) for l in loans],
+            "loans": [self._to_dict(ln) for ln in loans],
             "total": len(loans),
         }
 
@@ -128,20 +128,20 @@ class LoanService:
         await self.db.flush()
         return {"deleted": True, "id": str(loan_id)}
 
-    def _to_dict(self, l: Loan) -> dict:
+    def _to_dict(self, ln: Loan) -> dict:
         return {
-            "id": str(l.id),
-            "description": l.description,
-            "lender": l.lender,
-            "principal": l.principal,
-            "interest_rate": l.interest_rate,
-            "installment_amount": l.installment_amount,
-            "frequency": l.frequency,
-            "start_date": l.start_date.isoformat(),
-            "end_date": l.end_date.isoformat() if l.end_date else None,
-            "remaining_principal": l.remaining_principal,
-            "next_payment_date": l.next_payment_date.isoformat() if l.next_payment_date else None,
-            "status": l.status,
+            "id": str(ln.id),
+            "description": ln.description,
+            "lender": ln.lender,
+            "principal": ln.principal,
+            "interest_rate": ln.interest_rate,
+            "installment_amount": ln.installment_amount,
+            "frequency": ln.frequency,
+            "start_date": ln.start_date.isoformat(),
+            "end_date": ln.end_date.isoformat() if ln.end_date else None,
+            "remaining_principal": ln.remaining_principal,
+            "next_payment_date": ln.next_payment_date.isoformat() if ln.next_payment_date else None,
+            "status": ln.status,
         }
 
 

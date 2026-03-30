@@ -212,8 +212,8 @@ def parse_payroll_text(text: str) -> PayrollSummary:
         summary.totale_avere = _parse_amount(tg_match.group(2))
     else:
         # Calculate from lines
-        summary.totale_dare = sum(l.importo for l in summary.linee if l.dare_avere == "D")
-        summary.totale_avere = sum(l.importo for l in summary.linee if l.dare_avere == "A")
+        summary.totale_dare = sum(ln.importo for ln in summary.linee if ln.dare_avere == "D")
+        summary.totale_avere = sum(ln.importo for ln in summary.linee if ln.dare_avere == "A")
 
     return summary
 

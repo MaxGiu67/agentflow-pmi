@@ -71,8 +71,8 @@ class BilancioImportService:
             except (ValueError, KeyError):
                 continue
 
-        totale_dare = sum(l["dare"] for l in lines)
-        totale_avere = sum(l["avere"] for l in lines)
+        totale_dare = sum(ln["dare"] for ln in lines)
+        totale_avere = sum(ln["avere"] for ln in lines)
         bilanciato = abs(totale_dare - totale_avere) < 0.10
 
         return {
@@ -147,8 +147,8 @@ class BilancioImportService:
         if not lines:
             lines = _mock_xbrl_lines()
 
-        totale_dare = sum(l["dare"] for l in lines)
-        totale_avere = sum(l["avere"] for l in lines)
+        totale_dare = sum(ln["dare"] for ln in lines)
+        totale_avere = sum(ln["avere"] for ln in lines)
         bilanciato = abs(totale_dare - totale_avere) < 1.0
 
         return {
@@ -178,8 +178,8 @@ class BilancioImportService:
         # LLM extraction
         lines = await _extract_bilancio_llm(text)
 
-        totale_dare = sum(l["dare"] for l in lines)
-        totale_avere = sum(l["avere"] for l in lines)
+        totale_dare = sum(ln["dare"] for ln in lines)
+        totale_avere = sum(ln["avere"] for ln in lines)
         bilanciato = abs(totale_dare - totale_avere) < 1.0  # tolleranza piu ampia per LLM
 
         return {
@@ -200,8 +200,8 @@ class BilancioImportService:
         description: str = "Saldi iniziali bilancio",
     ) -> dict:
         """Save confirmed bilancio lines as opening journal entry (US-51/52/54)."""
-        totale_dare = sum(l.get("dare", 0) for l in lines)
-        totale_avere = sum(l.get("avere", 0) for l in lines)
+        totale_dare = sum(ln.get("dare", 0) for ln in lines)
+        totale_avere = sum(ln.get("avere", 0) for ln in lines)
 
         je = JournalEntry(
             tenant_id=tenant_id,
@@ -233,7 +233,7 @@ class BilancioImportService:
 
         return {
             "journal_entry_id": str(je.id),
-            "lines_saved": len([l for l in lines if l.get("dare", 0) != 0 or l.get("avere", 0) != 0]),
+            "lines_saved": len([ln for ln in lines if ln.get("dare", 0) != 0 or ln.get("avere", 0) != 0]),
             "totale_dare": round(totale_dare, 2),
             "totale_avere": round(totale_avere, 2),
             "bilanciato": abs(totale_dare - totale_avere) < 0.10,
@@ -272,8 +272,8 @@ class BilancioImportService:
                 })
 
         # Auto-balance with "Utili/perdite esercizi precedenti"
-        totale_dare = sum(l["dare"] for l in lines)
-        totale_avere = sum(l["avere"] for l in lines)
+        totale_dare = sum(ln["dare"] for ln in lines)
+        totale_avere = sum(ln["avere"] for ln in lines)
         diff = round(totale_dare - totale_avere, 2)
 
         if abs(diff) > 0.01:

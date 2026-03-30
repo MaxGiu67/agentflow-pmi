@@ -3,11 +3,6 @@ import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 
-
-def _utcnow() -> datetime:
-    """Return current UTC time without timezone info (for TIMESTAMP WITHOUT TIME ZONE)."""
-    return datetime.now(UTC).replace(tzinfo=None)
-
 import bcrypt as _bcrypt
 from jose import JWTError, jwt
 from sqlalchemy import select
@@ -17,6 +12,11 @@ from api.config import settings
 from api.db.models import User
 
 logger = logging.getLogger(__name__)
+
+
+def _utcnow() -> datetime:
+    """Return current UTC time without timezone info (for TIMESTAMP WITHOUT TIME ZONE)."""
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class AuthService:

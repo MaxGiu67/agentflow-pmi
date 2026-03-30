@@ -56,7 +56,7 @@ class EnhancedCashFlowService:
         total_payroll = payroll_monthly * months_in_period
         total_deadlines = sum(d["amount"] for d in deadlines)
         total_recurring = sum(r["amount"] for r in recurring)
-        total_loans = sum(l["amount"] for l in loan_payments)
+        total_loans = sum(ln["amount"] for ln in loan_payments)
 
         total_income = expected_income
         total_outflow = expected_expenses + total_payroll + total_deadlines + total_recurring + total_loans

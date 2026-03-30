@@ -341,7 +341,7 @@ async def router_node(state: OrchestratorState) -> OrchestratorState:
             if cleaned.startswith("```"):
                 # Remove code fences
                 lines = cleaned.split("\n")
-                lines = [l for l in lines if not l.strip().startswith("```")]
+                lines = [ln for ln in lines if not ln.strip().startswith("```")]
                 cleaned = "\n".join(lines).strip()
 
             tool_calls = json.loads(cleaned)

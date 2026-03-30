@@ -48,7 +48,7 @@ async def create_active_invoice(
         result = await service.create_invoice_multiline(
             tenant_id=user.tenant_id,
             cliente=request.cliente.model_dump(),
-            linee=[l.model_dump() for l in request.linee],
+            linee=[ln.model_dump() for ln in request.linee],
             data_fattura=request.data_fattura,
             document_type=request.document_type,
             causale=request.causale,

@@ -1,6 +1,10 @@
 """Router for corrispettivi telematici (US-47, US-48)."""
 
+from datetime import date as date_type
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import User
@@ -92,10 +96,6 @@ async def list_corrispettivi(
 
 
 # ── CRUD manuale (US-48) ──
-
-from pydantic import BaseModel
-from datetime import date as date_type
-from uuid import UUID
 
 
 class CorrispettivoCreate(BaseModel):

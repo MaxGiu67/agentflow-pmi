@@ -1,5 +1,6 @@
 """Router for payroll/personnel costs (US-44)."""
 
+import logging
 import os
 import subprocess
 import tempfile
@@ -19,6 +20,8 @@ from api.modules.payroll.schemas import (
     PayrollSummaryResponse,
 )
 from api.modules.payroll.service import PayrollService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/payroll", tags=["payroll"])
 
