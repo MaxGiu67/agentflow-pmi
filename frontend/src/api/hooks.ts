@@ -829,7 +829,9 @@ export function useImportBilancio() {
     mutationFn: (file: File) => {
       const fd = new FormData()
       fd.append('file', file)
-      return api.post('/accounting/import-bilancio', fd).then((r) => r.data)
+      return api.post('/accounting/import-bilancio', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }).then((r) => r.data)
     },
   })
 }
@@ -847,7 +849,9 @@ export function useImportF24Pdf() {
     mutationFn: (file: File) => {
       const fd = new FormData()
       fd.append('file', file)
-      return api.post('/f24/import-pdf', fd).then((r) => r.data)
+      return api.post('/f24/import-pdf', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }).then((r) => r.data)
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['f24s'] }),
   })
