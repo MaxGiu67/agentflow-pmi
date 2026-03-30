@@ -8,6 +8,7 @@ from api.modules.accounting.schemas import (
     PianoContiCreateRequest,
     PianoContiResponse,
 )
+from api.modules.accounting.batch_register import BatchRegisterService
 from api.modules.accounting.service import AccountingService
 from api.modules.fiscal.balance_sheet import BalanceSheetService
 
@@ -93,3 +94,36 @@ async def create_piano_conti(
         ) from e
 
     return PianoContiResponse(**data)
+
+
+# ── Batch contabilizzazione fatture ──
+
+
+def get_batch_service(db: AsyncSession = Depends(get_db)) -> BatchRegisterService:
+    return BatchRegisterService(db)
+
+
+@router.get("/pending-registration")
+async def get_pending_registration(
+    user: User = Depends(get_current_user),
+    service: BatchRegisterService = Depends(get_batch_service),
+) -> dict:
+    """Conta fatture in attesa di contabilizzazione."""
+    if not user.tenant_id:
+        raise HTTPException(status_code=400, detail="Profilo azienda non configurato")
+    return await service.get_pending_count(user.tenant_id)
+
+
+@router.post("/register-all")
+async def register_all_invoices(
+    user: User = Depends(get_current_user),
+    service: BatchRegisterService = Depends(get_batch_service),
+) -> dict:
+    """Contabilizza tutte le fatture parsed non ancora registrate.
+
+    Idempotente: non contabilizza mai la stessa fattura due volte.
+    Assegna categoria default se mancante.
+    """
+    if not user.tenant_id:
+        raise HTTPException(status_code=400, detail="Profilo azienda non configurato")
+    return await service.register_all_pending(user.tenant_id)

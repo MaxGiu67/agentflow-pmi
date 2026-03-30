@@ -49,7 +49,8 @@ export default function ImportWizardPage() {
   const confirmBilancio = useConfirmBilancio()
   const importF24 = useImportF24Pdf()
 
-  const accounts = (bankAccounts as { id: string; bank_name: string; iban: string }[]) ?? []
+  const accountsRaw = bankAccounts as { items?: { id: string; bank_name: string; iban: string }[] } | { id: string; bank_name: string; iban: string }[] | undefined
+  const accounts = Array.isArray(accountsRaw) ? accountsRaw : (accountsRaw?.items ?? [])
 
   const resetState = () => {
     setPreviewData(null)
@@ -70,12 +71,12 @@ export default function ImportWizardPage() {
       const result = isCsv
         ? await importCsv.mutateAsync({ accountId: selectedAccountId, file })
         : await importStatement.mutateAsync({ accountId: selectedAccountId, file })
-      const items = (result as { transactions?: Record<string, unknown>[]; preview?: Record<string, unknown>[] })?.transactions ??
-        (result as { preview?: Record<string, unknown>[] })?.preview ?? []
-      if (items.length > 0) {
+      const r = result as Record<string, unknown>
+      const items = (r.movements ?? r.transactions ?? r.preview ?? []) as Record<string, unknown>[]
+      if (Array.isArray(items) && items.length > 0) {
         setPreviewData(items)
       } else {
-        setSuccessMessage(`Importazione completata! ${(result as { count?: number })?.count ?? 0} movimenti importati.`)
+        setSuccessMessage(`Importazione completata! ${r.movements_count ?? r.count ?? 0} movimenti estratti.`)
       }
     } catch {
       // Error handled by React Query
