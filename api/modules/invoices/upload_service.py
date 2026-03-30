@@ -2,7 +2,7 @@
 
 import logging
 import uuid
-from datetime import date, datetime, UTC
+from datetime import date
 
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -128,7 +128,7 @@ class UploadService:
 
         # Determine if attiva (emessa) or passiva (ricevuta)
         # If emittente P.IVA matches tenant's P.IVA → fattura emessa (attiva)
-        dest_piva = parsed.get("destinatario_piva", "")
+        parsed.get("destinatario_piva", "")
         emit_piva = parsed.get("emittente_piva", "")
         from sqlalchemy import select as sel
         from api.db.models import Tenant

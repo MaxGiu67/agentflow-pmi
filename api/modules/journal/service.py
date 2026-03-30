@@ -8,7 +8,7 @@ from math import ceil
 from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.db.models import JournalEntry, JournalLine, User
+from api.db.models import JournalEntry, JournalLine
 
 logger = logging.getLogger(__name__)
 

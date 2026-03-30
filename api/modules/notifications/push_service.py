@@ -5,7 +5,6 @@ Sends push notifications to configured channels (Telegram, etc.).
 
 import logging
 import uuid
-from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,7 +33,7 @@ class PushNotificationService:
                 NotificationConfig.user_id == user_id,
                 NotificationConfig.tenant_id == tenant_id,
                 NotificationConfig.channel == channel,
-                NotificationConfig.enabled == True,
+                NotificationConfig.enabled,
             )
         )
         config = result.scalar_one_or_none()

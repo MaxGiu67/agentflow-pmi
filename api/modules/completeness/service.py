@@ -5,7 +5,6 @@ Uses positive framing: "Hai sbloccato X", not "Ti manca il 55%".
 """
 
 import uuid
-from datetime import datetime
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +15,6 @@ from api.db.models import (
     Corrispettivo,
     Invoice,
     PayrollCost,
-    CompletenessScore,
 )
 
 # Source definitions with unlocked features and next-unlock benefits

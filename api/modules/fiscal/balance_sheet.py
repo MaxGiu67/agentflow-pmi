@@ -15,7 +15,7 @@ import uuid
 from collections import defaultdict
 from datetime import date
 
-from sqlalchemy import select, and_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import ChartAccount, JournalEntry, JournalLine, Tenant

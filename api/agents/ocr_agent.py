@@ -8,10 +8,9 @@ import logging
 import uuid
 from datetime import date
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.adapters.ocr import CloudVisionOCRAdapter, MultiAttachmentProcessor, OCRResult
+from api.adapters.ocr import CloudVisionOCRAdapter, MultiAttachmentProcessor
 from api.agents.base_agent import BaseAgent
 from api.db.models import Invoice
 

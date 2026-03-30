@@ -18,8 +18,6 @@ from api.db.models import (
     FiscalDeadline,
     Invoice,
     JournalEntry,
-    JournalLine,
-    ChartAccount,
 )
 from api.modules.dashboard.default_widgets import DEFAULT_WIDGETS
 

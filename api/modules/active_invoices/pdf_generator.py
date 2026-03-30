@@ -54,7 +54,7 @@ def generate_courtesy_pdf(
     title_style = ParagraphStyle("Title2", parent=styles["Title"], fontSize=16, spaceAfter=6)
     subtitle_style = ParagraphStyle("Sub", parent=styles["Normal"], fontSize=8, textColor=colors.grey)
     normal = styles["Normal"]
-    bold_style = ParagraphStyle("Bold", parent=normal, fontName="Helvetica-Bold")
+    ParagraphStyle("Bold", parent=normal, fontName="Helvetica-Bold")
     small_style = ParagraphStyle("Small", parent=normal, fontSize=8)
 
     elements = []

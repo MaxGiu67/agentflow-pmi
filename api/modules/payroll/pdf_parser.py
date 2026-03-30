@@ -7,7 +7,6 @@ Handles the columnar layout: Description | Importo D/A | DARE | AVERE
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import date
 
 logger = logging.getLogger(__name__)
 
@@ -306,16 +305,13 @@ async def parse_payroll_llm(text: str) -> PayrollSummary:
     More accurate than regex for varying PDF layouts.
     Cost: ~€0.01 per document with Claude Haiku.
     """
-    import json
     import os
-    from api.modules.banking.import_service import _call_anthropic, _call_openai, _parse_json_response
 
     prompt = LLM_PAYROLL_PROMPT.replace("{text}", text[:15000])
 
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
     openai_key = os.environ.get("OPENAI_API_KEY", "")
 
-    import httpx
 
     # Call LLM directly (not via _call_anthropic which expects array)
     data = None

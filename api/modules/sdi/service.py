@@ -1,10 +1,8 @@
 """Service layer for SDI webhook (US-07)."""
 
-import hashlib
-import hmac
 import logging
 import uuid
-from datetime import date, datetime, UTC
+from datetime import date
 
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession

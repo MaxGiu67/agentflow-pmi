@@ -7,7 +7,6 @@ from api.middleware.auth import get_current_user
 from api.modules.profile.schemas import (
     InvoiceSettingsRequest,
     InvoiceSettingsResponse,
-    ProfileChangeWarning,
     ProfileResponse,
     ProfileUpdateRequest,
 )

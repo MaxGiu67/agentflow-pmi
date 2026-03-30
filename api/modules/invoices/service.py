@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.adapters.fiscoapi import FiscoAPIClient
 from api.adapters.odoo import PIANO_CONTI_SRL_ORDINARIO
-from api.agents.fisco_agent import FiscoAgent
 from api.agents.learning_agent import LearningAgent
 from api.db.models import Invoice, User
 

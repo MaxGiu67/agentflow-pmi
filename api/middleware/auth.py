@@ -5,7 +5,6 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.config import settings
 from api.db.models import User
 from api.db.session import get_db
 from api.modules.auth.service import AuthService

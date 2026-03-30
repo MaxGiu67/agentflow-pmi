@@ -43,7 +43,7 @@ class AmmortamentiService:
     async def auto_detect(self, tenant_id: uuid.UUID) -> dict:
         """Scan invoices for immobilizzazioni and propose depreciation (US-59)."""
         # Find invoices categorized as asset-type categories
-        asset_categories = list(DEPRECIATION_RATES.keys())
+        list(DEPRECIATION_RATES.keys())
         # Use LIKE for flexible matching
         result = await self.db.execute(
             select(Invoice).where(

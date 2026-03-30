@@ -6,7 +6,7 @@ for fiscal/regulatory changes affecting PMI.
 
 import logging
 import uuid
-from datetime import date, datetime, UTC
+from datetime import date, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

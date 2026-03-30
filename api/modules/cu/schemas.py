@@ -1,6 +1,5 @@
 """Pydantic schemas for Certificazione Unica (CU) module (US-34)."""
 
-from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel

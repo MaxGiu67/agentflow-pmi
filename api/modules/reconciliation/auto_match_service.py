@@ -5,9 +5,8 @@ Auto-matches bank transactions to invoices by amount/date.
 
 import logging
 import uuid
-from datetime import timedelta
 
-from sqlalchemy import select, and_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import BankTransaction, BankAccount, Invoice, Reconciliation
@@ -43,7 +42,7 @@ class AutoMatchService:
         tx_result = await self.db.execute(
             select(BankTransaction).where(
                 BankTransaction.bank_account_id.in_(account_ids),
-                BankTransaction.reconciled == False,
+                not BankTransaction.reconciled,
             )
         )
         transactions = tx_result.scalars().all()

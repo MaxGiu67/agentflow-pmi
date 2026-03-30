@@ -1,6 +1,5 @@
 """Schemas for invoice upload (US-06)."""
 
-from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel

@@ -45,7 +45,6 @@ async def extract_movements_llm(text: str) -> list[dict]:
 
     Returns list of dicts with keys: data_operazione, data_valuta, descrizione, dare, avere.
     """
-    import httpx
 
     prompt = LLM_EXTRACTION_PROMPT.format(text=text[:15000])  # limit context
 
@@ -184,7 +183,7 @@ class BankImportService:
         Flow: PDF → pdftotext → LLM extraction → structured movements → preview data
         The caller should present preview to user for confirmation before saving.
         """
-        account = await self._verify_account(account_id, tenant_id)
+        await self._verify_account(account_id, tenant_id)
 
         # Extract text
         text = extract_text_from_pdf(pdf_content)

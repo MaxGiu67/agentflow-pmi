@@ -5,13 +5,11 @@ Budget conversazionale + Consuntivo mensile + "Come sto andando?"
 
 import logging
 import uuid
-from datetime import date, datetime
-from math import ceil
 
-from sqlalchemy import select, func, and_, extract
+from sqlalchemy import select, func, extract
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.db.models import Budget, Invoice, JournalEntry, PayrollCost
+from api.db.models import Budget, Invoice, PayrollCost
 
 logger = logging.getLogger(__name__)
 

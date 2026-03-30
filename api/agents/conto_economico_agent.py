@@ -17,7 +17,7 @@ import uuid
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.db.models import ChartAccount, Invoice, JournalLine
+from api.db.models import ChartAccount, Invoice
 
 logger = logging.getLogger(__name__)
 

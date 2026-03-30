@@ -12,7 +12,7 @@ from sqlalchemy import select, func as sqla_func, extract
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import (
-    Invoice, BankAccount, FiscalDeadline, ImportException, Budget, PayrollCost,
+    Invoice, BankAccount, FiscalDeadline, ImportException, Budget,
 )
 
 logger = logging.getLogger(__name__)
@@ -86,7 +86,7 @@ class HomeService:
         exc_result = await self.db.execute(
             select(ImportException).where(
                 ImportException.tenant_id == tenant_id,
-                ImportException.resolved == False,
+                not ImportException.resolved,
             ).order_by(ImportException.created_at.desc()).limit(3)
         )
         exceptions = exc_result.scalars().all()

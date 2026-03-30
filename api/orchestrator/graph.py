@@ -18,7 +18,6 @@ import logging
 import os
 import uuid
 
-import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.config import settings
@@ -27,7 +26,7 @@ from api.orchestrator.memory_node import MemoryManager
 from api.orchestrator.prompts import ORCHESTRATOR_SYSTEM_PROMPT, RESPONSE_SYSTEM_PROMPT
 from api.orchestrator.skill_discovery import get_skill_discovery_message
 from api.orchestrator.state import OrchestratorState
-from api.orchestrator.tool_registry import TOOLS, get_tools_by_name, get_tools_description
+from api.orchestrator.tool_registry import get_tools_by_name, get_tools_description
 
 logger = logging.getLogger(__name__)
 

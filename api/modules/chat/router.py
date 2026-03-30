@@ -13,7 +13,6 @@ from api.modules.chat.schemas import (
     ChatSendResponse,
     ConversationDetailResponse,
     ConversationListResponse,
-    ConversationResponse,
     MemoryListResponse,
 )
 from api.modules.chat.service import ChatService

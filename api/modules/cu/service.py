@@ -6,7 +6,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.db.models import CertificazioneUnica, FiscalDeadline, Invoice, WithholdingTax
+from api.db.models import CertificazioneUnica, Invoice, WithholdingTax
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,5 @@
 """Schemas for email connector module (US-08)."""
 
-from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr

@@ -52,7 +52,7 @@ class ImportExceptionsService:
         """
         conditions = [
             ImportException.tenant_id == tenant_id,
-            ImportException.resolved == False,
+            ImportException.resolved == False,  # noqa: E712 — SQLAlchemy requires == for column comparison
         ]
 
         # Total count
@@ -87,7 +87,7 @@ class ImportExceptionsService:
         """Get all pending exceptions (backlog)."""
         conditions = [
             ImportException.tenant_id == tenant_id,
-            ImportException.resolved == False,
+            ImportException.resolved == False,  # noqa: E712 — SQLAlchemy requires == for column comparison
         ]
 
         total = await self.db.scalar(

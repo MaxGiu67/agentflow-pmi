@@ -2,7 +2,6 @@
 
 import logging
 import uuid
-from datetime import date
 from math import ceil
 
 from sqlalchemy import select, func, and_, extract
@@ -81,7 +80,6 @@ class PayrollService:
         monthly = []
         total_costo = 0.0
         total_lordo = 0.0
-        all_dipendenti = set()
 
         for row in result.fetchall():
             m = {

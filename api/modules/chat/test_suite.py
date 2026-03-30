@@ -8,7 +8,6 @@ returns quality + efficiency report.
 import logging
 import time
 import uuid
-from datetime import date
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession

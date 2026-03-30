@@ -4,7 +4,7 @@ import logging
 import uuid
 from datetime import date
 
-from sqlalchemy import select, delete
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import F24Versamento, JournalEntry, JournalLine

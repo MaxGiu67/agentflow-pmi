@@ -9,7 +9,6 @@ from api.db.models import User
 from api.db.session import get_db
 from api.middleware.auth import get_current_user
 from api.modules.assets.schemas import (
-    AssetCheckRequest,
     AssetCreateRequest,
     AssetDisposeRequest,
     AssetDisposeResponse,

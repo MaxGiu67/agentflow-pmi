@@ -7,13 +7,12 @@ NON genera codice. Migliora i prompt LLM. Il sistema impara
 dal formato del commercialista di ogni tenant.
 """
 
-import json
 import logging
 import os
 import uuid
 from typing import Any, Callable, Awaitable
 
-from sqlalchemy import select, and_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import ImportPromptTemplate

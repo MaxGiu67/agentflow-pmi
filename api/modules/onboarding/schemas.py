@@ -1,6 +1,5 @@
 """Schemas for the onboarding module."""
 
-from datetime import datetime
 
 from pydantic import BaseModel
 

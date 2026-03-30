@@ -6,7 +6,6 @@ import xml.etree.ElementTree as ET
 from datetime import date
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.agents.base_agent import BaseAgent
 from api.db.models import Invoice

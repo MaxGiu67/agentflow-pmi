@@ -2,9 +2,8 @@
 
 import logging
 import uuid
-from datetime import datetime, UTC
 
-from sqlalchemy import select, and_, func, text, extract, case, literal_column
+from sqlalchemy import select, and_, func, text, extract
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import AgentEvent, Invoice, User

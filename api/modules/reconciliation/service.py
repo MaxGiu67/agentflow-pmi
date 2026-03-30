@@ -2,7 +2,6 @@
 
 import logging
 import uuid
-from datetime import date, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -62,7 +61,7 @@ class ReconciliationService:
         tx_result = await self.db.execute(
             select(BankTransaction).where(
                 BankTransaction.bank_account_id.in_(account_ids),
-                BankTransaction.reconciled == False,
+                not BankTransaction.reconciled,
             ).order_by(BankTransaction.date.desc())
         )
         transactions = tx_result.scalars().all()

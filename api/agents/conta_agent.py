@@ -2,10 +2,9 @@
 
 import logging
 import uuid
-from datetime import date, datetime, UTC
+from datetime import date
 
 from sqlalchemy import select, and_
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.agents.base_agent import BaseAgent
 from api.db.models import Invoice, JournalEntry, JournalLine

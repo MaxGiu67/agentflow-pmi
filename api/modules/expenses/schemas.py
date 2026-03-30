@@ -1,7 +1,6 @@
 """Pydantic schemas for expense management (US-29, US-30)."""
 
 from datetime import date
-from uuid import UUID
 
 from pydantic import BaseModel
 

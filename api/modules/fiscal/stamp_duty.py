@@ -8,7 +8,7 @@ from datetime import date
 from sqlalchemy import select, func as sqla_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.db.models import FiscalDeadline, Invoice, StampDuty
+from api.db.models import Invoice, StampDuty
 
 logger = logging.getLogger(__name__)
 
@@ -190,7 +190,6 @@ class StampDutyService:
         riepilogo = structured.get("riepilogo", [])
 
         exempt_total = 0.0
-        has_taxable = False
 
         for riep in riepilogo:
             aliquota = riep.get("aliquota_iva", 0.0) or 0.0
@@ -200,7 +199,7 @@ class StampDutyService:
                 # This is an exempt line
                 exempt_total += imponibile
             else:
-                has_taxable = True
+                pass
 
         # If no structured data, check if entire invoice is exempt
         if not riepilogo:

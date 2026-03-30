@@ -8,7 +8,6 @@ Handles initial balance import for new tenants:
 
 import csv as csv_mod
 import io
-import json
 import logging
 import os
 import uuid
@@ -112,10 +111,6 @@ class BilancioImportService:
             raise ValueError(f"File XBRL non valido: {e}")
 
         # Common XBRL namespaces for Italian accounts
-        namespaces = {
-            "itcc-ci": "http://www.infocamere.it/itcc-ci",
-            "xbrli": "http://www.xbrl.org/2003/instance",
-        }
 
         lines = []
 

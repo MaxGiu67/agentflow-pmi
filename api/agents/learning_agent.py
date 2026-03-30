@@ -5,7 +5,6 @@ import uuid
 from difflib import SequenceMatcher
 
 from sqlalchemy import select, and_, func
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.agents.base_agent import BaseAgent
 from api.db.models import CategorizationFeedback, Invoice

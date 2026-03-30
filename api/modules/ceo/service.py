@@ -2,14 +2,13 @@
 
 import logging
 import uuid
-from datetime import date, datetime
+from datetime import date
 
-from sqlalchemy import select, func as sa_func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import (
     Budget,
-    Expense,
     FiscalDeadline,
     Invoice,
 )
@@ -376,7 +375,7 @@ class CEOService:
         self, tenant_id: uuid.UUID, year: int,
     ) -> float:
         """Calculate YTD revenue from active invoices."""
-        from sqlalchemy import extract, func, text
+        from sqlalchemy import func, text
         # Debug: count all attive for this tenant
         count_res = await self.db.execute(
             select(func.count(Invoice.id)).where(
@@ -384,7 +383,7 @@ class CEOService:
                 Invoice.type == "attiva",
             )
         )
-        total_attive = count_res.scalar() or 0
+        count_res.scalar() or 0
 
         # Use raw SQL for reliability
         raw = await self.db.execute(

@@ -7,7 +7,7 @@ from datetime import datetime, UTC
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.db.models import OnboardingState, User, Tenant
+from api.db.models import OnboardingState, User
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +81,7 @@ class OnboardingService:
 
         # Validate prerequisites (steps must be done in order, but can be re-done)
         if step_number > 1:
-            prev_step_done = getattr(state, f"step{step_number - 1}_{'profile' if step_number == 2 else 'piva' if step_number == 3 else 'spid'}")
+            getattr(state, f"step{step_number - 1}_{'profile' if step_number == 2 else 'piva' if step_number == 3 else 'spid'}")
             # Actually check each prerequisite step
             prerequisites_met = True
             for prev in range(1, step_number):

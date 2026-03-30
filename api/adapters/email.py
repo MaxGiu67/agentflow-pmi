@@ -113,7 +113,7 @@ async def send_lockout_notification(email: str) -> bool:
             "from": settings.email_from,
             "to": [email],
             "subject": "Tentativo di accesso sospetto — AgentFlow",
-            "html": f"""
+            "html": """
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
                 <h2 style="color: #dc2626;">Accesso bloccato</h2>
                 <p>Abbiamo rilevato 5 tentativi di login falliti sul tuo account.
