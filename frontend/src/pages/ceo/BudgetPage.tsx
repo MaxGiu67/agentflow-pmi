@@ -37,7 +37,12 @@ export default function BudgetPage() {
   const projectionData = projection?.monthly_projection ?? []
 
   const columns: Column<BudgetRow>[] = [
-    { key: 'category', header: 'Categoria', sortable: true },
+    {
+      key: 'category',
+      header: 'Categoria',
+      sortable: true,
+      render: (row) => (row.label as string) || (row.category as string),
+    },
     {
       key: 'budget_amount',
       header: 'Budget',

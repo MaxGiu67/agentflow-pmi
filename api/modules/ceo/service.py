@@ -206,36 +206,51 @@ class CEOService:
             # AC-40.4: No budget -> wizard
             return await self._budget_wizard(tenant_id, year)
 
+        # Aggregate by category (sum all 12 months)
+        cat_data: dict[str, dict] = {}
+        for b in budgets:
+            key = b.category
+            if key not in cat_data:
+                cat_data[key] = {
+                    "category": b.category,
+                    "label": getattr(b, "label", None) or b.category,
+                    "budget_amount": 0.0,
+                    "actual_amount": 0.0,
+                }
+            cat_data[key]["budget_amount"] += b.budget_amount
+            cat_data[key]["actual_amount"] += b.actual_amount
+
         entries = []
         total_budget = 0.0
         total_actual = 0.0
 
-        for b in budgets:
-            delta_amount = round(b.actual_amount - b.budget_amount, 2)
+        for cat_info in cat_data.values():
+            budget_amt = round(cat_info["budget_amount"], 2)
+            actual_amt = round(cat_info["actual_amount"], 2)
+            delta_amount = round(actual_amt - budget_amt, 2)
             delta_percent = None
             over_threshold = False
 
-            if b.budget_amount > 0:
-                delta_percent = round(delta_amount / b.budget_amount * 100, 2)
+            if budget_amt > 0:
+                delta_percent = round(delta_amount / budget_amt * 100, 2)
                 over_threshold = abs(delta_percent) > 10.0
 
-            # AC-40.5: Non prevista if budget_amount == 0 but actual > 0
-            non_prevista = b.budget_amount == 0 and b.actual_amount > 0
+            non_prevista = budget_amt == 0 and actual_amt > 0
 
             entries.append({
-                "year": b.year,
-                "month": b.month,
-                "category": b.category,
-                "budget_amount": b.budget_amount,
-                "actual_amount": b.actual_amount,
-                "delta_amount": delta_amount,
-                "delta_percent": delta_percent,
+                "year": year,
+                "category": cat_info["category"],
+                "label": cat_info["label"],
+                "budget_amount": budget_amt,
+                "actual_amount": actual_amt,
+                "variance": delta_amount,
+                "variance_pct": delta_percent,
                 "over_threshold": over_threshold,
                 "non_prevista": non_prevista,
             })
 
-            total_budget += b.budget_amount
-            total_actual += b.actual_amount
+            total_budget += budget_amt
+            total_actual += actual_amt
 
         total_delta = round(total_actual - total_budget, 2)
 
