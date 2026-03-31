@@ -58,6 +58,7 @@ const PUZZLE_PIECES: PuzzlePieceConfig[] = [
     label: 'Fatture',
     icon: FileText,
     route: '/fatture',
+    lockedRoute: '/chat?msg=Aiutami+a+configurare+le+fatture+dal+cassetto+fiscale',
     required: true,
   },
   {
@@ -66,7 +67,7 @@ const PUZZLE_PIECES: PuzzlePieceConfig[] = [
     label: 'Banca',
     icon: Landmark,
     route: '/banca',
-    lockedRoute: '/import',
+    lockedRoute: '/chat?msg=Aiutami+a+collegare+il+conto+bancario+per+vedere+movimenti+e+cash+flow',
     required: true,
   },
   {
@@ -75,6 +76,7 @@ const PUZZLE_PIECES: PuzzlePieceConfig[] = [
     label: 'Paghe',
     icon: Users,
     route: '/personale',
+    lockedRoute: '/chat?msg=Aiutami+a+importare+i+costi+del+personale+dal+PDF+delle+paghe',
     required: false,
   },
   {
@@ -83,6 +85,7 @@ const PUZZLE_PIECES: PuzzlePieceConfig[] = [
     label: 'Corrispettivi',
     icon: Receipt,
     route: '/corrispettivi',
+    lockedRoute: '/chat?msg=Aiutami+a+configurare+i+corrispettivi+telematici',
     required: false,
   },
   {
@@ -90,7 +93,8 @@ const PUZZLE_PIECES: PuzzlePieceConfig[] = [
     sourceType: 'bilancio',
     label: 'Bilancio',
     icon: FileSpreadsheet,
-    route: '/import',
+    route: '/contabilita/bilancio',
+    lockedRoute: '/chat?msg=Aiutami+a+importare+i+saldi+iniziali+del+bilancio+per+aprire+i+conti',
     required: false,
   },
   {
@@ -99,6 +103,7 @@ const PUZZLE_PIECES: PuzzlePieceConfig[] = [
     label: 'Budget',
     icon: Target,
     route: '/controller',
+    lockedRoute: '/chat?msg=Aiutami+a+creare+il+budget+annuale+per+la+mia+azienda',
     dependsOn: ['fatture'],
     required: true,
   },
@@ -472,10 +477,12 @@ export default function PuzzleDashboard() {
     }
   }, [allRequiredActive, showCelebration, triggerCelebration])
 
-  // Click handlers
+  // Click handlers — ready pieces open the agent, active pieces navigate to management
   function handlePieceClick(piece: PuzzlePieceConfig, status: PieceStatus) {
     if (status === 'locked') return
-    if (status === 'ready' && piece.lockedRoute) {
+    if (status === 'active' || status === 'warning') {
+      navigate(piece.route)
+    } else if (piece.lockedRoute) {
       navigate(piece.lockedRoute)
     } else {
       navigate(piece.route)

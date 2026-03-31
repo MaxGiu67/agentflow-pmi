@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { Bot } from 'lucide-react'
 import ChatSidebar from './ChatSidebar'
 import ChatMessage from '../../components/chat/ChatMessage'
@@ -33,7 +33,9 @@ interface MessageItem {
 export default function ChatPage() {
   const { conversationId: paramConvId } = useParams<{ conversationId?: string }>()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const user = useAuthStore((s) => s.user)
+  const initialMsgSentRef = useRef(false)
 
   const [activeConversationId, setActiveConversationId] = useState<string | null>(
     paramConvId ?? null,
@@ -58,6 +60,18 @@ export default function ChatPage() {
       setActiveConversationId(paramConvId)
     }
   }, [paramConvId, activeConversationId])
+
+  // Auto-send message from URL param ?msg=...
+  useEffect(() => {
+    const msg = searchParams.get('msg')
+    if (msg && !initialMsgSentRef.current) {
+      initialMsgSentRef.current = true
+      // Small delay to let the page render first
+      setTimeout(() => {
+        handleSend(decodeURIComponent(msg))
+      }, 500)
+    }
+  }, [searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load messages when conversation changes
   useEffect(() => {
