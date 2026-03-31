@@ -21,6 +21,7 @@ import {
   FileSignature,
   Banknote,
   Puzzle,
+  Target,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
@@ -35,6 +36,7 @@ const navItems = [
   { to: '/chat', label: 'Chat', icon: MessageSquare },
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/controller', label: 'Controller', icon: Gauge },
+  { to: '/budget/wizard', label: 'Budget', icon: Target },
   { to: '/import', label: 'Import', icon: Upload },
   { to: '/fatture', label: 'Fatture', icon: FileText },
   { to: '/corrispettivi', label: 'Corrispettivi', icon: Receipt },
