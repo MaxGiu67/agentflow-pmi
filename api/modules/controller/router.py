@@ -1,4 +1,4 @@
-"""Router for Controller Agent — Budget + Consuntivo + Summary (US-60, US-61, US-62)."""
+"""Router for Controller Agent — Budget Wizard + Consuntivo + Summary (US-60, US-61, US-62)."""
 
 from typing import Any
 
@@ -10,12 +10,99 @@ from api.db.models import User
 from api.db.session import get_db
 from api.middleware.auth import get_current_user
 from api.modules.controller.service import ControllerService
+from api.modules.controller.wizard_service import (
+    check_historical_data,
+    generate_ce_preview,
+    get_sector_questions,
+    get_sectors_list,
+    save_wizard_budget,
+)
 
 router = APIRouter(prefix="/controller", tags=["controller"])
 
 
 def get_service(db: AsyncSession = Depends(get_db)) -> ControllerService:
     return ControllerService(db)
+
+
+# ── Budget Wizard endpoints ──
+
+
+@router.get("/budget/wizard/sectors")
+async def wizard_sectors(
+    user: User = Depends(get_current_user),
+) -> list[dict]:
+    """List available sectors for the budget wizard."""
+    return get_sectors_list()
+
+
+@router.get("/budget/wizard/questions")
+async def wizard_questions(
+    sector: str = Query(..., description="Sector ID (e.g., 'it', 'ristorazione')"),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Get sector-specific questions and cost structure."""
+    result = get_sector_questions(sector)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+
+@router.get("/budget/wizard/history")
+async def wizard_history(
+    year: int = Query(...),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Check if tenant has historical data for the budget year."""
+    if not user.tenant_id:
+        raise HTTPException(status_code=400, detail="Profilo azienda non configurato")
+    return await check_historical_data(db, user.tenant_id, year)
+
+
+class WizardGenerateRequest(BaseModel):
+    sector_id: str
+    fatturato: float
+    n_dipendenti: int = 0
+    ral_media: float = 0
+    year: int
+    overrides: dict[str, float] | None = None
+
+
+@router.post("/budget/wizard/generate")
+async def wizard_generate(
+    request: WizardGenerateRequest,
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Generate CE previsionale from wizard inputs."""
+    result = generate_ce_preview(
+        sector_id=request.sector_id,
+        fatturato=request.fatturato,
+        n_dipendenti=request.n_dipendenti,
+        ral_media=request.ral_media,
+        year=request.year,
+        overrides=request.overrides,
+    )
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+class WizardSaveRequest(BaseModel):
+    year: int
+    budget_lines: list[dict[str, Any]]
+
+
+@router.post("/budget/wizard/save")
+async def wizard_save(
+    request: WizardSaveRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Save budget from wizard CE preview."""
+    if not user.tenant_id:
+        raise HTTPException(status_code=400, detail="Profilo azienda non configurato")
+    return await save_wizard_budget(db, user.tenant_id, request.year, request.budget_lines)
 
 
 # ── US-60: Budget Agent generate ──

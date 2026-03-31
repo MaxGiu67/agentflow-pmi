@@ -13,6 +13,7 @@ from api.db.models import (
     BankAccount,
     BankTransaction,
     Corrispettivo,
+    FiscalDeadline,
     Invoice,
     PayrollCost,
 )
@@ -48,11 +49,11 @@ SOURCE_DEFINITIONS = [
         "next_benefit": "Completi il fatturato con le vendite al dettaglio e l'IVA",
     },
     {
-        "source_type": "bilancio",
-        "label": "Saldi bilancio",
-        "description": "Saldi iniziali dal commercialista",
-        "unlocks": ["Bilancio corretto", "Stato patrimoniale", "Situazione contabile completa"],
-        "next_benefit": "Hai il bilancio completo e lo stato patrimoniale",
+        "source_type": "scadenze",
+        "label": "Scadenze fiscali",
+        "description": "Calendario scadenze fiscali e tributarie",
+        "unlocks": ["Alert scadenze", "Calendario fiscale", "Notifiche automatiche"],
+        "next_benefit": "Ricevi alert sulle scadenze fiscali e non dimentichi nulla",
     },
     {
         "source_type": "budget",
@@ -139,16 +140,13 @@ class CompletenessService:
             count = await self._count(Corrispettivo, tenant_id)
             return "connected" if count > 0 else "not_configured"
 
-        elif source_type == "bilancio":
-            # Check for journal entries with "apertura" in description
-            from api.db.models import JournalEntry
-            result = await self.db.scalar(
-                select(func.count(JournalEntry.id)).where(
-                    JournalEntry.tenant_id == tenant_id,
-                    JournalEntry.description.ilike("%apertura%"),
+        elif source_type == "scadenze":
+            count = await self.db.scalar(
+                select(func.count(FiscalDeadline.id)).where(
+                    FiscalDeadline.tenant_id == tenant_id,
                 )
             ) or 0
-            return "connected" if result > 0 else "not_configured"
+            return "connected" if count > 0 else "not_configured"
 
         elif source_type == "budget":
             from api.db.models import Budget
