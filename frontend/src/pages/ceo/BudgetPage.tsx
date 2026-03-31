@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   BarChart,
   Bar,
@@ -11,6 +12,7 @@ import {
   LineChart,
   Line,
 } from 'recharts'
+import { Pencil, Plus } from 'lucide-react'
 import { useBudget, useBudgetProjection } from '../../api/hooks'
 import { formatCurrency } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
@@ -22,6 +24,7 @@ import EmptyState from '../../components/ui/EmptyState'
 type BudgetRow = Record<string, unknown>
 
 export default function BudgetPage() {
+  const navigate = useNavigate()
   const currentYear = new Date().getFullYear()
   const [year, setYear] = useState(currentYear)
   const { data: budget, isLoading } = useBudget(year)
@@ -81,23 +84,41 @@ export default function BudgetPage() {
         title="Budget vs Consuntivo"
         subtitle="Confronto budget e dati reali"
         actions={
-          <select
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          >
-            {Array.from({ length: 3 }, (_, i) => currentYear - i).map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
+          <div className="flex items-center gap-3">
+            <select
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            >
+              {Array.from({ length: 3 }, (_, i) => currentYear - i).map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => navigate(`/budget/wizard?edit=true&year=${year}`)}
+              className="inline-flex items-center gap-2 rounded-lg border border-blue-300 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50"
+            >
+              <Pencil className="h-4 w-4" />
+              Modifica budget
+            </button>
+          </div>
         }
       />
 
       {entries.length === 0 ? (
-        <EmptyState
-          title="Nessun budget definito"
-          description="Crea un budget per iniziare a confrontare i dati reali."
-        />
+        <div className="flex flex-col items-center py-20">
+          <EmptyState
+            title="Nessun budget definito"
+            description={`Crea il budget ${year} per confrontare previsioni e dati reali.`}
+          />
+          <button
+            onClick={() => navigate(`/budget/wizard?year=${year}`)}
+            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700"
+          >
+            <Plus className="h-5 w-5" />
+            Crea budget {year}
+          </button>
+        </div>
       ) : (
         <>
           {/* Monthly comparison chart */}

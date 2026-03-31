@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Filter, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { Plus, Search, Filter, ChevronUp, ChevronDown, ChevronsUpDown, X, FileText } from 'lucide-react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useInvoices } from '../../api/hooks'
+import api from '../../api/client'
 import { formatCurrency, formatDate } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
 import StatusBadge from '../../components/ui/StatusBadge'
@@ -25,6 +27,40 @@ export default function FattureListPage() {
   const [showFilters, setShowFilters] = useState(false)
   const [sortKey, setSortKey] = useState<SortKey>('data_fattura')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [newInv, setNewInv] = useState({
+    type: 'passiva' as string,
+    numero_fattura: '',
+    data_fattura: new Date().toISOString().slice(0, 10),
+    emittente_nome: '',
+    emittente_piva: '',
+    destinatario_nome: '',
+    importo_netto: '',
+    importo_iva: '',
+    importo_totale: '',
+    category: '',
+  })
+
+  const queryClient = useQueryClient()
+  const createInvoice = useMutation({
+    mutationFn: async (data: Record<string, unknown>) => (await api.post('/invoices/manual', data)).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] })
+      setShowCreateForm(false)
+      setNewInv({ type: 'passiva', numero_fattura: '', data_fattura: new Date().toISOString().slice(0, 10), emittente_nome: '', emittente_piva: '', destinatario_nome: '', importo_netto: '', importo_iva: '', importo_totale: '', category: '' })
+    },
+  })
+
+  function handleCreateSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    createInvoice.mutate({
+      ...newInv,
+      importo_netto: Number(newInv.importo_netto) || 0,
+      importo_iva: Number(newInv.importo_iva) || 0,
+      importo_totale: Number(newInv.importo_totale) || Number(newInv.importo_netto) + Number(newInv.importo_iva),
+    })
+  }
 
   const { data, isLoading } = useInvoices({
     page,
@@ -119,6 +155,13 @@ export default function FattureListPage() {
               Da verificare
             </button>
             <button
+              onClick={() => setShowCreateForm(!showCreateForm)}
+              className="inline-flex items-center gap-2 rounded-lg border border-green-300 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-50"
+            >
+              <FileText className="h-4 w-4" />
+              Nuova fattura
+            </button>
+            <button
               onClick={() => navigate('/fatture/upload')}
               className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
@@ -128,6 +171,61 @@ export default function FattureListPage() {
           </div>
         }
       />
+
+      {/* Create invoice form */}
+      {showCreateForm && (
+        <form onSubmit={handleCreateSubmit} className="mb-6 rounded-xl border border-green-200 bg-green-50/50 p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-800">Nuova fattura manuale</h3>
+            <button type="button" onClick={() => setShowCreateForm(false)} className="text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Tipo</label>
+              <select value={newInv.type} onChange={(e) => setNewInv({ ...newInv, type: e.target.value })} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                <option value="passiva">Ricevuta (costo)</option>
+                <option value="attiva">Emessa (ricavo)</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Numero fattura</label>
+              <input type="text" required value={newInv.numero_fattura} onChange={(e) => setNewInv({ ...newInv, numero_fattura: e.target.value })} placeholder="1/2026" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Data</label>
+              <input type="date" required value={newInv.data_fattura} onChange={(e) => setNewInv({ ...newInv, data_fattura: e.target.value })} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Categoria budget</label>
+              <input type="text" value={newInv.category} onChange={(e) => setNewInv({ ...newInv, category: e.target.value })} placeholder="fornitori, servizi..." className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">{newInv.type === 'passiva' ? 'Fornitore' : 'Cliente'}</label>
+              <input type="text" required value={newInv.emittente_nome} onChange={(e) => setNewInv({ ...newInv, emittente_nome: e.target.value })} placeholder="Nome azienda" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">P.IVA</label>
+              <input type="text" required value={newInv.emittente_piva} onChange={(e) => setNewInv({ ...newInv, emittente_piva: e.target.value })} placeholder="IT01234567890" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Importo netto</label>
+              <input type="number" required step="0.01" value={newInv.importo_netto} onChange={(e) => setNewInv({ ...newInv, importo_netto: e.target.value, importo_totale: String((Number(e.target.value) || 0) + (Number(newInv.importo_iva) || 0)) })} placeholder="1000.00" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">IVA</label>
+              <input type="number" step="0.01" value={newInv.importo_iva} onChange={(e) => setNewInv({ ...newInv, importo_iva: e.target.value, importo_totale: String((Number(newInv.importo_netto) || 0) + (Number(e.target.value) || 0)) })} placeholder="220.00" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between">
+            <p className="text-sm text-slate-600">Totale: <strong>{formatCurrency(Number(newInv.importo_totale) || 0)}</strong></p>
+            <button type="submit" disabled={createInvoice.isPending} className="rounded-lg bg-green-600 px-5 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50">
+              {createInvoice.isPending ? 'Salvataggio...' : 'Crea fattura'}
+            </button>
+          </div>
+        </form>
+      )}
 
       {/* Search and filters */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end">
