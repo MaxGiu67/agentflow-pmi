@@ -20,6 +20,9 @@ import ScadenzarioPage from './pages/ScadenzarioPage'
 import ReportPage from './pages/ReportPage'
 import ImpostazioniPage from './pages/ImpostazioniPage'
 
+// Puzzle Dashboard
+import PuzzleDashboard from './pages/PuzzleDashboard'
+
 // Pivot 5 pages
 import CompletenessPage from './pages/onboarding/CompletenessPage'
 import ImportWizardPage from './pages/import/ImportWizardPage'
@@ -165,7 +168,8 @@ export default function App() {
               <Route path="/personale/gestione-import" element={<GestioneImportPage />} />
 
               {/* Pivot 5 */}
-              <Route path="/setup" element={<CompletenessPage />} />
+              <Route path="/setup" element={<PuzzleDashboard />} />
+              <Route path="/setup/completeness" element={<CompletenessPage />} />
               <Route path="/import" element={<ImportWizardPage />} />
               <Route path="/controller" element={<ControllerPage />} />
               <Route path="/alert" element={<AlertsPage />} />

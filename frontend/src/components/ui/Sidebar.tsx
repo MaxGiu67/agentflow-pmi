@@ -20,6 +20,7 @@ import {
   Bell,
   FileSignature,
   Banknote,
+  Puzzle,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
@@ -30,6 +31,7 @@ interface SidebarProps {
 
 const navItems = [
   { to: '/', label: 'Home', icon: Home },
+  { to: '/setup', label: 'Setup', icon: Puzzle },
   { to: '/chat', label: 'Chat', icon: MessageSquare },
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/controller', label: 'Controller', icon: Gauge },
