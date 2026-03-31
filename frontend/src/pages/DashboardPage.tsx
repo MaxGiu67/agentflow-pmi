@@ -127,7 +127,7 @@ export default function DashboardPage() {
   const canGoForward = selectedYear < currentYear
 
   return (
-    <div ref={containerRef} className="mx-auto max-w-7xl">
+    <div ref={containerRef} className="mx-auto w-full max-w-6xl px-4">
       <PageHeader
         title={`Dashboard ${selectedYear}`}
         subtitle="Panoramica annuale fatturazione"
