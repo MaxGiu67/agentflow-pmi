@@ -476,6 +476,60 @@ async def load_wizard_budget(
     return result
 
 
+async def list_budgets(
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+) -> list[dict]:
+    """List all budgets for a tenant, grouped by year, with metadata."""
+    from sqlalchemy import distinct as sa_distinct
+
+    # Get all years that have budget data
+    years_result = await db.execute(
+        select(sa_distinct(Budget.year)).where(
+            Budget.tenant_id == tenant_id,
+        ).order_by(Budget.year.desc())
+    )
+    years = [row[0] for row in years_result.fetchall()]
+
+    budgets = []
+    for yr in years:
+        # Get budget summary (month=1 for template)
+        lines_result = await db.execute(
+            select(Budget).where(
+                Budget.tenant_id == tenant_id,
+                Budget.year == yr,
+                Budget.month == 1,
+            )
+        )
+        lines = lines_result.scalars().all()
+
+        ricavi = sum(ln.budget_amount for ln in lines if ln.category.startswith("ricavi"))
+        costi = sum(ln.budget_amount for ln in lines if not ln.category.startswith("ricavi"))
+        ebitda = (ricavi - costi) * 12  # monthly → annual
+
+        # Get metadata
+        meta_result = await db.execute(
+            select(BudgetMeta).where(
+                BudgetMeta.tenant_id == tenant_id,
+                BudgetMeta.year == yr,
+            )
+        )
+        meta = meta_result.scalar_one_or_none()
+
+        budgets.append({
+            "year": yr,
+            "sector_id": meta.sector_id if meta else None,
+            "sector_label": SECTORS.get(meta.sector_id, {}).get("label") if meta and meta.sector_id else None,
+            "fatturato": round(meta.fatturato, 2) if meta and meta.fatturato else round(ricavi * 12, 2),
+            "total_costi": round(costi * 12, 2),
+            "ebitda": round(ebitda, 2),
+            "n_categories": len(lines),
+            "created_at": meta.created_at.isoformat() if meta else None,
+        })
+
+    return budgets
+
+
 async def check_historical_data(
     db: AsyncSession,
     tenant_id: uuid.UUID,

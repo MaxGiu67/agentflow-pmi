@@ -15,6 +15,7 @@ from api.modules.controller.wizard_service import (
     generate_ce_preview,
     get_sector_questions,
     get_sectors_list,
+    list_budgets,
     load_wizard_budget,
     save_wizard_budget,
 )
@@ -27,6 +28,17 @@ def get_service(db: AsyncSession = Depends(get_db)) -> ControllerService:
 
 
 # ── Budget Wizard endpoints ──
+
+
+@router.get("/budgets")
+async def get_budgets(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """List all budgets for the tenant, grouped by year."""
+    if not user.tenant_id:
+        raise HTTPException(status_code=400, detail="Profilo azienda non configurato")
+    return await list_budgets(db, user.tenant_id)
 
 
 @router.get("/budget/wizard/sectors")

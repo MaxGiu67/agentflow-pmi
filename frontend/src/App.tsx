@@ -70,7 +70,8 @@ import CespitiPage from './pages/cespiti/CespitiPage'
 import CeoDashboardPage from './pages/ceo/CeoDashboardPage'
 import BudgetPage from './pages/ceo/BudgetPage'
 
-// Budget Wizard
+// Budget
+import BudgetListPage from './pages/budget/BudgetListPage'
 import BudgetWizardPage from './pages/budget/BudgetWizardPage'
 
 // Chat
@@ -160,6 +161,7 @@ export default function App() {
               {/* CEO */}
               <Route path="/ceo" element={<CeoDashboardPage />} />
               <Route path="/ceo/budget" element={<BudgetPage />} />
+              <Route path="/budgets" element={<BudgetListPage />} />
               <Route path="/budget/wizard" element={<BudgetWizardPage />} />
 
               {/* Report */}

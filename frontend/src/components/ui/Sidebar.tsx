@@ -41,7 +41,7 @@ const navSections: NavSection[] = [
     items: [
       { to: '/setup', label: 'Setup', icon: Puzzle },
       { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/budget/wizard', label: 'Budget', icon: Target },
+      { to: '/budgets', label: 'Budget', icon: Target },
     ],
   },
   {

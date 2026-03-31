@@ -694,7 +694,7 @@ export default function BudgetWizardPage() {
         <h1 className="mb-2 text-2xl font-bold text-slate-800">Budget {year} salvato!</h1>
         <p className="mb-8 text-slate-500">Il tuo piano economico e attivo. Puoi monitorare budget vs consuntivo dalla dashboard.</p>
         <div className="flex flex-wrap justify-center gap-4">
-          <button onClick={() => navigate('/dashboard')} className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700">Vai alla Dashboard</button>
+          <button onClick={() => navigate('/budgets')} className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700">Torna ai Budget</button>
           <button onClick={() => navigate('/ceo/budget')} className="rounded-xl border border-slate-300 px-6 py-3 font-semibold text-slate-700 hover:bg-slate-50">Vai al Consuntivo</button>
           <button onClick={() => { setSaved(false); setStep(3) }} className="rounded-xl border border-slate-300 px-6 py-3 font-semibold text-slate-700 hover:bg-slate-50">
             <Pencil className="mr-1 inline h-4 w-4" /> Modifica budget
