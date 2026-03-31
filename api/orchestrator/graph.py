@@ -52,6 +52,8 @@ TOOL_AGENT_MAP: dict[str, str] = {
     "get_period_stats": "conta",
     "get_top_clients": "fisco",
     "sync_cassetto": "fisco",
+    "apertura_conti": "controller",
+    "crea_budget": "controller",
 }
 
 
@@ -144,6 +146,37 @@ def keyword_route(message: str) -> list[dict]:
     help_keywords = ["cosa sai fare", "aiuto", "help", "cosa puoi", "come funziona", "cosa fai"]
     if any(k in msg_lower for k in help_keywords):
         return [{"tool": "direct_response", "args": {"message": get_skill_discovery_message()}}]
+
+    # Guided tools: apertura_conti (bilancio import)
+    bilancio_guide_keywords = [
+        "importa bilancio", "importare bilancio", "importare i saldi",
+        "saldi iniziali", "saldi di apertura", "apertura conti",
+        "saldi del bilancio", "aiutami a importare i saldi",
+        "importa i saldi", "configura bilancio", "inserire i saldi",
+        "inserisco i saldi",
+    ]
+    if any(k in msg_lower for k in bilancio_guide_keywords):
+        args: dict = {}
+        if "pdf" in msg_lower:
+            args["formato"] = "pdf"
+        elif "csv" in msg_lower or "excel" in msg_lower:
+            args["formato"] = "csv"
+        elif any(k in msg_lower for k in ["mano", "manual", "voce", "wizard"]):
+            args["formato"] = "manuale"
+        return [{"tool": "apertura_conti", "args": args}]
+
+    # Guided tools: crea_budget
+    budget_guide_keywords = [
+        "crea budget", "creare budget", "creare il budget",
+        "piano economico", "budget annuale", "configura budget",
+        "aiutami con il budget", "aiutami a creare il budget",
+        "costruiamo il budget", "imposta budget",
+    ]
+    if any(k in msg_lower for k in budget_guide_keywords):
+        args = {}
+        if time_params.get("year"):
+            args["year"] = time_params["year"]
+        return [{"tool": "crea_budget", "args": args}]
 
     # US-A07: Multi-agent detection — broad questions
     broad_keywords = [
@@ -250,6 +283,9 @@ def keyword_route(message: str) -> list[dict]:
         return [{"tool": "get_journal_entries", "args": {}}]
 
     if any(kw in msg_lower for kw in ["patrimonial", "bilancio", "balance"]):
+        # If user is asking to import/configure bilancio, use guided tool instead
+        if any(kw in msg_lower for kw in ["import", "saldi", "apertura", "configur", "inserir"]):
+            return [{"tool": "apertura_conti", "args": {}}]
         return [{"tool": "get_balance_sheet_summary", "args": {}}]
 
     if any(kw in msg_lower for kw in ["cash flow", "cashflow", "flusso di cassa", "previsione"]):
@@ -263,6 +299,13 @@ def keyword_route(message: str) -> list[dict]:
 
     if any(kw in msg_lower for kw in ["cespiti", "asset", "beni strumentali"]):
         return [{"tool": "list_assets", "args": {}}]
+
+    # Budget — generic keyword catch (after specific budget_guide_keywords above)
+    if any(kw in msg_lower for kw in ["budget", "piano economic"]):
+        args = {}
+        if time_params.get("year"):
+            args["year"] = time_params["year"]
+        return [{"tool": "crea_budget", "args": args}]
 
     # Greetings (Bug 14: added buonasera, grazie)
     if any(kw in msg_lower for kw in ["ciao", "buongiorno", "buonasera", "salve", "hello", "hey", "grazie"]):
@@ -476,6 +519,11 @@ def _format_results_fallback(tool_results: list[dict]) -> str:
             parts.append(f"{agent_badge}Errore ({tool_name}): {result['error']}")
             continue
 
+        # Guided tool responses — pass through the message directly
+        if "status" in result and result["status"] in ("needs_input", "guide", "proposal", "completed"):
+            parts.append(f"{agent_badge}{result.get('message', '')}")
+            continue
+
         # Smart formatting: single value results (count, totals)
         if "count" in result and "items" not in result:
             if "message" in result:
@@ -605,6 +653,8 @@ TOOL_PAGE_MAP: dict[str, str] = {
     "get_period_stats": "/dashboard",
     "get_top_clients": "/dashboard",
     "sync_cassetto": "/impostazioni",
+    "apertura_conti": "/import/bilancio",
+    "crea_budget": "/budget",
 }
 
 
@@ -847,6 +897,14 @@ async def run_orchestrator(
         response_meta["actions"] = auto_actions
     if suggested:
         response_meta["suggested_actions"] = suggested
+
+    # Propagate suggested_actions from guided tools (apertura_conti, crea_budget)
+    for tr in state.get("tool_results", []):
+        result = tr.get("result", {})
+        if isinstance(result, dict) and "suggested_actions" in result:
+            existing = response_meta.get("suggested_actions", [])
+            existing.extend(result["suggested_actions"])
+            response_meta["suggested_actions"] = existing
 
     return {
         "content": content,

@@ -1,25 +1,14 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { Bot } from 'lucide-react'
-import ChatSidebar from './ChatSidebar'
+import { useState, useEffect, useCallback } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { MessageSquare, Trash2, ChevronLeft, Clock, Bot } from 'lucide-react'
 import ChatMessage from '../../components/chat/ChatMessage'
-import ChatInput from '../../components/chat/ChatInput'
-import SuggestionChips from '../../components/chat/SuggestionChips'
 import {
   useConversations,
   useConversation,
-  useSendMessage,
-  useCreateConversation,
   useDeleteConversation,
 } from '../../api/hooks'
 import { useAuthStore } from '../../store/auth'
-
-const DEFAULT_SUGGESTIONS = [
-  'Come stanno le mie finanze?',
-  'Fatture da verificare',
-  'Prossime scadenze',
-  'Mostra la dashboard',
-]
+import PageHeader from '../../components/ui/PageHeader'
 
 interface MessageItem {
   id: string
@@ -30,258 +19,248 @@ interface MessageItem {
   created_at: string
 }
 
+interface ConversationItem {
+  id: string
+  title: string | null
+  status: string
+  message_count: number
+  last_message_preview: string | null
+  created_at: string
+  updated_at: string
+}
+
+function formatRelativeDate(dateStr: string): string {
+  try {
+    const d = new Date(dateStr)
+    const now = new Date()
+    const diff = now.getTime() - d.getTime()
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+
+    if (days === 0) return 'Oggi'
+    if (days === 1) return 'Ieri'
+    if (days < 7) return `${days}g fa`
+
+    return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  } catch {
+    return ''
+  }
+}
+
+function formatDateTime(dateStr: string): string {
+  try {
+    const d = new Date(dateStr)
+    return d.toLocaleString('it-IT', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  } catch {
+    return ''
+  }
+}
+
 export default function ChatPage() {
   const { conversationId: paramConvId } = useParams<{ conversationId?: string }>()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
   const user = useAuthStore((s) => s.user)
-  const initialMsgSentRef = useRef(false)
 
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(
     paramConvId ?? null,
   )
-  const [messages, setMessages] = useState<MessageItem[]>([])
-  const [isTyping, setIsTyping] = useState(false)
-  const [suggestions, setSuggestions] = useState<string[]>(DEFAULT_SUGGESTIONS)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Queries
   const { data: conversationsData, isLoading: convListLoading } = useConversations()
-  const { data: conversationDetail } = useConversation(activeConversationId ?? '')
+  const { data: conversationDetail, isLoading: detailLoading } = useConversation(
+    selectedConversationId ?? '',
+  )
 
   // Mutations
-  const sendMessage = useSendMessage()
-  const createConversation = useCreateConversation()
   const deleteConversation = useDeleteConversation()
 
   // Sync URL param with state
   useEffect(() => {
-    if (paramConvId && paramConvId !== activeConversationId) {
-      setActiveConversationId(paramConvId)
+    if (paramConvId && paramConvId !== selectedConversationId) {
+      setSelectedConversationId(paramConvId)
     }
-  }, [paramConvId, activeConversationId])
+  }, [paramConvId, selectedConversationId])
 
-  // Auto-send message from URL param ?msg=...
-  useEffect(() => {
-    const msg = searchParams.get('msg')
-    if (msg && !initialMsgSentRef.current) {
-      initialMsgSentRef.current = true
-      // Small delay to let the page render first
-      setTimeout(() => {
-        handleSend(decodeURIComponent(msg))
-      }, 500)
-    }
-  }, [searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Load messages when conversation changes
-  useEffect(() => {
-    if (conversationDetail?.messages) {
-      setMessages(
-        conversationDetail.messages.map((m: MessageItem) => ({
-          id: m.id,
-          role: m.role as 'user' | 'assistant' | 'system',
-          content: m.content,
-          agent_name: m.agent_name,
-          agent_type: m.agent_type,
-          created_at: m.created_at,
-        })),
-      )
-      setSuggestions([])
-    }
-  }, [conversationDetail])
-
-  // Auto-scroll to bottom
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isTyping])
-
-  const handleSend = useCallback(
-    async (text: string) => {
-      // Optimistic: add user message
-      const tempUserMsg: MessageItem = {
-        id: `temp-${Date.now()}`,
-        role: 'user',
-        content: text,
-        created_at: new Date().toISOString(),
-      }
-      setMessages((prev) => [...prev, tempUserMsg])
-      setIsTyping(true)
-      setSuggestions([])
-
-      try {
-        const result = await sendMessage.mutateAsync({
-          message: text,
-          conversationId: activeConversationId ?? undefined,
-        })
-
-        // If new conversation was created, update the active one
-        if (!activeConversationId && result.conversation_id) {
-          setActiveConversationId(result.conversation_id)
-          navigate(`/chat/${result.conversation_id}`, { replace: true })
-        }
-
-        // Add assistant response
-        const assistantMsg: MessageItem = {
-          id: result.message_id,
-          role: 'assistant',
-          content: result.content,
-          agent_name: result.agent_name,
-          agent_type: result.agent_type,
-          created_at: new Date().toISOString(),
-        }
-        setMessages((prev) => [...prev, assistantMsg])
-
-        // Update suggestions
-        if (result.suggestions && result.suggestions.length > 0) {
-          setSuggestions(result.suggestions)
-        } else {
-          setSuggestions([])
-        }
-      } catch {
-        // Add error message
-        const errorMsg: MessageItem = {
-          id: `error-${Date.now()}`,
-          role: 'assistant',
-          content: 'Mi dispiace, si e verificato un errore. Riprova tra poco.',
-          agent_name: 'AgentFlow',
-          agent_type: 'orchestrator',
-          created_at: new Date().toISOString(),
-        }
-        setMessages((prev) => [...prev, errorMsg])
-      } finally {
-        setIsTyping(false)
-      }
-    },
-    [activeConversationId, sendMessage, navigate],
-  )
-
-  const handleNewConversation = useCallback(async () => {
-    try {
-      const result = await createConversation.mutateAsync()
-      setActiveConversationId(result.id)
-      setMessages([])
-      setSuggestions(DEFAULT_SUGGESTIONS)
-      navigate(`/chat/${result.id}`, { replace: true })
-    } catch {
-      // Fallback: just clear the chat
-      setActiveConversationId(null)
-      setMessages([])
-      setSuggestions(DEFAULT_SUGGESTIONS)
-      navigate('/chat', { replace: true })
-    }
-  }, [createConversation, navigate])
+  const messages: MessageItem[] = (conversationDetail?.messages ?? []).map((m: MessageItem) => ({
+    id: m.id,
+    role: m.role as 'user' | 'assistant' | 'system',
+    content: m.content,
+    agent_name: m.agent_name,
+    agent_type: m.agent_type,
+    created_at: m.created_at,
+  }))
 
   const handleSelectConversation = useCallback(
     (id: string) => {
-      setActiveConversationId(id)
+      setSelectedConversationId(id)
       navigate(`/chat/${id}`, { replace: true })
     },
     [navigate],
   )
 
   const handleDeleteConversation = useCallback(
-    async (id: string) => {
+    async (id: string, e: React.MouseEvent) => {
+      e.stopPropagation()
       await deleteConversation.mutateAsync(id)
-      if (activeConversationId === id) {
-        setActiveConversationId(null)
-        setMessages([])
-        setSuggestions(DEFAULT_SUGGESTIONS)
+      if (selectedConversationId === id) {
+        setSelectedConversationId(null)
         navigate('/chat', { replace: true })
       }
     },
-    [activeConversationId, deleteConversation, navigate],
+    [selectedConversationId, deleteConversation, navigate],
   )
 
-  const conversations = conversationsData?.items ?? []
+  const handleBack = useCallback(() => {
+    setSelectedConversationId(null)
+    navigate('/chat', { replace: true })
+  }, [navigate])
+
+  const conversations: ConversationItem[] = conversationsData?.items ?? []
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-      {/* Sidebar */}
-      <ChatSidebar
-        conversations={conversations}
-        activeConversationId={activeConversationId}
-        onSelectConversation={handleSelectConversation}
-        onNewConversation={handleNewConversation}
-        onDeleteConversation={handleDeleteConversation}
-        isLoading={convListLoading}
+    <div className="mx-auto w-full max-w-5xl px-4 pb-8">
+      <PageHeader
+        title="Storico Conversazioni"
+        subtitle={`${conversations.length} conversazion${conversations.length === 1 ? 'e' : 'i'} con AgentFlow`}
       />
 
-      {/* Main chat area */}
-      <div className="flex flex-1 flex-col">
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-6">
-          {messages.length === 0 && !isTyping ? (
-            /* Empty state */
-            <div className="flex h-full flex-col items-center justify-center">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-50">
-                <Bot className="h-8 w-8 text-blue-600" />
-              </div>
-              <h2 className="mb-1 text-lg font-semibold text-gray-900">Ciao! Sono AgentFlow</h2>
-              <p className="mb-6 max-w-md text-center text-sm text-gray-500">
-                Il tuo assistente contabile AI. Chiedimi qualsiasi cosa sulla tua azienda: fatture,
-                scadenze, cash flow, normative e molto altro.
-              </p>
-              <SuggestionChips
-                suggestions={DEFAULT_SUGGESTIONS}
-                onSelect={handleSend}
-                disabled={isTyping}
-              />
-            </div>
-          ) : (
-            <div className="mx-auto max-w-3xl space-y-4">
-              {messages.map((msg) => (
-                <ChatMessage
-                  key={msg.id}
-                  role={msg.role}
-                  content={msg.content}
-                  agentName={msg.agent_name}
-                  agentType={msg.agent_type}
-                  createdAt={msg.created_at}
-                  userName={user?.name ?? undefined}
-                />
-              ))}
-
-              {/* Typing indicator */}
-              {isTyping && (
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-sm">
-                    {'\u{1f916}'}
-                  </div>
-                  <div className="rounded-2xl rounded-tl-sm border border-gray-100 bg-white px-4 py-2.5 shadow-sm">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm text-gray-500">AgentFlow sta scrivendo</span>
-                      <span className="flex gap-0.5">
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:0ms]" />
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:150ms]" />
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:300ms]" />
-                      </span>
-                    </div>
-                  </div>
-                </div>
+      {/* Mobile: show detail or list */}
+      {selectedConversationId ? (
+        /* Conversation detail — read-only */
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+          {/* Detail header */}
+          <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-3">
+            <button
+              onClick={handleBack}
+              className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <div className="min-w-0 flex-1">
+              <h3 className="truncate text-sm font-semibold text-gray-900">
+                {conversationDetail?.title ?? 'Conversazione'}
+              </h3>
+              {conversationDetail?.created_at && (
+                <p className="text-xs text-gray-400">
+                  {formatDateTime(conversationDetail.created_at)}
+                </p>
               )}
-
-              <div ref={messagesEndRef} />
             </div>
-          )}
-        </div>
-
-        {/* Suggestions (when conversation has messages) */}
-        {messages.length > 0 && suggestions.length > 0 && (
-          <div className="border-t border-gray-100 px-4 py-2">
-            <SuggestionChips suggestions={suggestions} onSelect={handleSend} disabled={isTyping} />
+            <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-500">
+              {messages.length} messagg{messages.length === 1 ? 'io' : 'i'}
+            </span>
           </div>
-        )}
 
-        {/* Input */}
-        <div className="border-t border-gray-200 bg-gray-50 p-4">
-          <div className="mx-auto max-w-3xl">
-            <ChatInput onSend={handleSend} disabled={isTyping} />
-            <p className="mt-1.5 text-center text-xs text-gray-400">
-              AgentFlow puo commettere errori. Verifica le informazioni importanti.
+          {/* Messages — read-only */}
+          <div className="max-h-[calc(100vh-16rem)] overflow-y-auto px-4 py-6">
+            {detailLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+              </div>
+            ) : messages.length === 0 ? (
+              <p className="py-12 text-center text-sm text-gray-400">
+                Nessun messaggio in questa conversazione.
+              </p>
+            ) : (
+              <div className="mx-auto max-w-3xl space-y-4">
+                {messages.map((msg) => (
+                  <ChatMessage
+                    key={msg.id}
+                    role={msg.role}
+                    content={msg.content}
+                    agentName={msg.agent_name}
+                    agentType={msg.agent_type}
+                    createdAt={msg.created_at}
+                    userName={user?.name ?? undefined}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Footer hint */}
+          <div className="border-t border-gray-100 px-4 py-3 text-center">
+            <p className="text-xs text-gray-400">
+              Questa e una vista di sola lettura. Usa il chatbot in basso a destra per continuare la
+              conversazione.
             </p>
           </div>
         </div>
-      </div>
+      ) : (
+        /* Conversation list */
+        <>
+          {convListLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+            </div>
+          ) : conversations.length === 0 ? (
+            /* Empty state */
+            <div className="flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white py-20 shadow-sm">
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-50">
+                <Bot className="h-8 w-8 text-blue-600" />
+              </div>
+              <h2 className="mb-1 text-lg font-semibold text-gray-900">Nessuna conversazione</h2>
+              <p className="mb-4 max-w-sm text-center text-sm text-gray-500">
+                Inizia a parlare con AgentFlow usando il chatbot in basso a destra. Le tue
+                conversazioni appariranno qui.
+              </p>
+            </div>
+          ) : (
+            /* Conversation cards */
+            <div className="space-y-2">
+              {conversations.map((conv) => (
+                <button
+                  key={conv.id}
+                  onClick={() => handleSelectConversation(conv.id)}
+                  className="group flex w-full items-center gap-4 rounded-xl border border-gray-200 bg-white px-5 py-4 text-left shadow-sm transition-all hover:border-blue-200 hover:shadow-md"
+                >
+                  {/* Icon */}
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 transition-colors group-hover:bg-blue-100">
+                    <MessageSquare className="h-5 w-5" />
+                  </div>
+
+                  {/* Content */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="truncate text-sm font-semibold text-gray-900">
+                        {conv.title ?? 'Nuova conversazione'}
+                      </h3>
+                      <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+                        {conv.message_count} msg
+                      </span>
+                    </div>
+                    {conv.last_message_preview && (
+                      <p className="mt-0.5 truncate text-sm text-gray-500">
+                        {conv.last_message_preview}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Date + delete */}
+                  <div className="flex shrink-0 items-center gap-3">
+                    <div className="flex items-center gap-1 text-xs text-gray-400">
+                      <Clock className="h-3.5 w-3.5" />
+                      {formatRelativeDate(conv.updated_at)}
+                    </div>
+                    <button
+                      onClick={(e) => handleDeleteConversation(conv.id, e)}
+                      className="hidden rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 group-hover:block"
+                      title="Elimina conversazione"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

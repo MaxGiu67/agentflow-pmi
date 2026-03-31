@@ -16,6 +16,7 @@ def get_skill_discovery_message(agent_configs: list[dict] | None = None) -> str:
         "fisco": "Fatture (emesse e ricevute), scadenze fiscali, F24, ritenute, bollo",
         "conta": "Scritture contabili, piano dei conti, bilancio, registrazioni",
         "cashflow": "Previsioni cash flow a 90 giorni, alert soglia critica",
+        "controller": "Import saldi bilancio, creazione budget, EBITDA, analisi scostamenti",
         "conto_economico": "Setup piano conti personalizzato per la tua azienda",
         "normativo": "Monitor aggiornamenti normativi (GU, circolari AdE)",
     }
@@ -24,6 +25,7 @@ def get_skill_discovery_message(agent_configs: list[dict] | None = None) -> str:
         "fisco": "\U0001f4cb",
         "conta": "\U0001f4d2",
         "cashflow": "\U0001f4b0",
+        "controller": "\U0001f3af",
         "conto_economico": "\U0001f3d7\ufe0f",
         "normativo": "\u2696\ufe0f",
     }
@@ -49,6 +51,8 @@ def get_skill_discovery_message(agent_configs: list[dict] | None = None) -> str:
     lines.append('- "Quali fatture devo ancora verificare?"')
     lines.append('- "Come sta il mio cash flow?"')
     lines.append('- "Prossime scadenze fiscali"')
+    lines.append('- "Aiutami a importare i saldi del bilancio"')
+    lines.append('- "Creiamo il budget 2026"')
     lines.append('- "Riepilogo della mia situazione"')
 
     return "\n".join(lines)

@@ -9,7 +9,6 @@ import {
   FileSpreadsheet,
   Target,
   Lock,
-  Unlock,
   CheckCircle2,
   AlertTriangle,
   ArrowRight,
@@ -113,7 +112,11 @@ const REQUIRED_PIECES = PUZZLE_PIECES.filter((p) => p.required).map((p) => p.id)
 
 // ── Helpers ──
 
-function getSubtitle(piece: PuzzlePieceConfig, source: SourceData | undefined, status: PieceStatus): string {
+function getSubtitle(
+  piece: PuzzlePieceConfig,
+  source: SourceData | undefined,
+  status: PieceStatus,
+): string {
   if (status === 'locked') {
     const deps = piece.dependsOn ?? []
     const depLabels = deps.map((d) => PUZZLE_PIECES.find((p) => p.id === d)?.label ?? d)
@@ -121,28 +124,24 @@ function getSubtitle(piece: PuzzlePieceConfig, source: SourceData | undefined, s
   }
   if (status === 'ready') return 'Da configurare'
   if (status === 'warning') return source?.summary ?? 'Dati non aggiornati'
-  // active
   return source?.summary ?? 'Collegato'
 }
 
 function resolveStatus(
   piece: PuzzlePieceConfig,
   source: SourceData | undefined,
-  activeIds: Set<string>
+  activeIds: Set<string>,
 ): PieceStatus {
-  // Check dependencies
   if (piece.dependsOn) {
     const unmet = piece.dependsOn.some((dep) => !activeIds.has(dep))
     if (unmet) return 'locked'
   }
-
   if (!source) return 'ready'
-
   const s = source.status
   if (s === 'connected' || s === 'active') {
-    // Check for staleness
     if (source.last_sync) {
-      const daysSinceSync = (Date.now() - new Date(source.last_sync).getTime()) / (1000 * 60 * 60 * 24)
+      const daysSinceSync =
+        (Date.now() - new Date(source.last_sync).getTime()) / (1000 * 60 * 60 * 24)
       if (daysSinceSync > 30) return 'warning'
     }
     return 'active'
@@ -151,105 +150,140 @@ function resolveStatus(
   return 'ready'
 }
 
-// ── SVG Puzzle Clip Paths ──
+// ── SVG Puzzle Path Generation ──
 
-const PUZZLE_PATHS: Record<string, string> = {
-  // Top-left: tab right, tab bottom
-  'piece-0': `
-    M 0,0
-    L 60,0 L 60,15 C 60,15 65,10 70,15 C 75,20 75,30 70,35 C 65,40 60,35 60,35 L 60,50
-    L 15,50 C 15,50 20,55 15,60 C 10,65 0,65 0,60 C -5,55 0,50 0,50
-    L 0,0 Z
-  `,
-  // Top-center: notch left, tab right, tab bottom
-  'piece-1': `
-    M 0,0
-    L 60,0 L 60,15 C 60,15 65,10 70,15 C 75,20 75,30 70,35 C 65,40 60,35 60,35 L 60,50
-    L 15,50 C 15,50 20,55 15,60 C 10,65 0,65 0,60 C -5,55 0,50 0,50
-    L 0,35 C 0,35 5,40 10,35 C 15,30 15,20 10,15 C 5,10 0,15 0,15
-    L 0,0 Z
-  `,
-  // Top-right: notch left, tab bottom
-  'piece-2': `
-    M 0,0
-    L 70,0 L 70,50
-    L 15,50 C 15,50 20,55 15,60 C 10,65 0,65 0,60 C -5,55 0,50 0,50
-    L 0,35 C 0,35 5,40 10,35 C 15,30 15,20 10,15 C 5,10 0,15 0,15
-    L 0,0 Z
-  `,
-  // Bottom-left: tab right, notch top
-  'piece-3': `
-    M 0,0
-    L 15,0 C 15,0 20,-5 15,-10 C 10,-15 0,-15 0,-10 C -5,-5 0,0 0,0
-    L 60,0 L 60,15 C 60,15 65,10 70,15 C 75,20 75,30 70,35 C 65,40 60,35 60,35 L 60,50
-    L 0,50 L 0,0 Z
-  `,
-  // Bottom-center: notch left, tab right, notch top
-  'piece-4': `
-    M 0,0
-    L 15,0 C 15,0 20,-5 15,-10 C 10,-15 0,-15 0,-10 C -5,-5 0,0 0,0
-    L 60,0 L 60,15 C 60,15 65,10 70,15 C 75,20 75,30 70,35 C 65,40 60,35 60,35 L 60,50
-    L 0,50
-    L 0,35 C 0,35 5,40 10,35 C 15,30 15,20 10,15 C 5,10 0,15 0,15
-    L 0,0 Z
-  `,
-  // Bottom-right: notch left, notch top
-  'piece-5': `
-    M 0,0
-    L 15,0 C 15,0 20,-5 15,-10 C 10,-15 0,-15 0,-10 C -5,-5 0,0 0,0
-    L 70,0 L 70,50
-    L 0,50
-    L 0,35 C 0,35 5,40 10,35 C 15,30 15,20 10,15 C 5,10 0,15 0,15
-    L 0,0 Z
-  `,
-}
+const CW = 200 // cell width
+const CH = 200 // cell height
+const TD = 28 // tab depth (protrusion)
+const TW = 22 // tab half-width at opening
 
-// ── Status Icon Component ──
+function generatePiecePath(col: number, row: number): string {
+  const x = col * CW
+  const y = row * CH
 
-function StatusIcon({ status }: { status: PieceStatus }) {
-  switch (status) {
-    case 'locked':
-      return <Lock className="h-5 w-5" />
-    case 'ready':
-      return <Unlock className="h-5 w-5" />
-    case 'active':
-      return <CheckCircle2 className="h-5 w-5" />
-    case 'warning':
-      return <AlertTriangle className="h-5 w-5" />
+  const top = row === 0 ? 'flat' : 'notch'
+  const right = col === 2 ? 'flat' : 'tab'
+  const bottom = row === 1 ? 'flat' : 'tab'
+  const left = col === 0 ? 'flat' : 'notch'
+
+  let d = `M ${x} ${y}`
+
+  // Top edge (left to right)
+  if (top === 'flat') {
+    d += ` L ${x + CW} ${y}`
+  } else {
+    const mx = x + CW / 2
+    d += ` L ${mx - TW} ${y}`
+    d += ` C ${mx - TW},${y + TD * 0.5} ${mx - TW * 0.6},${y + TD} ${mx},${y + TD}`
+    d += ` C ${mx + TW * 0.6},${y + TD} ${mx + TW},${y + TD * 0.5} ${mx + TW},${y}`
+    d += ` L ${x + CW} ${y}`
   }
+
+  // Right edge (top to bottom)
+  if (right === 'flat') {
+    d += ` L ${x + CW} ${y + CH}`
+  } else {
+    const my = y + CH / 2
+    d += ` L ${x + CW} ${my - TW}`
+    d += ` C ${x + CW + TD * 0.5},${my - TW} ${x + CW + TD},${my - TW * 0.6} ${x + CW + TD},${my}`
+    d += ` C ${x + CW + TD},${my + TW * 0.6} ${x + CW + TD * 0.5},${my + TW} ${x + CW},${my + TW}`
+    d += ` L ${x + CW} ${y + CH}`
+  }
+
+  // Bottom edge (right to left)
+  if (bottom === 'flat') {
+    d += ` L ${x} ${y + CH}`
+  } else {
+    const mx = x + CW / 2
+    d += ` L ${mx + TW} ${y + CH}`
+    d += ` C ${mx + TW},${y + CH + TD * 0.5} ${mx + TW * 0.6},${y + CH + TD} ${mx},${y + CH + TD}`
+    d += ` C ${mx - TW * 0.6},${y + CH + TD} ${mx - TW},${y + CH + TD * 0.5} ${mx - TW},${y + CH}`
+    d += ` L ${x} ${y + CH}`
+  }
+
+  // Left edge (bottom to top)
+  if (left === 'flat') {
+    d += ` L ${x} ${y}`
+  } else {
+    const my = y + CH / 2
+    d += ` L ${x} ${my + TW}`
+    d += ` C ${x + TD * 0.5},${my + TW} ${x + TD},${my + TW * 0.6} ${x + TD},${my}`
+    d += ` C ${x + TD},${my - TW * 0.6} ${x + TD * 0.5},${my - TW} ${x},${my - TW}`
+    d += ` L ${x} ${y}`
+  }
+
+  d += ' Z'
+  return d
 }
 
-// ── Puzzle Piece SVG Background ──
+// ── Status Colors ──
 
-function PuzzlePieceSvg({ index, status }: { index: number; status: PieceStatus }) {
-  const path = PUZZLE_PATHS[`piece-${index}`] ?? PUZZLE_PATHS['piece-0']
+const STATUS_STYLE: Record<
+  PieceStatus,
+  { fill: string; stroke: string; textColor: string; iconBg: string; iconColor: string }
+> = {
+  active: {
+    fill: '#dcfce7',
+    stroke: '#4ade80',
+    textColor: 'text-green-700',
+    iconBg: 'bg-green-500',
+    iconColor: 'text-white',
+  },
+  ready: {
+    fill: '#dbeafe',
+    stroke: '#60a5fa',
+    textColor: 'text-blue-700',
+    iconBg: 'bg-blue-500',
+    iconColor: 'text-white',
+  },
+  locked: {
+    fill: '#f1f5f9',
+    stroke: '#cbd5e1',
+    textColor: 'text-slate-400',
+    iconBg: 'bg-slate-300',
+    iconColor: 'text-slate-500',
+  },
+  warning: {
+    fill: '#fef3c7',
+    stroke: '#fbbf24',
+    textColor: 'text-amber-700',
+    iconBg: 'bg-amber-400',
+    iconColor: 'text-white',
+  },
+}
 
-  const fillColor = (() => {
-    switch (status) {
-      case 'active': return '#dcfce7'    // green-100
-      case 'ready': return '#dbeafe'     // blue-100
-      case 'warning': return '#fef3c7'   // amber-100
-      case 'locked': return '#f3f4f6'    // gray-100
-    }
-  })()
+// ── Status Badge ──
 
-  const strokeColor = (() => {
-    switch (status) {
-      case 'active': return '#4ade80'    // green-400
-      case 'ready': return '#60a5fa'     // blue-400
-      case 'warning': return '#fbbf24'   // amber-400
-      case 'locked': return '#d1d5db'    // gray-300
-    }
-  })()
+function StatusBadge({ status }: { status: PieceStatus }) {
+  const labels: Record<PieceStatus, string> = {
+    active: 'Attivo',
+    ready: 'Configura',
+    locked: 'Bloccato',
+    warning: 'Attenzione',
+  }
+  const colors: Record<PieceStatus, string> = {
+    active: 'bg-green-100 text-green-700 border-green-300',
+    ready: 'bg-blue-100 text-blue-700 border-blue-300',
+    locked: 'bg-slate-100 text-slate-500 border-slate-300',
+    warning: 'bg-amber-100 text-amber-700 border-amber-300',
+  }
+  const icons: Record<PieceStatus, React.ReactNode> = {
+    active: <CheckCircle2 className="h-3 w-3" />,
+    ready: <ArrowRight className="h-3 w-3" />,
+    locked: <Lock className="h-3 w-3" />,
+    warning: <AlertTriangle className="h-3 w-3" />,
+  }
 
   return (
-    <svg
-      viewBox="-10 -20 90 80"
-      className="absolute inset-0 h-full w-full opacity-20 pointer-events-none"
-      preserveAspectRatio="none"
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+        colors[status],
+      )}
     >
-      <path d={path} fill={fillColor} stroke={strokeColor} strokeWidth="1.5" />
-    </svg>
+      {icons[status]}
+      {labels[status]}
+    </span>
   )
 }
 
@@ -286,125 +320,207 @@ function ConfettiParticle({ delay, x }: { delay: number; x: number }) {
   )
 }
 
-// ── Puzzle Piece Card Component ──
+// ── SVG Puzzle Grid ──
 
-interface PuzzlePieceCardProps {
-  piece: PuzzlePieceConfig
-  source: SourceData | undefined
-  status: PieceStatus
-  index: number
-  onClick: () => void
+const SVG_W = CW * 3
+const SVG_H = CH * 2
+const SVG_PAD = 4
+
+interface PuzzleGridProps {
+  pieces: PuzzlePieceConfig[]
+  statuses: PieceStatus[]
+  sources: SourceData[]
+  onPieceClick: (piece: PuzzlePieceConfig, status: PieceStatus) => void
 }
 
-function PuzzlePieceCard({ piece, source, status, index, onClick }: PuzzlePieceCardProps) {
-  const Icon = piece.icon
-  const subtitle = getSubtitle(piece, source, status)
-  const isClickable = status === 'ready' || status === 'active' || status === 'warning'
-
-  const baseClasses = 'relative overflow-hidden rounded-2xl border-2 p-6 shadow-lg transition-all duration-300'
-
-  const statusClasses: Record<PieceStatus, string> = {
-    active: 'bg-green-50 border-green-400 shadow-green-100/50',
-    ready: 'bg-blue-50 border-blue-400 cursor-pointer hover:scale-105 hover:shadow-xl',
-    locked: 'bg-gray-100 border-gray-300 opacity-60 cursor-not-allowed',
-    warning: 'bg-amber-50 border-amber-400 cursor-pointer hover:scale-105 hover:shadow-xl',
-  }
-
-  const iconBgClasses: Record<PieceStatus, string> = {
-    active: 'bg-green-100 text-green-600',
-    ready: 'bg-blue-100 text-blue-600',
-    locked: 'bg-gray-200 text-gray-400',
-    warning: 'bg-amber-100 text-amber-600',
-  }
-
-  const statusIconClasses: Record<PieceStatus, string> = {
-    active: 'text-green-500',
-    ready: 'text-blue-500',
-    locked: 'text-gray-400',
-    warning: 'text-amber-500',
-  }
+function PuzzleGrid({ pieces, statuses, sources, onPieceClick }: PuzzleGridProps) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20, scale: 0.9 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.4, delay: index * 0.1 }}
-      whileHover={isClickable ? { scale: 1.05 } : undefined}
-      whileTap={isClickable ? { scale: 0.98 } : undefined}
-      className={cn(baseClasses, statusClasses[status])}
-      onClick={isClickable ? onClick : undefined}
-      role={isClickable ? 'button' : undefined}
-      tabIndex={isClickable ? 0 : undefined}
-      onKeyDown={isClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick() } : undefined}
-    >
-      {/* Puzzle shape background */}
-      <PuzzlePieceSvg index={index} status={status} />
+    <div className="relative mx-auto w-full" style={{ maxWidth: 720 }}>
+      {/* SVG Puzzle Shapes */}
+      <svg
+        viewBox={`${-SVG_PAD} ${-SVG_PAD} ${SVG_W + SVG_PAD * 2} ${SVG_H + SVG_PAD * 2}`}
+        className="block w-full h-auto"
+        style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.08))' }}
+      >
+        <defs>
+          {/* Gradients per status */}
+          <linearGradient id="grad-active" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#dcfce7" />
+            <stop offset="100%" stopColor="#bbf7d0" />
+          </linearGradient>
+          <linearGradient id="grad-ready" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#dbeafe" />
+            <stop offset="100%" stopColor="#bfdbfe" />
+          </linearGradient>
+          <linearGradient id="grad-locked" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#f8fafc" />
+            <stop offset="100%" stopColor="#f1f5f9" />
+          </linearGradient>
+          <linearGradient id="grad-warning" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#fef3c7" />
+            <stop offset="100%" stopColor="#fde68a" />
+          </linearGradient>
+          {/* Glow filter for hover */}
+          <filter id="glow-active">
+            <feGaussianBlur stdDeviation="6" result="blur" />
+            <feFlood floodColor="#4ade80" floodOpacity="0.4" />
+            <feComposite in2="blur" operator="in" />
+            <feMerge>
+              <feMergeNode />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="glow-ready">
+            <feGaussianBlur stdDeviation="6" result="blur" />
+            <feFlood floodColor="#60a5fa" floodOpacity="0.4" />
+            <feComposite in2="blur" operator="in" />
+            <feMerge>
+              <feMergeNode />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="glow-warning">
+            <feGaussianBlur stdDeviation="6" result="blur" />
+            <feFlood floodColor="#fbbf24" floodOpacity="0.4" />
+            <feComposite in2="blur" operator="in" />
+            <feMerge>
+              <feMergeNode />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
 
-      {/* Active glow effect */}
-      {status === 'active' && (
-        <motion.div
-          className="absolute inset-0 rounded-2xl"
-          animate={{
-            boxShadow: [
-              '0 0 0 0 rgba(74, 222, 128, 0)',
-              '0 0 20px 4px rgba(74, 222, 128, 0.3)',
-              '0 0 0 0 rgba(74, 222, 128, 0)',
-            ],
-          }}
-          transition={{ duration: 2, repeat: Infinity }}
-        />
-      )}
+        {pieces.map((piece, index) => {
+          const col = index % 3
+          const row = Math.floor(index / 3)
+          const path = generatePiecePath(col, row)
+          const status = statuses[index]
+          const style = STATUS_STYLE[status]
+          const isClickable = status !== 'locked'
+          const isHovered = hoveredIndex === index
 
-      {/* Content */}
-      <div className="relative z-10 flex flex-col items-center text-center gap-3">
-        {/* Icon */}
-        <div className={cn('flex h-12 w-12 items-center justify-center rounded-xl', iconBgClasses[status])}>
-          <Icon className="h-6 w-6" />
+          return (
+            <g key={piece.id}>
+              {/* Piece shape */}
+              <path
+                d={path}
+                fill={`url(#grad-${status})`}
+                stroke={style.stroke}
+                strokeWidth={2}
+                strokeLinejoin="round"
+                className={cn(
+                  'transition-all duration-200',
+                  isClickable && 'cursor-pointer',
+                )}
+                style={{
+                  filter: isHovered && isClickable ? `url(#glow-${status})` : undefined,
+                  opacity: status === 'locked' ? 0.7 : 1,
+                }}
+                onClick={() => isClickable && onPieceClick(piece, status)}
+                onMouseEnter={() => setHoveredIndex(index)}
+                onMouseLeave={() => setHoveredIndex(null)}
+              />
+
+              {/* Active pulse ring */}
+              {status === 'active' && (
+                <path
+                  d={path}
+                  fill="none"
+                  stroke="#4ade80"
+                  strokeWidth={1}
+                  opacity={0.4}
+                >
+                  <animate
+                    attributeName="stroke-width"
+                    values="1;4;1"
+                    dur="2.5s"
+                    repeatCount="indefinite"
+                  />
+                  <animate
+                    attributeName="opacity"
+                    values="0.4;0.1;0.4"
+                    dur="2.5s"
+                    repeatCount="indefinite"
+                  />
+                </path>
+              )}
+            </g>
+          )
+        })}
+      </svg>
+
+      {/* Content Overlays */}
+      <div
+        className="absolute inset-0"
+        style={{ padding: `${(SVG_PAD / (SVG_H + SVG_PAD * 2)) * 100}%` }}
+      >
+        <div className="relative h-full w-full">
+          {pieces.map((piece, index) => {
+            const col = index % 3
+            const row = Math.floor(index / 3)
+            const status = statuses[index]
+            const style = STATUS_STYLE[status]
+            const source = sources.find((s) => s.source_type === piece.sourceType)
+            const subtitle = getSubtitle(piece, source, status)
+            const Icon = piece.icon
+            const isClickable = status !== 'locked'
+
+            return (
+              <div
+                key={`overlay-${piece.id}`}
+                className={cn(
+                  'absolute flex flex-col items-center justify-center gap-1.5 p-4',
+                  isClickable ? 'cursor-pointer' : 'cursor-not-allowed',
+                )}
+                style={{
+                  left: `${(col / 3) * 100}%`,
+                  top: `${(row / 2) * 100}%`,
+                  width: `${(1 / 3) * 100}%`,
+                  height: `${(1 / 2) * 100}%`,
+                }}
+                onClick={() => isClickable && onPieceClick(piece, status)}
+              >
+                {/* Icon circle */}
+                <div
+                  className={cn(
+                    'flex h-11 w-11 items-center justify-center rounded-full shadow-sm',
+                    style.iconBg,
+                    style.iconColor,
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                </div>
+
+                {/* Label */}
+                <h3
+                  className={cn(
+                    'text-sm font-bold leading-tight',
+                    status === 'locked' ? 'text-slate-400' : 'text-slate-800',
+                  )}
+                >
+                  {piece.label}
+                  {piece.required && (
+                    <span className="ml-1 text-[9px] font-medium uppercase text-slate-400">
+                      req
+                    </span>
+                  )}
+                </h3>
+
+                {/* Subtitle */}
+                <p className="text-center text-[11px] leading-tight text-slate-500 max-w-[140px]">
+                  {subtitle}
+                </p>
+
+                {/* Status badge */}
+                <StatusBadge status={status} />
+              </div>
+            )
+          })}
         </div>
-
-        {/* Title row */}
-        <div className="flex items-center gap-2">
-          <h3 className="text-lg font-bold text-gray-900">{piece.label}</h3>
-          {piece.required && (
-            <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-              req
-            </span>
-          )}
-        </div>
-
-        {/* Status icon */}
-        <div className={cn('flex items-center gap-1.5', statusIconClasses[status])}>
-          <StatusIcon status={status} />
-          <span className="text-sm font-medium capitalize">{status === 'active' ? 'Attivo' : status === 'ready' ? 'Pronto' : status === 'locked' ? 'Bloccato' : 'Attenzione'}</span>
-        </div>
-
-        {/* Subtitle / summary */}
-        <p className="text-sm text-gray-500 leading-tight min-h-[2.5rem]">
-          {subtitle}
-        </p>
-
-        {/* Action hint on ready/warning */}
-        {(status === 'ready' || status === 'warning') && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-center gap-1 text-sm font-medium text-blue-600"
-          >
-            {status === 'ready' ? 'Configura' : 'Verifica'} <ArrowRight className="h-3.5 w-3.5" />
-          </motion.div>
-        )}
-
-        {status === 'active' && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-center gap-1 text-sm font-medium text-green-600"
-          >
-            Vai <ArrowRight className="h-3.5 w-3.5" />
-          </motion.div>
-        )}
       </div>
-    </motion.div>
+    </div>
   )
 }
 
@@ -415,10 +531,15 @@ export default function PuzzleDashboard() {
   const { data: completenessData, isLoading: loadingCompleteness } = useCompletenessScore()
   const currentYear = new Date().getFullYear()
   const currentMonth = new Date().getMonth() + 1
-  const { data: budgetData, isLoading: loadingBudget } = useBudgetVsActual(currentYear, currentMonth)
+  const { data: budgetData, isLoading: loadingBudget } = useBudgetVsActual(
+    currentYear,
+    currentMonth,
+  )
 
   const [showCelebration, setShowCelebration] = useState(false)
-  const [confettiParticles, setConfettiParticles] = useState<Array<{ id: number; delay: number; x: number }>>([])
+  const [confettiParticles, setConfettiParticles] = useState<
+    Array<{ id: number; delay: number; x: number }>
+  >([])
 
   const completeness = completenessData as CompletenessData | undefined
   const sources = completeness?.sources ?? []
@@ -431,13 +552,13 @@ export default function PuzzleDashboard() {
     }
   }
 
-  // Budget check: if budget data returned successfully, budget is active
-  const hasBudget = budgetData != null && typeof budgetData === 'object' && !('detail' in budgetData)
+  const hasBudget =
+    budgetData != null && typeof budgetData === 'object' && !('detail' in budgetData)
   if (hasBudget) {
     activeIds.add('budget')
   }
 
-  // Resolve statuses for all pieces
+  // Resolve statuses
   const pieceStatuses: PieceStatus[] = PUZZLE_PIECES.map((piece) => {
     const source = sources.find((s) => s.source_type === piece.sourceType)
     if (piece.id === 'budget') {
@@ -451,22 +572,17 @@ export default function PuzzleDashboard() {
   const totalCount = PUZZLE_PIECES.length
   const progressPct = Math.round((activeCount / totalCount) * 100)
 
-  // Check if all required pieces are active
   const allRequiredActive = REQUIRED_PIECES.every((id) => {
     const idx = PUZZLE_PIECES.findIndex((p) => p.id === id)
     return idx >= 0 && pieceStatuses[idx] === 'active'
   })
 
-  // Celebration trigger
+  // Celebration
   const triggerCelebration = useCallback(() => {
     setShowCelebration(true)
     const particles: Array<{ id: number; delay: number; x: number }> = []
     for (let i = 0; i < 40; i++) {
-      particles.push({
-        id: i,
-        delay: Math.random() * 0.8,
-        x: Math.random() * 100,
-      })
+      particles.push({ id: i, delay: Math.random() * 0.8, x: Math.random() * 100 })
     }
     setConfettiParticles(particles)
   }, [])
@@ -477,7 +593,6 @@ export default function PuzzleDashboard() {
     }
   }, [allRequiredActive, showCelebration, triggerCelebration])
 
-  // Click handlers — ready pieces open the agent, active pieces navigate to management
   function handlePieceClick(piece: PuzzlePieceConfig, status: PieceStatus) {
     if (status === 'locked') return
     if (status === 'active' || status === 'warning') {
@@ -489,8 +604,7 @@ export default function PuzzleDashboard() {
     }
   }
 
-  // ── Loading state ──
-
+  // Loading
   if (loadingCompleteness || loadingBudget) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -502,11 +616,9 @@ export default function PuzzleDashboard() {
     )
   }
 
-  // ── Render ──
-
   return (
-    <div className="mx-auto max-w-4xl pb-12">
-      {/* Confetti layer */}
+    <div className="mx-auto max-w-4xl px-4 pb-12">
+      {/* Confetti */}
       <AnimatePresence>
         {showCelebration && (
           <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden">
@@ -528,7 +640,7 @@ export default function PuzzleDashboard() {
             AF
           </div>
           <h1 className="text-2xl font-bold text-gray-900">AgentFlow</h1>
-          <span className="text-gray-400">—</span>
+          <span className="text-gray-400">&mdash;</span>
           <span className="text-lg text-gray-600">Setup Azienda</span>
         </div>
         <p className="mx-auto max-w-lg text-gray-500">
@@ -543,18 +655,20 @@ export default function PuzzleDashboard() {
         transition={{ delay: 0.1 }}
         className={cn(
           'mb-8 rounded-2xl border-2 bg-white p-5 shadow-sm transition-all duration-500',
-          allRequiredActive ? 'border-green-400 shadow-green-100' : 'border-gray-200'
+          allRequiredActive ? 'border-green-400 shadow-green-100' : 'border-gray-200',
         )}
       >
-        <div className="flex items-center justify-between mb-3">
+        <div className="mb-3 flex items-center justify-between">
           <span className="text-sm font-medium text-gray-700">Progresso configurazione</span>
-          <span className="text-sm font-bold text-gray-900">{activeCount}/{totalCount} pezzi attivi</span>
+          <span className="text-sm font-bold text-gray-900">
+            {activeCount}/{totalCount} pezzi attivi
+          </span>
         </div>
         <div className="h-3 overflow-hidden rounded-full bg-gray-100">
           <motion.div
             className={cn(
               'h-full rounded-full transition-colors duration-500',
-              allRequiredActive ? 'bg-green-500' : 'bg-blue-500'
+              allRequiredActive ? 'bg-green-500' : 'bg-blue-500',
             )}
             initial={{ width: 0 }}
             animate={{ width: `${progressPct}%` }}
@@ -563,28 +677,27 @@ export default function PuzzleDashboard() {
         </div>
         {!allRequiredActive && (
           <p className="mt-2 text-xs text-gray-400">
-            I pezzi obbligatori sono: {PUZZLE_PIECES.filter((p) => p.required).map((p) => p.label).join(', ')}
+            I pezzi obbligatori sono:{' '}
+            {PUZZLE_PIECES.filter((p) => p.required)
+              .map((p) => p.label)
+              .join(', ')}
           </p>
         )}
       </motion.div>
 
       {/* Puzzle Grid */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {PUZZLE_PIECES.map((piece, index) => {
-          const source = sources.find((s) => s.source_type === piece.sourceType)
-          const status = pieceStatuses[index]
-          return (
-            <PuzzlePieceCard
-              key={piece.id}
-              piece={piece}
-              source={source}
-              status={status}
-              index={index}
-              onClick={() => handlePieceClick(piece, status)}
-            />
-          )
-        })}
-      </div>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        <PuzzleGrid
+          pieces={PUZZLE_PIECES}
+          statuses={pieceStatuses}
+          sources={sources}
+          onPieceClick={handlePieceClick}
+        />
+      </motion.div>
 
       {/* Completion Banner */}
       <AnimatePresence>
@@ -596,7 +709,7 @@ export default function PuzzleDashboard() {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="mt-10 overflow-hidden rounded-2xl border-2 border-green-400 bg-gradient-to-br from-green-50 to-emerald-50 p-8 shadow-lg shadow-green-100/50"
           >
-            <div className="flex flex-col items-center text-center gap-4">
+            <div className="flex flex-col items-center gap-4 text-center">
               <motion.div
                 animate={{ rotate: [0, 10, -10, 0] }}
                 transition={{ duration: 0.6, delay: 0.5 }}
@@ -609,7 +722,11 @@ export default function PuzzleDashboard() {
               <p className="max-w-md text-green-700">
                 Tutti i pezzi obbligatori del puzzle sono attivi.
                 {activeCount < totalCount && (
-                  <span> Puoi comunque collegare i {totalCount - activeCount} pezzi rimanenti per un controllo ancora piu completo.</span>
+                  <span>
+                    {' '}
+                    Puoi comunque collegare i {totalCount - activeCount} pezzi rimanenti per un
+                    controllo ancora piu completo.
+                  </span>
                 )}
               </p>
               <motion.button
@@ -635,7 +752,8 @@ export default function PuzzleDashboard() {
           className="mt-8 text-center"
         >
           <p className="text-sm text-gray-400">
-            Completa i pezzi obbligatori (Fatture, Banca, Budget) per sbloccare la Dashboard Gestionale
+            Completa i pezzi obbligatori (Fatture, Banca, Budget) per sbloccare la Dashboard
+            Gestionale
           </p>
         </motion.div>
       )}

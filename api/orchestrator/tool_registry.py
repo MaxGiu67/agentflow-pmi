@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import (
     Asset,
+    Budget,
     DashboardLayout,
     Expense,
     FiscalDeadline,
@@ -950,6 +951,240 @@ async def sync_cassetto_handler(
     }
 
 
+async def apertura_conti_handler(
+    db: AsyncSession, tenant_id: uuid.UUID, **kwargs: object
+) -> dict:
+    """Guide user through balance sheet initialization (saldi bilancio)."""
+    # Check current status — bilancio imported = journal entries with "apertura"
+    bilancio_count = await db.scalar(
+        select(func.count(JournalEntry.id)).where(
+            JournalEntry.tenant_id == tenant_id,
+            JournalEntry.description.ilike("%apertura%"),
+        )
+    ) or 0
+
+    step = str(kwargs.get("step", "check"))
+    formato = kwargs.get("formato")
+
+    if bilancio_count > 0 and step == "check":
+        # Already imported — show summary
+        result = await db.execute(
+            select(JournalEntry).where(
+                JournalEntry.tenant_id == tenant_id,
+                JournalEntry.description.ilike("%apertura%"),
+            )
+        )
+        je_list = result.scalars().all()
+        total_dare = sum(e.total_debit for e in je_list)
+        total_avere = sum(e.total_credit for e in je_list)
+        bilanciato = abs(total_dare - total_avere) < 0.10
+        return {
+            "status": "completed",
+            "message": (
+                f"I saldi del bilancio sono gia stati importati. "
+                f"Totale dare: \u20ac{total_dare:,.2f}, totale avere: \u20ac{total_avere:,.2f}. "
+                f"{'Bilancio bilanciato.' if bilanciato else 'Attenzione: differenza dare/avere.'}"
+            ),
+            "entries_count": len(je_list),
+            "total_dare": round(total_dare, 2),
+            "total_avere": round(total_avere, 2),
+            "bilanciato": bilanciato,
+            "content_blocks": [{
+                "type": "stat_row",
+                "items": [
+                    {"label": "Dare", "value": round(total_dare, 2), "format": "currency"},
+                    {"label": "Avere", "value": round(total_avere, 2), "format": "currency"},
+                    {"label": "Registrazioni", "value": len(je_list), "format": "number"},
+                ],
+            }],
+        }
+
+    # Not imported — guide the user step by step
+    if not formato:
+        return {
+            "status": "needs_input",
+            "step": "choose_format",
+            "message": (
+                "Per importare i saldi iniziali del bilancio, ho bisogno di sapere "
+                "in che formato hai i dati. Hai uno di questi?\n\n"
+                "1. **PDF** del bilancio dal commercialista\n"
+                "2. **File CSV o Excel** con i saldi dei conti\n"
+                "3. **Nessun file** \u2014 inserisco i saldi principali a mano\n\n"
+                "Dimmi quale opzione preferisci e ti guido passo passo."
+            ),
+            "suggested_actions": [
+                {"type": "send_message", "label": "Ho un PDF", "value": "Importa bilancio da PDF"},
+                {"type": "send_message", "label": "Ho un CSV/Excel", "value": "Importa bilancio da CSV"},
+                {"type": "send_message", "label": "Inserisco a mano", "value": "Inserisco i saldi a mano"},
+            ],
+        }
+
+    formato = str(formato).lower()
+    if formato == "pdf":
+        return {
+            "status": "guide",
+            "step": "upload_pdf",
+            "message": (
+                "Perfetto! Ecco come fare:\n\n"
+                "1. Ti porto alla pagina **Import Bilancio**\n"
+                "2. Carica il PDF del bilancio\n"
+                "3. Il sistema estrae automaticamente i saldi con AI\n"
+                "4. Controlla la preview e conferma\n\n"
+                "L'elaborazione del PDF puo richiedere qualche secondo."
+            ),
+        }
+
+    if formato == "csv":
+        return {
+            "status": "guide",
+            "step": "upload_csv",
+            "message": (
+                "Perfetto! Ecco come fare:\n\n"
+                "1. Ti porto alla pagina **Import Bilancio**\n"
+                "2. Carica il file CSV (colonne: codice conto, descrizione, dare, avere)\n"
+                "3. Il sistema rileva automaticamente le colonne\n"
+                "4. Controlla la preview e conferma"
+            ),
+        }
+
+    if formato in ("manuale", "wizard", "mano"):
+        return {
+            "status": "guide",
+            "step": "manual_entry",
+            "message": (
+                "OK, inseriamo i saldi principali. Mi servono questi dati:\n\n"
+                "1. **Saldo banca** \u2014 quanto c'e sul conto corrente\n"
+                "2. **Crediti verso clienti** \u2014 fatture emesse non ancora incassate\n"
+                "3. **Debiti verso fornitori** \u2014 fatture ricevute non ancora pagate\n"
+                "4. **Capitale sociale**\n"
+                "5. **Utile/perdita esercizio precedente**\n\n"
+                "Dimmi i numeri che hai. Se non li conosci tutti, iniziamo da quelli che sai."
+            ),
+        }
+
+    return {
+        "status": "needs_input",
+        "step": "choose_format",
+        "message": "Non ho capito il formato. Scegli tra: PDF, CSV/Excel, o inserimento manuale.",
+    }
+
+
+async def crea_budget_handler(
+    db: AsyncSession, tenant_id: uuid.UUID, **kwargs: object
+) -> dict:
+    """Guide user through budget creation with sector benchmarks."""
+    year = int(kwargs.get("year", date.today().year))
+    step = str(kwargs.get("step", "check"))
+
+    # Check if budget exists for this year
+    budget_count = await db.scalar(
+        select(func.count(Budget.id)).where(
+            Budget.tenant_id == tenant_id,
+            Budget.year == year,
+        )
+    ) or 0
+
+    if budget_count > 0 and step == "check":
+        # Budget exists — show summary
+        result = await db.execute(
+            select(Budget).where(
+                Budget.tenant_id == tenant_id,
+                Budget.year == year,
+            )
+        )
+        budget_lines = result.scalars().all()
+        total = sum(b.budget_amount for b in budget_lines)
+        categories = sorted(set(b.category for b in budget_lines))
+        ricavi = sum(b.budget_amount for b in budget_lines if b.category == "ricavi")
+        costi = total - ricavi
+        ebitda = round(ricavi - costi, 2)
+        return {
+            "status": "completed",
+            "message": (
+                f"Il budget {year} e gia stato creato con {len(categories)} categorie.\n"
+                f"Ricavi: \u20ac{ricavi:,.2f} | Costi: \u20ac{costi:,.2f} | EBITDA: \u20ac{ebitda:,.2f}\n\n"
+                "Vuoi modificarlo o rigenerarlo?"
+            ),
+            "year": year,
+            "categories": categories,
+            "total": round(total, 2),
+            "content_blocks": [{
+                "type": "stat_row",
+                "items": [
+                    {"label": "Ricavi", "value": round(ricavi, 2), "format": "currency"},
+                    {"label": "Costi", "value": round(costi, 2), "format": "currency"},
+                    {"label": "EBITDA", "value": ebitda, "format": "currency"},
+                ],
+            }],
+        }
+
+    # No budget — check for historical data to generate proposal
+    prev_year = year - 1
+    prev_count = await db.scalar(
+        select(func.count(Invoice.id)).where(
+            Invoice.tenant_id == tenant_id,
+            Invoice.data_fattura >= date(prev_year, 1, 1),
+            Invoice.data_fattura < date(prev_year + 1, 1, 1),
+        )
+    ) or 0
+
+    if prev_count > 0:
+        # Has history — generate proposal
+        from api.modules.controller.service import ControllerService
+        controller = ControllerService(db)
+        proposal = await controller.generate_budget_proposal(tenant_id, year)
+
+        return {
+            "status": "proposal",
+            "step": "review_proposal",
+            "message": (
+                f"Ho analizzato i dati del {prev_year} ({prev_count} fatture) "
+                f"e ho preparato una proposta di budget per il {year}.\n\n"
+                f"**Ricavi previsti:** \u20ac{proposal['totale_ricavi']:,.2f}\n"
+                f"**Costi previsti:** \u20ac{proposal['totale_costi']:,.2f}\n"
+                f"**Margine previsto (EBITDA):** \u20ac{proposal['margine_previsto']:,.2f}\n\n"
+                "Vuoi che ti faccia alcune domande per personalizzare il budget "
+                "in base al tuo settore? Oppure confermi questa proposta?"
+            ),
+            "proposal": proposal,
+            "content_blocks": [{
+                "type": "stat_row",
+                "items": [
+                    {"label": "Ricavi", "value": proposal["totale_ricavi"], "format": "currency"},
+                    {"label": "Costi", "value": proposal["totale_costi"], "format": "currency"},
+                    {"label": "EBITDA", "value": proposal["margine_previsto"], "format": "currency"},
+                ],
+            }],
+            "suggested_actions": [
+                {"type": "send_message", "label": "Personalizza", "value": "Personalizza il budget con domande"},
+                {"type": "send_message", "label": "Conferma", "value": "Conferma il budget proposto"},
+            ],
+        }
+
+    # No history — start from scratch with guided questions
+    return {
+        "status": "needs_input",
+        "step": "start_budget",
+        "message": (
+            f"Costruiamo insieme il piano economico {year}. "
+            "Ti faccio alcune domande \u2014 se non sai un numero esatto, "
+            "dammi una stima e la aggiustiamo.\n\n"
+            "Per iniziare ho bisogno di sapere:\n\n"
+            "1. **Qual e il tuo settore?** (IT, Commercio, Ristorazione, Edilizia...)\n"
+            f"2. **Qual e il fatturato previsto per il {year}?** (anche una stima)\n"
+            "3. **Quanti dipendenti hai?**\n\n"
+            "Con queste informazioni posso proporti un budget "
+            "basato sui benchmark del tuo settore."
+        ),
+        "suggested_actions": [
+            {"type": "send_message", "label": "IT / Software", "value": "Settore IT, fatturato da stimare"},
+            {"type": "send_message", "label": "Commercio", "value": "Settore commercio, fatturato da stimare"},
+            {"type": "send_message", "label": "Ristorazione", "value": "Settore ristorazione, fatturato da stimare"},
+            {"type": "send_message", "label": "Altro", "value": "Altro settore"},
+        ],
+    }
+
+
 # ============================================================
 # Tool definitions registry
 # ============================================================
@@ -1144,6 +1379,58 @@ TOOLS: list[dict] = [
             "required": ["action", "user_id"],
         },
         "handler": modify_dashboard_handler,
+    },
+    {
+        "name": "apertura_conti",
+        "description": (
+            "Guida l'utente nell'importazione dei saldi iniziali del bilancio. "
+            "Usa questo tool quando l'utente chiede aiuto per: importare il bilancio, "
+            "inserire i saldi iniziali, apertura conti, saldi di apertura, "
+            "o quando il pezzo 'Bilancio' del puzzle non e configurato. "
+            "Il tool verifica lo stato attuale e guida con domande (non consigli generici)."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "step": {
+                    "type": "string",
+                    "enum": ["check", "choose_format", "upload"],
+                    "description": "Fase corrente del flusso guidato (default: check)",
+                },
+                "formato": {
+                    "type": "string",
+                    "enum": ["pdf", "csv", "manuale"],
+                    "description": "Formato scelto dall'utente per l'import",
+                },
+            },
+        },
+        "handler": apertura_conti_handler,
+    },
+    {
+        "name": "crea_budget",
+        "description": (
+            "Guida l'utente nella creazione del budget/piano economico annuale. "
+            "Usa questo tool quando l'utente chiede aiuto per: creare il budget, "
+            "piano economico, previsione costi/ricavi, EBITDA previsionale, "
+            "o quando il pezzo 'Budget' del puzzle non e configurato. "
+            "Se ci sono dati storici, propone un budget basato sull'anno precedente. "
+            "Altrimenti fa domande guidate per settore."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "year": {
+                    "type": "integer",
+                    "description": "Anno per il budget (default: anno corrente)",
+                },
+                "step": {
+                    "type": "string",
+                    "enum": ["check", "review_proposal", "customize"],
+                    "description": "Fase corrente del flusso guidato (default: check)",
+                },
+            },
+        },
+        "handler": crea_budget_handler,
     },
 ]
 
