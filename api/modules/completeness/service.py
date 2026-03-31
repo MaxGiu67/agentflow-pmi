@@ -55,11 +55,11 @@ SOURCE_DEFINITIONS = [
         "next_benefit": "Hai il bilancio completo e lo stato patrimoniale",
     },
     {
-        "source_type": "f24",
-        "label": "Versamenti F24",
-        "description": "Ricevute F24 per IRPEF, INPS, IVA",
-        "unlocks": ["Quadratura fiscale", "Verifica versamenti", "Scadenze calcolate"],
-        "next_benefit": "Verifichi che tutti i versamenti fiscali siano corretti",
+        "source_type": "budget",
+        "label": "Budget",
+        "description": "Piano economico annuale con consuntivo",
+        "unlocks": ["Budget vs Consuntivo", "EBITDA", "Alert scostamenti", "Dashboard gestionale"],
+        "next_benefit": "Sblocchi la dashboard gestionale con budget vs consuntivo e EBITDA",
     },
 ]
 
@@ -150,9 +150,16 @@ class CompletenessService:
             ) or 0
             return "connected" if result > 0 else "not_configured"
 
-        elif source_type == "f24":
-            from api.db.models import F24Document
-            count = await self._count(F24Document, tenant_id)
+        elif source_type == "budget":
+            from api.db.models import Budget
+            from datetime import date
+            current_year = date.today().year
+            count = await self.db.scalar(
+                select(func.count(Budget.id)).where(
+                    Budget.tenant_id == tenant_id,
+                    Budget.year == current_year,
+                )
+            ) or 0
             return "connected" if count > 0 else "not_configured"
 
         return "not_configured"
