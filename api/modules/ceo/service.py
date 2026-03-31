@@ -206,7 +206,7 @@ class CEOService:
             # AC-40.4: No budget -> wizard
             return await self._budget_wizard(tenant_id, year)
 
-        # Aggregate by category (sum all 12 months)
+        # Build monthly grid: category → { months: [{budget, actual}, ...], totals }
         cat_data: dict[str, dict] = {}
         for b in budgets:
             key = b.category
@@ -214,49 +214,53 @@ class CEOService:
                 cat_data[key] = {
                     "category": b.category,
                     "label": getattr(b, "label", None) or b.category,
-                    "budget_amount": 0.0,
-                    "actual_amount": 0.0,
+                    "months": {m: {"budget": 0.0, "actual": 0.0} for m in range(1, 13)},
                 }
-            cat_data[key]["budget_amount"] += b.budget_amount
-            cat_data[key]["actual_amount"] += b.actual_amount
+            cat_data[key]["months"][b.month]["budget"] += b.budget_amount
+            cat_data[key]["months"][b.month]["actual"] += b.actual_amount
+
+        month_labels = ["", "Gen", "Feb", "Mar", "Apr", "Mag", "Giu",
+                        "Lug", "Ago", "Set", "Ott", "Nov", "Dic"]
 
         entries = []
         total_budget = 0.0
         total_actual = 0.0
 
         for cat_info in cat_data.values():
-            budget_amt = round(cat_info["budget_amount"], 2)
-            actual_amt = round(cat_info["actual_amount"], 2)
-            delta_amount = round(actual_amt - budget_amt, 2)
-            delta_percent = None
-            over_threshold = False
+            cat_budget = sum(cat_info["months"][m]["budget"] for m in range(1, 13))
+            cat_actual = sum(cat_info["months"][m]["actual"] for m in range(1, 13))
+            variance = round(cat_actual - cat_budget, 2)
+            variance_pct = round(variance / cat_budget * 100, 2) if cat_budget > 0 else 0
 
-            if budget_amt > 0:
-                delta_percent = round(delta_amount / budget_amt * 100, 2)
-                over_threshold = abs(delta_percent) > 10.0
-
-            non_prevista = budget_amt == 0 and actual_amt > 0
+            monthly = []
+            for m in range(1, 13):
+                mv = cat_info["months"][m]
+                monthly.append({
+                    "month": m,
+                    "label": month_labels[m],
+                    "budget": round(mv["budget"], 2),
+                    "actual": round(mv["actual"], 2),
+                })
 
             entries.append({
-                "year": year,
                 "category": cat_info["category"],
                 "label": cat_info["label"],
-                "budget_amount": budget_amt,
-                "actual_amount": actual_amt,
-                "variance": delta_amount,
-                "variance_pct": delta_percent,
-                "over_threshold": over_threshold,
-                "non_prevista": non_prevista,
+                "monthly": monthly,
+                "total_budget": round(cat_budget, 2),
+                "total_actual": round(cat_actual, 2),
+                "variance": variance,
+                "variance_pct": variance_pct,
             })
 
-            total_budget += budget_amt
-            total_actual += actual_amt
+            total_budget += cat_budget
+            total_actual += cat_actual
 
         total_delta = round(total_actual - total_budget, 2)
 
         return {
             "year": year,
             "entries": entries,
+            "month_labels": month_labels[1:],
             "total_budget": round(total_budget, 2),
             "total_actual": round(total_actual, 2),
             "total_delta": total_delta,
