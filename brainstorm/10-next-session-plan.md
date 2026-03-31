@@ -32,10 +32,11 @@ Tool: crea_budget
 
 ---
 
-## Priorita 2: Chatbot flottante (stile Stitch/Google)
+## Priorita 2: Ridisegnare la pagina /chat
 
-### Problema attuale
-La pagina /chat e' una pagina dedicata — l'utente esce dal contesto. Il chatbot dovrebbe essere **flottante** su ogni pagina, come Google Stitch.
+### Stato attuale
+Il chatbot flottante ESISTE GIA su tutte le pagine (input bar in basso a destra).
+La pagina /chat dedicata ha un layout vecchio (sidebar conversazioni + area messaggi full screen) che non serve piu.
 
 ### Design
 ```
@@ -66,15 +67,12 @@ La pagina /chat e' una pagina dedicata — l'utente esce dal contesto. Il chatbo
   - "Crea il budget" → la pagina sotto mostra il wizard budget
 - Il chatbot riceve il contesto della pagina corrente (quale pagina, quali dati)
 
-### File da modificare
-- Creare `components/chat/FloatingChatbot.tsx` — pannello flottante
-- Modificare `components/layout/AppLayout.tsx` — includere FloatingChatbot in tutte le pagine
-- Il chatbot gia esiste come `ChatbotFloating` — verificare se e' gia implementato
-- Rimuovere la pagina /chat dedicata (o mantenerla come fallback)
-
-### Riferimento
-- Google Stitch: chatbox flottante + contenuto sotto
-- Il chatbot AgentFlow gia ha un componente ChatbotFloating — potrebbe essere gia parzialmente implementato
+### Cosa fare
+- La pagina /chat deve diventare uno **storico conversazioni** (lista + dettaglio)
+- NON deve avere un input di chat separato (usa il chatbot flottante gia presente)
+- Quando clicchi una conversazione, si apre nello storico sotto, non in una chat a schermo intero
+- Il chatbot flottante resta il punto di interazione principale
+- I tools dell'agente agiscono sulla pagina corrente (navigate, mostra dati, apri form)
 
 ---
 
