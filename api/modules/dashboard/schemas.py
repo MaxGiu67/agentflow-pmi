@@ -62,11 +62,29 @@ class MonthlyBreakdown(BaseModel):
     passive_totale: float = 0.0
 
 
+class CostSummary(BaseModel):
+    """Summary for a cost source."""
+    count: int = 0
+    totale: float = 0.0
+
+
+class LoanSummary(BaseModel):
+    """Summary for loans/financing."""
+    count: int = 0
+    totale_annuo: float = 0.0
+
+
 class YearlyStats(BaseModel):
     """Complete yearly statistics for the dashboard."""
     year: int
     fatture_attive: InvoiceTypeSummary
     fatture_passive: InvoiceTypeSummary
+    costo_personale: CostSummary = CostSummary()
+    note_spese: CostSummary = CostSummary()
+    corrispettivi: CostSummary = CostSummary()
+    finanziamenti: LoanSummary = LoanSummary()
+    ricavi_totali: float = 0.0
+    costi_totali: float = 0.0
     margine_lordo: float = 0.0
     top_clienti: list[TopEntity] = []
     top_fornitori: list[TopEntity] = []

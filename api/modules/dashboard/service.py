@@ -231,7 +231,98 @@ class DashboardService:
             "iva": round(float(pas.iva), 2),
         }
 
-        margine_lordo = round(fatture_attive["totale"] - fatture_passive["totale"], 2)
+        # --- Costo personale aggregate ---
+        from api.db.models import PayrollCost, Expense, Corrispettivo, Loan
+        try:
+            personale_result = await self.db.execute(
+                select(
+                    func.count(PayrollCost.id).label("count"),
+                    func.coalesce(func.sum(PayrollCost.costo_totale_azienda), 0.0).label("totale"),
+                ).where(
+                    and_(
+                        PayrollCost.tenant_id == tenant_id,
+                        extract("year", PayrollCost.mese) == year,
+                    )
+                )
+            )
+            pers = personale_result.one()
+            costo_personale = {
+                "count": pers.count or 0,
+                "totale": round(float(pers.totale), 2),
+            }
+        except Exception:
+            costo_personale = {"count": 0, "totale": 0.0}
+
+        # --- Note spese aggregate ---
+        try:
+            spese_result = await self.db.execute(
+                select(
+                    func.count(Expense.id).label("count"),
+                    func.coalesce(func.sum(Expense.amount_eur), 0.0).label("totale"),
+                ).where(
+                    and_(
+                        Expense.tenant_id == tenant_id,
+                        extract("year", Expense.expense_date) == year,
+                    )
+                )
+            )
+            spe = spese_result.one()
+            note_spese = {
+                "count": spe.count or 0,
+                "totale": round(float(spe.totale), 2),
+            }
+        except Exception:
+            note_spese = {"count": 0, "totale": 0.0}
+
+        # --- Corrispettivi aggregate ---
+        try:
+            corr_result = await self.db.execute(
+                select(
+                    func.count(Corrispettivo.id).label("count"),
+                    func.coalesce(func.sum(Corrispettivo.imponibile), 0.0).label("totale"),
+                ).where(
+                    and_(
+                        Corrispettivo.tenant_id == tenant_id,
+                        extract("year", Corrispettivo.data) == year,
+                    )
+                )
+            )
+            cor = corr_result.one()
+            corrispettivi = {
+                "count": cor.count or 0,
+                "totale": round(float(cor.totale), 2),
+            }
+        except Exception:
+            corrispettivi = {"count": 0, "totale": 0.0}
+
+        # --- Rate finanziamenti ---
+        try:
+            loan_result = await self.db.execute(
+                select(
+                    func.count(Loan.id).label("count"),
+                    func.coalesce(func.sum(Loan.rata_mensile * 12), 0.0).label("totale_annuo"),
+                ).where(
+                    Loan.tenant_id == tenant_id,
+                )
+            )
+            ln = loan_result.one()
+            finanziamenti = {
+                "count": ln.count or 0,
+                "totale_annuo": round(float(ln.totale_annuo), 2),
+            }
+        except Exception:
+            finanziamenti = {"count": 0, "totale_annuo": 0.0}
+
+        # --- Totali aggregati ---
+        ricavi_totali = round(fatture_attive["totale"] + corrispettivi["totale"], 2)
+        costi_totali = round(
+            fatture_passive["totale"]
+            + costo_personale["totale"]
+            + note_spese["totale"]
+            + finanziamenti["totale_annuo"],
+            2,
+        )
+        margine_lordo = round(ricavi_totali - costi_totali, 2)
 
         # --- Top 10 clienti (from attiva invoices, client in structured_data) ---
         if is_sqlite:
@@ -399,6 +490,12 @@ class DashboardService:
             "year": year,
             "fatture_attive": fatture_attive,
             "fatture_passive": fatture_passive,
+            "costo_personale": costo_personale,
+            "note_spese": note_spese,
+            "corrispettivi": corrispettivi,
+            "finanziamenti": finanziamenti,
+            "ricavi_totali": ricavi_totali,
+            "costi_totali": costi_totali,
             "margine_lordo": margine_lordo,
             "top_clienti": top_clienti,
             "top_fornitori": top_fornitori,
@@ -412,6 +509,12 @@ class DashboardService:
             "year": year,
             "fatture_attive": {"count": 0, "totale": 0.0, "imponibile": 0.0, "iva": 0.0},
             "fatture_passive": {"count": 0, "totale": 0.0, "imponibile": 0.0, "iva": 0.0},
+            "costo_personale": {"count": 0, "totale": 0.0},
+            "note_spese": {"count": 0, "totale": 0.0},
+            "corrispettivi": {"count": 0, "totale": 0.0},
+            "finanziamenti": {"count": 0, "totale_annuo": 0.0},
+            "ricavi_totali": 0.0,
+            "costi_totali": 0.0,
             "margine_lordo": 0.0,
             "top_clienti": [],
             "top_fornitori": [],
