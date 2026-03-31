@@ -127,6 +127,50 @@ async def wizard_load(
     return await load_wizard_budget(db, user.tenant_id, year)
 
 
+@router.get("/budget/categories")
+async def budget_categories(
+    year: int = Query(...),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Get budget categories for a year, grouped by type (revenue/cost).
+
+    Used to populate category dropdowns in invoice creation and expense forms.
+    """
+    if not user.tenant_id:
+        raise HTTPException(status_code=400, detail="Profilo azienda non configurato")
+
+    from api.db.models import Budget
+    from sqlalchemy import select, distinct
+
+    result = await db.execute(
+        select(distinct(Budget.category), Budget.label).where(
+            Budget.tenant_id == user.tenant_id,
+            Budget.year == year,
+            Budget.month == 1,  # all months have same categories
+        )
+    )
+    rows = result.fetchall()
+
+    revenues = []
+    costs = []
+    for row in rows:
+        cat_id = row[0]
+        label = row[1] or cat_id
+        entry = {"id": cat_id, "label": label}
+        if cat_id.startswith("ricavi"):
+            revenues.append(entry)
+        else:
+            costs.append(entry)
+
+    return {
+        "year": year,
+        "revenues": revenues,
+        "costs": costs,
+        "all": revenues + costs,
+    }
+
+
 # ── US-60: Budget Agent generate ──
 
 @router.post("/budget/generate")

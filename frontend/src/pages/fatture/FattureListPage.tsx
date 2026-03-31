@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Filter, ChevronUp, ChevronDown, ChevronsUpDown, X, FileText } from 'lucide-react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useInvoices } from '../../api/hooks'
 import api from '../../api/client'
 import { formatCurrency, formatDate } from '../../lib/utils'
@@ -43,6 +43,13 @@ export default function FattureListPage() {
   })
 
   const queryClient = useQueryClient()
+  const currentYear = new Date().getFullYear()
+  const { data: budgetCats } = useQuery<{ revenues: Array<{ id: string; label: string }>; costs: Array<{ id: string; label: string }> }>({
+    queryKey: ['budget-categories', currentYear],
+    queryFn: async () => (await api.get(`/controller/budget/categories?year=${currentYear}`)).data,
+    enabled: showCreateForm,
+  })
+
   const createInvoice = useMutation({
     mutationFn: async (data: Record<string, unknown>) => (await api.post('/invoices/manual', data)).data,
     onSuccess: () => {
@@ -197,7 +204,32 @@ export default function FattureListPage() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">Categoria budget</label>
-              <input type="text" value={newInv.category} onChange={(e) => setNewInv({ ...newInv, category: e.target.value })} placeholder="fornitori, servizi..." className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+              <select value={newInv.category} onChange={(e) => setNewInv({ ...newInv, category: e.target.value })} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                <option value="">— Seleziona categoria —</option>
+                {newInv.type === 'passiva' ? (
+                  <>
+                    <optgroup label="Costi (dal budget)">
+                      {(budgetCats?.costs ?? []).map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+                    </optgroup>
+                    <optgroup label="Altre">
+                      <option value="fornitori">Fornitori</option>
+                      <option value="servizi_esterni">Servizi esterni</option>
+                      <option value="utenze">Utenze</option>
+                      <option value="altro">Altro</option>
+                    </optgroup>
+                  </>
+                ) : (
+                  <>
+                    <optgroup label="Ricavi (dal budget)">
+                      {(budgetCats?.revenues ?? []).map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+                    </optgroup>
+                    <optgroup label="Altre">
+                      <option value="ricavi">Ricavi</option>
+                      <option value="ricavi_extra">Ricavi extra</option>
+                    </optgroup>
+                  </>
+                )}
+              </select>
             </div>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
