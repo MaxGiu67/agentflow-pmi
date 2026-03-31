@@ -68,6 +68,7 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE f24_documents ADD COLUMN IF NOT EXISTS source VARCHAR(20) DEFAULT 'calculated'",
             "ALTER TABLE assets ADD COLUMN IF NOT EXISTS source VARCHAR(20) DEFAULT 'manual'",
             "ALTER TABLE assets ADD COLUMN IF NOT EXISTS detected_from_invoice_id UUID",
+            "ALTER TABLE budgets ADD COLUMN IF NOT EXISTS label VARCHAR(200)",
         ]:
             try:
                 await conn.execute(text(stmt))

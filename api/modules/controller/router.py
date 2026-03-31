@@ -15,6 +15,7 @@ from api.modules.controller.wizard_service import (
     generate_ce_preview,
     get_sector_questions,
     get_sectors_list,
+    load_wizard_budget,
     save_wizard_budget,
 )
 
@@ -67,6 +68,9 @@ class WizardGenerateRequest(BaseModel):
     ral_media: float = 0
     year: int
     overrides: dict[str, float] | None = None
+    costo_personale_diretto: float | None = None
+    custom_costs: list[dict[str, Any]] | None = None
+    extra_revenues: list[dict[str, Any]] | None = None
 
 
 @router.post("/budget/wizard/generate")
@@ -82,6 +86,9 @@ async def wizard_generate(
         ral_media=request.ral_media,
         year=request.year,
         overrides=request.overrides,
+        costo_personale_diretto=request.costo_personale_diretto,
+        custom_costs=request.custom_costs,
+        extra_revenues=request.extra_revenues,
     )
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -91,6 +98,7 @@ async def wizard_generate(
 class WizardSaveRequest(BaseModel):
     year: int
     budget_lines: list[dict[str, Any]]
+    meta: dict[str, Any] | None = None
 
 
 @router.post("/budget/wizard/save")
@@ -102,7 +110,21 @@ async def wizard_save(
     """Save budget from wizard CE preview."""
     if not user.tenant_id:
         raise HTTPException(status_code=400, detail="Profilo azienda non configurato")
-    return await save_wizard_budget(db, user.tenant_id, request.year, request.budget_lines)
+    return await save_wizard_budget(
+        db, user.tenant_id, request.year, request.budget_lines, request.meta
+    )
+
+
+@router.get("/budget/wizard/load")
+async def wizard_load(
+    year: int = Query(...),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Load saved budget for re-editing in wizard."""
+    if not user.tenant_id:
+        raise HTTPException(status_code=400, detail="Profilo azienda non configurato")
+    return await load_wizard_budget(db, user.tenant_id, year)
 
 
 # ── US-60: Budget Agent generate ──

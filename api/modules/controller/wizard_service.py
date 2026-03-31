@@ -11,7 +11,7 @@ from datetime import date
 from sqlalchemy import select, func, extract
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.db.models import Budget, Invoice
+from api.db.models import Budget, BudgetMeta, Invoice
 
 logger = logging.getLogger(__name__)
 
@@ -208,45 +208,45 @@ def generate_ce_preview(
     ral_media: float,
     year: int,
     overrides: dict | None = None,
+    costo_personale_diretto: float | None = None,
+    custom_costs: list[dict] | None = None,
+    extra_revenues: list[dict] | None = None,
 ) -> dict:
-    """Generate Conto Economico previsionale from wizard inputs.
-
-    Args:
-        sector_id: Sector identifier (e.g., "it", "ristorazione")
-        fatturato: Expected annual revenue
-        n_dipendenti: Number of employees
-        ral_media: Average gross salary (RAL)
-        year: Budget year
-        overrides: Optional dict of cost_category -> amount (user adjustments)
-
-    Returns:
-        CE previsionale with line items, totals, EBITDA, and benchmark comparison.
-    """
+    """Generate Conto Economico previsionale from wizard inputs."""
     sector = SECTORS.get(sector_id)
     if not sector:
         return {"error": f"Settore '{sector_id}' non trovato"}
 
     overrides = overrides or {}
+    custom_costs = custom_costs or []
+    extra_revenues = extra_revenues or []
+
+    # ── Extra revenues ──
+    extra_rev_total = sum(float(r.get("amount", 0)) for r in extra_revenues)
+    ricavi_totali = fatturato + extra_rev_total
 
     # ── Calculate costs from sector defaults ──
-    cost_lines = []
-    total_costi = 0
+    cost_lines: list[dict] = []
+    total_costi = 0.0
 
     for cat_id, cat_info in sector["cost_structure"].items():
-        if cat_id == "personale" and n_dipendenti > 0:
-            # Calculate from RAL: RAL + INPS 30% + INAIL 1% + TFR 6.91%
-            costo_per_dip = ral_media * (1 + 0.30 + 0.01 + 0.0691)
-            amount = round(costo_per_dip * n_dipendenti, 2)
+        if cat_id == "personale":
+            if costo_personale_diretto and costo_personale_diretto > 0:
+                amount = round(costo_personale_diretto, 2)
+            elif n_dipendenti > 0 and ral_media > 0:
+                costo_per_dip = ral_media * (1 + 0.30 + 0.01 + 0.0691)
+                amount = round(costo_per_dip * n_dipendenti, 2)
+            else:
+                amount = round(fatturato * cat_info["default"], 2)
         elif cat_id in overrides:
             amount = round(float(overrides[cat_id]), 2)
         else:
             amount = round(fatturato * cat_info["default"], 2)
 
-        pct_on_revenue = round((amount / fatturato * 100), 1) if fatturato > 0 else 0
+        pct_on_revenue = round((amount / ricavi_totali * 100), 1) if ricavi_totali > 0 else 0
         benchmark_min = round(cat_info["pct_min"] * 100, 1)
         benchmark_max = round(cat_info["pct_max"] * 100, 1)
 
-        # Flag anomalies
         severity = "ok"
         if pct_on_revenue > benchmark_max * 1.1:
             severity = "high"
@@ -265,20 +265,37 @@ def generate_ce_preview(
         })
         total_costi += amount
 
-    # ── IRES + IRAP estimate ──
-    ebitda = round(fatturato - total_costi, 2)
-    ebitda_pct = round((ebitda / fatturato * 100), 1) if fatturato > 0 else 0
+    # ── Custom cost lines ──
+    for idx, cc in enumerate(custom_costs):
+        cc_label = cc.get("label", f"Costo custom {idx + 1}")
+        cc_amount = round(float(cc.get("amount", 0)), 2)
+        if cc_amount <= 0:
+            continue
+        pct = round((cc_amount / ricavi_totali * 100), 1) if ricavi_totali > 0 else 0
+        cost_lines.append({
+            "category": f"custom_{idx}",
+            "label": cc_label,
+            "amount": cc_amount,
+            "monthly": round(cc_amount / 12, 2),
+            "pct_on_revenue": pct,
+            "benchmark_min": 0,
+            "benchmark_max": 0,
+            "severity": "custom",
+        })
+        total_costi += cc_amount
 
-    # IRAP base: value of production (ricavi - costi + personale)
+    # ── IRES + IRAP estimate ──
+    ebitda = round(ricavi_totali - total_costi, 2)
+    ebitda_pct = round((ebitda / ricavi_totali * 100), 1) if ricavi_totali > 0 else 0
+
     personale_amount = next((c["amount"] for c in cost_lines if c["category"] == "personale"), 0)
-    irap_base = fatturato - total_costi + personale_amount
+    irap_base = ricavi_totali - total_costi + personale_amount
     irap = round(max(0, irap_base) * 0.039, 2)
     ires = round(max(0, ebitda) * 0.24, 2)
     imposte = round(ires + irap, 2)
-
     utile_netto = round(ebitda - imposte, 2)
 
-    # ── Benchmark comparison ──
+    # ── Benchmark comparison (use core fatturato for sector comparison) ──
     ebitda_range = sector["ebitda_range"]
     range_parts = ebitda_range.replace("%", "").split("-")
     ebitda_min = float(range_parts[0])
@@ -296,11 +313,22 @@ def generate_ce_preview(
 
     # ── Build budget lines for saving ──
     budget_lines = [
-        {"category": "ricavi", "annual_proposed": fatturato, "monthly_proposed": round(fatturato / 12, 2)},
+        {"category": "ricavi", "label": "Ricavi", "annual_proposed": fatturato, "monthly_proposed": round(fatturato / 12, 2)},
     ]
+    for er_idx, er in enumerate(extra_revenues):
+        er_label = er.get("label", f"Ricavo extra {er_idx + 1}")
+        er_amount = float(er.get("amount", 0))
+        if er_amount > 0:
+            budget_lines.append({
+                "category": f"ricavi_extra_{er_idx}",
+                "label": er_label,
+                "annual_proposed": round(er_amount, 2),
+                "monthly_proposed": round(er_amount / 12, 2),
+            })
     for cl in cost_lines:
         budget_lines.append({
             "category": cl["category"],
+            "label": cl["label"],
             "annual_proposed": cl["amount"],
             "monthly_proposed": cl["monthly"],
         })
@@ -310,6 +338,8 @@ def generate_ce_preview(
         "sector_id": sector_id,
         "sector_label": sector["label"],
         "ricavi": fatturato,
+        "ricavi_totali": ricavi_totali,
+        "extra_revenues": extra_revenues,
         "cost_lines": cost_lines,
         "total_costi": round(total_costi, 2),
         "ebitda": ebitda,
@@ -323,6 +353,7 @@ def generate_ce_preview(
         "utile_netto": utile_netto,
         "n_dipendenti": n_dipendenti,
         "ral_media": ral_media,
+        "costo_personale_diretto": costo_personale_diretto,
         "budget_lines": budget_lines,
     }
 
@@ -332,20 +363,23 @@ async def save_wizard_budget(
     tenant_id: uuid.UUID,
     year: int,
     budget_lines: list[dict],
+    meta: dict | None = None,
 ) -> dict:
-    """Save budget from wizard CE preview."""
-    # Delete existing budget for this year
+    """Save budget from wizard CE preview, including labels and metadata."""
     from sqlalchemy import delete
+
+    # Delete existing budget + meta for this year
     await db.execute(
-        delete(Budget).where(
-            Budget.tenant_id == tenant_id,
-            Budget.year == year,
-        )
+        delete(Budget).where(Budget.tenant_id == tenant_id, Budget.year == year)
+    )
+    await db.execute(
+        delete(BudgetMeta).where(BudgetMeta.tenant_id == tenant_id, BudgetMeta.year == year)
     )
 
     saved = 0
     for line in budget_lines:
         category = line["category"]
+        label = line.get("label")
         monthly = line.get("monthly_proposed", 0)
         for month in range(1, 13):
             budget = Budget(
@@ -353,10 +387,28 @@ async def save_wizard_budget(
                 year=year,
                 month=month,
                 category=category,
+                label=label,
                 budget_amount=round(float(monthly), 2),
             )
             db.add(budget)
             saved += 1
+
+    # Save wizard metadata for re-editing
+    if meta:
+        budget_meta = BudgetMeta(
+            tenant_id=tenant_id,
+            year=year,
+            sector_id=meta.get("sector_id"),
+            fatturato=meta.get("fatturato"),
+            n_dipendenti=meta.get("n_dipendenti"),
+            ral_media=meta.get("ral_media"),
+            costo_personale_diretto=meta.get("costo_personale_diretto"),
+            personnel_mode=meta.get("personnel_mode", "calc"),
+            overrides_json=meta.get("overrides"),
+            custom_costs_json=meta.get("custom_costs"),
+            extra_revenues_json=meta.get("extra_revenues"),
+        )
+        db.add(budget_meta)
 
     await db.flush()
     return {
@@ -365,6 +417,63 @@ async def save_wizard_budget(
         "categories": len(budget_lines),
         "message": f"Budget {year} salvato: {len(budget_lines)} categorie x 12 mesi = {saved} righe",
     }
+
+
+async def load_wizard_budget(
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    year: int,
+) -> dict:
+    """Load saved budget with wizard metadata for re-editing."""
+    # Load metadata
+    meta_result = await db.execute(
+        select(BudgetMeta).where(
+            BudgetMeta.tenant_id == tenant_id,
+            BudgetMeta.year == year,
+        )
+    )
+    meta = meta_result.scalar_one_or_none()
+
+    # Load budget lines (month=1 is sufficient — all months have same amount)
+    lines_result = await db.execute(
+        select(Budget).where(
+            Budget.tenant_id == tenant_id,
+            Budget.year == year,
+            Budget.month == 1,
+        )
+    )
+    lines = lines_result.scalars().all()
+
+    budget_lines = [
+        {
+            "category": ln.category,
+            "label": ln.label or ln.category,
+            "annual_proposed": round(ln.budget_amount * 12, 2),
+            "monthly_proposed": round(ln.budget_amount, 2),
+        }
+        for ln in lines
+    ]
+
+    result: dict = {
+        "year": year,
+        "has_data": len(budget_lines) > 0,
+        "budget_lines": budget_lines,
+    }
+
+    if meta:
+        result["meta"] = {
+            "sector_id": meta.sector_id,
+            "fatturato": meta.fatturato,
+            "n_dipendenti": meta.n_dipendenti,
+            "ral_media": meta.ral_media,
+            "costo_personale_diretto": meta.costo_personale_diretto,
+            "personnel_mode": meta.personnel_mode or "calc",
+            "overrides": meta.overrides_json,
+            "custom_costs": meta.custom_costs_json,
+            "extra_revenues": meta.extra_revenues_json,
+        }
+
+    return result
 
 
 async def check_historical_data(
