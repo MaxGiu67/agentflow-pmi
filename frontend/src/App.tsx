@@ -35,6 +35,7 @@ import LoansPage from './pages/loans/LoansPage'
 // Fatture
 import FattureListPage from './pages/fatture/FattureListPage'
 import FatturaDetailPage from './pages/fatture/FatturaDetailPage'
+import CreateInvoicePage from './pages/fatture/CreateInvoicePage'
 import VerificaPage from './pages/fatture/VerificaPage'
 import UploadPage from './pages/fatture/UploadPage'
 
@@ -121,6 +122,7 @@ export default function App() {
 
               {/* Fatture */}
               <Route path="/fatture" element={<FattureListPage />} />
+              <Route path="/fatture/nuova" element={<CreateInvoicePage />} />
               <Route path="/fatture/verifica" element={<VerificaPage />} />
               <Route path="/fatture/upload" element={<UploadPage />} />
               <Route path="/fatture/:id" element={<FatturaDetailPage />} />
