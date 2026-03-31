@@ -8,6 +8,14 @@
 
 ---
 
+## 2026-04-01 — PIVOT 6: IVA, Scadenzari, Cash Flow, Anticipi Fatture
+- **Causa**: Dashboard e Budget usano importo_totale (IVA inclusa) invece di netto. Mancano scadenzari attivi/passivi per cash flow. Anticipo fatture non gestito.
+- **Impatto**: 17 nuove stories (US-70 a US-86), 72 SP, 6 sprint (17-22)
+- **Stories**: Scorporo IVA (US-70/71), Scadenzario (US-72-76), Cash Flow (US-77/78), Anticipi (US-79-83), Modelli DB (US-84-86)
+- **File**: specs/03-user-stories-pivot6.md (NUOVO)
+
+---
+
 ### Feature: Self-Healing Import (Livello 1 + 2)
 - **Data**: 2026-03-30
 - **Causa**: I parser LLM falliscono sul 17% dei PDF (formati non previsti). Servono retry automatico e auto-tuning del prompt.
