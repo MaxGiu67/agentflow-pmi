@@ -40,6 +40,13 @@ class Settings(BaseSettings):
 
     aes_key: str = "change-me-32-bytes-hex-encoded-key"
 
+    # Odoo CRM
+    odoo_url: str = ""  # es. https://nexadata.odoo.com
+    odoo_db: str = ""  # nome database Odoo
+    odoo_user: str = ""  # email utente Odoo
+    odoo_api_key: str = ""  # API key (Preferenze > Sicurezza)
+    odoo_webhook_secret: str = ""  # secret per validare webhook in ingresso
+
     # Brute force protection
     max_login_attempts: int = 5
     lockout_minutes: int = 15

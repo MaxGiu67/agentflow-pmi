@@ -149,4 +149,54 @@ E2E browser validation skipped — applicazione non in esecuzione su localhost (
 7. ⚠️ Docker compose da creare per deploy
 
 ---
-_Validation Report generato — 2026-03-23_
+
+## Addendum: Pivot 6+7 Validation (2026-04-03)
+
+### Test Results
+
+| Suite | Test | PASS | FAIL |
+|-------|------|------|------|
+| Sprint 17 (IVA, modelli) | 13 | 13 | 0 |
+| Sprint 18 (scadenzario) | 19 | 19 | 0 |
+| Sprint 19 (chiusura, cash flow) | 16 | 16 | 0 |
+| Sprint 20 (fidi, CF per banca) | 9 | 9 | 0 |
+| Sprint 21 (anticipo fatture) | 14 | 14 | 0 |
+| Sprint 22 (confronto costi) | 4 | 4 | 0 |
+| Sprint 23 (CRM modelli) | 23 | 23 | 0 |
+| Sprint 24 (Kanban, analytics) | 8 | 8 | 0 |
+| Sprint 25 (Brevo, webhook) | 16 | 16 | 0 |
+| Sprint 26 (invio, analytics) | 10 | 10 | 0 |
+| Sprint 27 (sequenze, trigger) | 10 | 10 | 0 |
+| **Pivot 6+7 TOTALE** | **142** | **142** | **0** |
+
+### Frontend Build
+
+| Metrica | Valore |
+|---------|--------|
+| TypeScript errors | 0 |
+| Vite build | 222ms |
+| Chunk count | 96 (code splitting React.lazy) |
+| Bundle iniziale | 432 KB (da 1.27 MB, -66%) |
+| PWA Lighthouse stimato | ~80 (manifest OK, SW OK) |
+
+### Nuovi modelli DB validati (15)
+Scadenza, BankFacility, InvoiceAdvance, CrmContact, CrmPipelineStage, CrmDeal, CrmActivity, EmailTemplate, EmailCampaign, EmailSend, EmailEvent, EmailSequenceStep, EmailSequenceEnrollment
+
+### Nuovi endpoint validati (45+)
+- Scadenzario: 13 endpoint
+- CRM: 18 endpoint
+- Email Marketing: 14 endpoint
+
+### Validazione Gate
+1. ✅ 142/142 test PASS (Pivot 6+7)
+2. ✅ 0 TypeScript errors
+3. ✅ Frontend build OK (222ms)
+4. ✅ PWA manifest + SW funzionanti
+5. ✅ Code splitting attivo (-66% bundle)
+6. ⚠️ Test E2E Playwright da eseguire
+7. ⚠️ Account Brevo reale da configurare
+8. ⚠️ Frontend scadenzario/email da completare (backend pronto)
+
+---
+_Validation Report aggiornato — 2026-04-03 (Pivot 6+7)_
+_Validation Report generato — 2026-03-23 (v0.1-v0.4)_

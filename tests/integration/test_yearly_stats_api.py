@@ -103,34 +103,50 @@ class TestYearlyStatsReturnsData:
         # Fatture attive
         fa = data["fatture_attive"]
         assert fa["count"] == 3
-        # totale = 1220 + 2440 + 3660 = 7320
+        # totale = 1220 + 2440 + 3660 = 7320 (lordo, still available)
         assert fa["totale"] == 7320.0
+        # imponibile (netto) = 1000 + 2000 + 3000 = 6000
+        assert fa["imponibile"] == 6000.0
 
         # Fatture passive
         fp = data["fatture_passive"]
         assert fp["count"] == 2
-        # totale = 610 + 1220 = 1830
+        # totale = 610 + 1220 = 1830 (lordo)
         assert fp["totale"] == 1830.0
+        # imponibile (netto) = 500 + 1000 = 1500
+        assert fp["imponibile"] == 1500.0
 
-        # Margine lordo
-        assert data["margine_lordo"] == 7320.0 - 1830.0
+        # Margine lordo (US-70: uses netto, not totale)
+        # ricavi_totali = imponibile attive = 6000
+        # costi_totali = imponibile passive = 1500
+        assert data["ricavi_totali"] == 6000.0
+        assert data["costi_totali"] == 1500.0
+        assert data["margine_lordo"] == 6000.0 - 1500.0
 
-        # Fatture per mese (12 months)
+        # IVA netta (US-70 AC-70.5)
+        assert "iva_netta" in data
+        # IVA debito = 220 + 440 + 660 = 1320
+        assert data["iva_netta"]["iva_debito"] == 1320.0
+        # IVA credito = 110 + 220 = 330
+        assert data["iva_netta"]["iva_credito"] == 330.0
+        assert data["iva_netta"]["saldo"] == 990.0
+
+        # Fatture per mese (12 months, now netto amounts)
         assert len(data["fatture_per_mese"]) == 12
         jan = data["fatture_per_mese"][0]
         assert jan["mese"] == 1
         assert jan["attive_count"] == 1
         assert jan["passive_count"] == 1
 
-        # Top clienti (from structured_data of attiva invoices)
+        # Top clienti (from structured_data of attiva invoices, now netto)
         assert len(data["top_clienti"]) == 3
-        # Sorted by totale desc: Cliente C (3660), Cliente B (2440), Cliente A (1220)
-        assert data["top_clienti"][0]["totale"] == 3660.0
+        # Sorted by totale desc: Cliente C (3000 netto), B (2000), A (1000)
+        assert data["top_clienti"][0]["totale"] == 3000.0
 
-        # Top fornitori (from passiva invoices)
+        # Top fornitori (from passiva invoices, now netto)
         assert len(data["top_fornitori"]) == 2
-        # Sorted by totale desc: Fornitore B (1220), Fornitore A (610)
-        assert data["top_fornitori"][0]["totale"] == 1220.0
+        # Sorted by totale desc: Fornitore B (1000 netto), Fornitore A (500 netto)
+        assert data["top_fornitori"][0]["totale"] == 1000.0
 
 
 class TestYearlyStatsAvailableYears:

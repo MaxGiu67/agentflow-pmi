@@ -48,6 +48,9 @@ from api.modules.alerts.router import router as alerts_router
 from api.modules.recurring.router import router as recurring_router
 from api.modules.loans.router import router as loans_router
 from api.modules.communications.router import router as communications_router
+from api.modules.scadenzario.router import router as scadenzario_router
+from api.modules.crm.router import router as crm_router
+from api.modules.email_marketing.router import router as email_marketing_router
 
 from contextlib import asynccontextmanager
 
@@ -150,3 +153,6 @@ app.include_router(alerts_router, prefix="/api/v1")
 app.include_router(recurring_router, prefix="/api/v1")
 app.include_router(loans_router, prefix="/api/v1")
 app.include_router(communications_router, prefix="/api/v1")
+app.include_router(scadenzario_router)
+app.include_router(crm_router, prefix="/api/v1")
+app.include_router(email_marketing_router)

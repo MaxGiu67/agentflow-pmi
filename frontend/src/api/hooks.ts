@@ -936,3 +936,124 @@ export function useDeleteLoan() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['loans'] }),
   })
 }
+
+// ── CRM Odoo ──
+
+export function useCrmPipeline() {
+  return useQuery({
+    queryKey: ['crm-pipeline'],
+    queryFn: () => api.get('/crm/pipeline/summary').then((r) => r.data),
+  })
+}
+
+export function useCrmStages() {
+  return useQuery({
+    queryKey: ['crm-stages'],
+    queryFn: () => api.get('/crm/pipeline/stages').then((r) => r.data),
+  })
+}
+
+export function useCrmDeals(stage?: string, dealType?: string) {
+  return useQuery({
+    queryKey: ['crm-deals', stage, dealType],
+    queryFn: () => {
+      const params = new URLSearchParams()
+      if (stage) params.set('stage', stage)
+      if (dealType) params.set('deal_type', dealType)
+      return api.get(`/crm/deals?${params}`).then((r) => r.data)
+    },
+  })
+}
+
+export function useCrmDeal(dealId: number) {
+  return useQuery({
+    queryKey: ['crm-deal', dealId],
+    queryFn: () => api.get(`/crm/deals/${dealId}`).then((r) => r.data),
+    enabled: dealId > 0,
+  })
+}
+
+export function useCrmWonDeals() {
+  return useQuery({
+    queryKey: ['crm-won'],
+    queryFn: () => api.get('/crm/deals/won').then((r) => r.data),
+  })
+}
+
+export function useCrmPendingOrders() {
+  return useQuery({
+    queryKey: ['crm-pending-orders'],
+    queryFn: () => api.get('/crm/orders/pending').then((r) => r.data),
+  })
+}
+
+export function useCrmContacts(search?: string) {
+  return useQuery({
+    queryKey: ['crm-contacts', search],
+    queryFn: () => api.get(`/crm/contacts?search=${search || ''}`).then((r) => r.data),
+  })
+}
+
+export function useCreateCrmDeal() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/crm/deals', data).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm-deals'] })
+      qc.invalidateQueries({ queryKey: ['crm-pipeline'] })
+    },
+  })
+}
+
+export function useCreateCrmContact() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/crm/contacts', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-contacts'] }),
+  })
+}
+
+export function useRegisterOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ dealId, ...data }: { dealId: number } & Record<string, unknown>) =>
+      api.post(`/crm/deals/${dealId}/order`, data).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm-deals'] })
+      qc.invalidateQueries({ queryKey: ['crm-pending-orders'] })
+    },
+  })
+}
+
+export function useCrmAnalytics() {
+  return useQuery({
+    queryKey: ['crm-analytics'],
+    queryFn: () => api.get('/crm/pipeline/analytics').then((r) => r.data),
+  })
+}
+
+export function useUpdateCrmDeal() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ dealId, ...data }: { dealId: string } & Record<string, unknown>) =>
+      api.patch(`/crm/deals/${dealId}`, data).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm-deals'] })
+      qc.invalidateQueries({ queryKey: ['crm-pipeline'] })
+      qc.invalidateQueries({ queryKey: ['crm-analytics'] })
+    },
+  })
+}
+
+export function useConfirmOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (dealId: string) => api.post(`/crm/deals/${dealId}/order/confirm`).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm-deals'] })
+      qc.invalidateQueries({ queryKey: ['crm-pipeline'] })
+      qc.invalidateQueries({ queryKey: ['crm-won'] })
+      qc.invalidateQueries({ queryKey: ['crm-pending-orders'] })
+    },
+  })
+}

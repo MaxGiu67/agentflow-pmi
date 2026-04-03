@@ -193,7 +193,10 @@ class CEOService:
 
         AC-40.2: Confronto mensile con delta e scostamenti >10%.
         AC-40.5: Voci non previste evidenziate.
+        US-71: Consuntivo uses importo_netto (not importo_totale).
         """
+        from sqlalchemy import extract, func
+
         result = await self.db.execute(
             select(Budget).where(
                 Budget.tenant_id == tenant_id,
@@ -206,6 +209,45 @@ class CEOService:
             # AC-40.4: No budget -> wizard
             return await self._budget_wizard(tenant_id, year)
 
+        # --- Compute actual amounts from invoices (netto IVA — US-71) ---
+        # Active invoices = ricavi netti per mese
+        attive_result = await self.db.execute(
+            select(
+                extract("month", Invoice.data_fattura).label("mese"),
+                func.coalesce(func.sum(
+                    func.coalesce(Invoice.importo_netto, Invoice.importo_totale)
+                ), 0.0).label("totale"),
+            ).where(
+                Invoice.tenant_id == tenant_id,
+                Invoice.type == "attiva",
+                extract("year", Invoice.data_fattura) == year,
+            ).group_by(extract("month", Invoice.data_fattura))
+        )
+        ricavi_per_mese: dict[int, float] = {
+            int(row.mese): round(float(row.totale), 2)
+            for row in attive_result.fetchall()
+        }
+
+        # Passive invoices = costi netti per mese e categoria
+        passive_result = await self.db.execute(
+            select(
+                extract("month", Invoice.data_fattura).label("mese"),
+                Invoice.category,
+                func.coalesce(func.sum(
+                    func.coalesce(Invoice.importo_netto, Invoice.importo_totale)
+                ), 0.0).label("totale"),
+            ).where(
+                Invoice.tenant_id == tenant_id,
+                Invoice.type == "passiva",
+                extract("year", Invoice.data_fattura) == year,
+                Invoice.category.isnot(None),
+            ).group_by(extract("month", Invoice.data_fattura), Invoice.category)
+        )
+        costi_per_mese_cat: dict[tuple[int, str], float] = {
+            (int(row.mese), row.category): round(float(row.totale), 2)
+            for row in passive_result.fetchall()
+        }
+
         # Build monthly grid: category → { months: [{budget, actual}, ...], totals }
         cat_data: dict[str, dict] = {}
         for b in budgets:
@@ -217,7 +259,14 @@ class CEOService:
                     "months": {m: {"budget": 0.0, "actual": 0.0} for m in range(1, 13)},
                 }
             cat_data[key]["months"][b.month]["budget"] += b.budget_amount
-            cat_data[key]["months"][b.month]["actual"] += b.actual_amount
+
+            # Fill actual from invoice data
+            if b.category.startswith("ricavi"):
+                cat_data[key]["months"][b.month]["actual"] = ricavi_per_mese.get(b.month, 0.0)
+            else:
+                cat_data[key]["months"][b.month]["actual"] = costi_per_mese_cat.get(
+                    (b.month, b.category), 0.0
+                )
 
         month_labels = ["", "Gen", "Feb", "Mar", "Apr", "Mag", "Giu",
                         "Lug", "Ago", "Set", "Ott", "Nov", "Dic"]
@@ -376,7 +425,7 @@ class CEOService:
     async def _calc_fatturato_mese(
         self, tenant_id: uuid.UUID, year: int, month: int,
     ) -> float:
-        """Calculate monthly revenue from active invoices."""
+        """Calculate monthly revenue from active invoices (netto IVA — US-70)."""
         result = await self.db.execute(
             select(Invoice).where(
                 Invoice.tenant_id == tenant_id,
@@ -385,7 +434,7 @@ class CEOService:
         )
         invoices = result.scalars().all()
         total = sum(
-            (inv.importo_totale or 0) for inv in invoices
+            (inv.importo_netto or inv.importo_totale or 0) for inv in invoices
             if inv.data_fattura and inv.data_fattura.year == year and inv.data_fattura.month == month
         )
         return round(total, 2)
@@ -393,39 +442,30 @@ class CEOService:
     async def _calc_fatturato_ytd(
         self, tenant_id: uuid.UUID, year: int,
     ) -> float:
-        """Calculate YTD revenue from active invoices."""
-        from sqlalchemy import func, text
-        # Debug: count all attive for this tenant
-        count_res = await self.db.execute(
-            select(func.count(Invoice.id)).where(
+        """Calculate YTD revenue from active invoices (netto IVA — US-70)."""
+        from sqlalchemy import extract, func
+        result = await self.db.execute(
+            select(func.coalesce(func.sum(
+                func.coalesce(Invoice.importo_netto, Invoice.importo_totale)
+            ), 0)).where(
                 Invoice.tenant_id == tenant_id,
                 Invoice.type == "attiva",
+                Invoice.data_fattura.isnot(None),
+                extract("year", Invoice.data_fattura) == year,
             )
         )
-        count_res.scalar() or 0
-
-        # Use raw SQL for reliability
-        raw = await self.db.execute(
-            text("""
-                SELECT COALESCE(SUM(importo_totale), 0)
-                FROM invoices
-                WHERE tenant_id = :tid
-                AND type = 'attiva'
-                AND data_fattura IS NOT NULL
-                AND EXTRACT(YEAR FROM data_fattura) = :yr
-            """),
-            {"tid": str(tenant_id), "yr": year}
-        )
-        total = raw.scalar() or 0
+        total = result.scalar() or 0
         return round(float(total), 2)
 
     async def _calc_costi_ytd(
         self, tenant_id: uuid.UUID, year: int,
     ) -> float:
-        """Calculate YTD costs from passive invoices."""
+        """Calculate YTD costs from passive invoices (netto IVA — US-70)."""
         from sqlalchemy import extract, func
         result = await self.db.execute(
-            select(func.coalesce(func.sum(Invoice.importo_totale), 0)).where(
+            select(func.coalesce(func.sum(
+                func.coalesce(Invoice.importo_netto, Invoice.importo_totale)
+            ), 0)).where(
                 Invoice.tenant_id == tenant_id,
                 Invoice.type == "passiva",
                 Invoice.data_fattura.isnot(None),
@@ -472,7 +512,7 @@ class CEOService:
                     "piva": key,
                     "total": 0.0,
                 }
-            client_totals[key]["total"] += (inv.importo_totale or 0.0)
+            client_totals[key]["total"] += (inv.importo_netto or inv.importo_totale or 0.0)
 
         sorted_clients = sorted(
             client_totals.values(), key=lambda x: x["total"], reverse=True,
@@ -505,7 +545,7 @@ class CEOService:
                     "piva": inv.emittente_piva,
                     "total": 0.0,
                 }
-            supplier_totals[key]["total"] += (inv.importo_totale or 0.0)
+            supplier_totals[key]["total"] += (inv.importo_netto or inv.importo_totale or 0.0)
 
         sorted_suppliers = sorted(
             supplier_totals.values(), key=lambda x: x["total"], reverse=True,
@@ -549,7 +589,7 @@ class CEOService:
         )
         unpaid = result.scalars().all()
         crediti = sum(
-            (inv.importo_totale or 0) for inv in unpaid
+            (inv.importo_netto or inv.importo_totale or 0) for inv in unpaid
             if inv.data_fattura and inv.data_fattura.year == year
         )
 
@@ -577,7 +617,7 @@ class CEOService:
         )
         unpaid = result.scalars().all()
         debiti = sum(
-            (inv.importo_totale or 0.0) for inv in unpaid
+            (inv.importo_netto or inv.importo_totale or 0.0) for inv in unpaid
             if inv.data_fattura and inv.data_fattura.year == year
         )
 
@@ -603,7 +643,7 @@ class CEOService:
             invoices = result.scalars().all()
 
             revenue = sum(
-                (inv.importo_totale or 0) for inv in invoices
+                (inv.importo_netto or inv.importo_totale or 0) for inv in invoices
                 if inv.data_fattura and inv.data_fattura.year == year
                 and inv.data_fattura.month in quarter_months
             )
@@ -632,7 +672,7 @@ class CEOService:
             invoices = result.scalars().all()
 
             costs = sum(
-                (inv.importo_totale or 0.0) for inv in invoices
+                (inv.importo_netto or inv.importo_totale or 0.0) for inv in invoices
                 if inv.data_fattura and inv.data_fattura.year == year
                 and inv.data_fattura.month in quarter_months
             )
@@ -695,7 +735,7 @@ class CEOService:
         suggestions = []
         for cat in all_categories:
             total = sum(
-                (inv.importo_totale or 0.0) for inv in invoices
+                (inv.importo_netto or inv.importo_totale or 0.0) for inv in invoices
                 if inv.category == cat and inv.data_fattura
                 and inv.data_fattura.year == year - 1
             )

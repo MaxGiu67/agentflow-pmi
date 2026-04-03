@@ -332,3 +332,379 @@ _Nessun bug trovato._
 **Endpoints:** GET /onboarding/status, POST /onboarding/step/{step_number}
 
 ---
+
+## Sprint 17: IVA Netto + Modello Scadenza (Pivot 6)
+
+### Stories Status
+
+| ID | Titolo | SP | Status | Date | Tests Written | Tests Passing | Bugs Found |
+|----|--------|:--:|--------|------|:-------------:|:-------------:|:----------:|
+| US-70 | Dashboard mostra ricavi e costi al netto IVA | 3 | Completata | 2026-04-01 | 5 | 5 | 0 |
+| US-71 | Budget consuntivo usa importi netti | 2 | Completata | 2026-04-01 | 3 | 3 | 0 |
+| US-84 | Modello Scadenza (DB) | 3 | Completata | 2026-04-01 | 3 | 3 | 0 |
+| US-85 | Modello BankFacility (DB) | 2 | Completata | 2026-04-01 | 1 | 1 | 0 |
+| US-86 | Modello InvoiceAdvance (DB) | 2 | Completata | 2026-04-01 | 1 | 1 | 0 |
+
+**Sprint 17 Totale:** 12 SP | 5/5 stories completate | 13 test | 13 PASS | 0 bugs
+
+---
+
+### US-70: Dashboard mostra ricavi e costi al netto IVA
+
+**Status:** Completata | **Data:** 2026-04-01
+
+| AC ID | Descrizione | Tests | Status |
+|-------|-------------|:-----:|--------|
+| AC-70.1 | Ricavi Totali usa importo_netto | 1 | PASS |
+| AC-70.2 | Costi Totali usa importo_netto passive | 1 | PASS |
+| AC-70.3 | Margine EBITDA su importi netti | 1 | PASS |
+| AC-70.4 | Grafico mensile con importi netti | 1 | PASS |
+| AC-70.5 | Widget IVA Netta (debito - credito) | 1 | PASS |
+
+**File modificati:**
+- `api/modules/dashboard/service.py` — ricavi/costi usano `imponibile` (netto); grafico mensile usa `importo_netto`; aggiunto `iva_netta`
+- `api/modules/dashboard/schemas.py` — aggiunto `IvaNettaSummary` e campo `iva_netta` in `YearlyStats`
+- `api/modules/ceo/service.py` — `_calc_fatturato_*`, `_calc_costi_*`, `_top_clients`, `_top_suppliers`, DSO/DPO: tutti usano `importo_netto`
+
+---
+
+### US-71: Budget consuntivo usa importi netti
+
+**Status:** Completata | **Data:** 2026-04-01
+
+| AC ID | Descrizione | Tests | Status |
+|-------|-------------|:-----:|--------|
+| AC-71.1 | Consuntivo ricavi da fatture attive usa importo_netto | 1 | PASS |
+| AC-71.2 | Consuntivo costi da fatture passive usa importo_netto | 1 | PASS |
+| AC-71.3 | Scostamento budget/consuntivo calcolato su netti | 1 | PASS |
+
+**File modificati:**
+- `api/modules/ceo/service.py` — `get_budget()` calcola consuntivo dinamicamente da Invoice usando `importo_netto`
+- `api/modules/ceo/schemas.py` — `BudgetEntry` aggiornato a formato griglia mensile (`BudgetMonthValue`, `monthly[]`)
+
+---
+
+### US-84/85/86: Modelli DB Scadenzario + Fidi + Anticipi
+
+**Status:** Completata | **Data:** 2026-04-01
+
+**Nuovi modelli in `api/db/models.py`:**
+- `Scadenza` — scadenzario attivo/passivo (tipo, source_type, source_id, controparte, importi lordo/netto/iva, date, stato, banca_appoggio, anticipata)
+- `BankFacility` — fidi bancari (plafond, %, tasso, commissioni per banca)
+- `InvoiceAdvance` — singolo anticipo fattura (importi, date, stato, commissioni, interessi)
+
+**Test:** `tests/integration/test_sprint17_api.py` — 13 test
+
+---
+
+## Sprint 18: Scadenzario Attivo/Passivo (Pivot 6)
+
+### Stories Status
+
+| ID | Titolo | SP | Status | Date | Tests Written | Tests Passing | Bugs Found |
+|----|--------|:--:|--------|------|:-------------:|:-------------:|:----------:|
+| US-72 | Generazione automatica scadenze da fatture | 5 | Completata | 2026-04-01 | 6 | 6 | 0 |
+| US-73 | Visualizzazione scadenzario attivo (crediti) | 5 | Completata | 2026-04-01 | 6 | 6 | 0 |
+| US-74 | Visualizzazione scadenzario passivo (debiti) | 5 | Completata | 2026-04-01 | 7 | 7 | 0 |
+
+**Sprint 18 Totale:** 15 SP | 3/3 stories completate | 19 test | 19 PASS | 0 bugs
+
+---
+
+### US-72: Generazione automatica scadenze da fatture
+
+**Status:** Completata | **Data:** 2026-04-01
+
+| AC ID | Descrizione | Tests | Status |
+|-------|-------------|:-----:|--------|
+| AC-72.1 | Fattura attiva → scadenza tipo "attivo" | 1 | PASS |
+| AC-72.2 | Fattura passiva → scadenza tipo "passivo" | 1 | PASS |
+| AC-72.3 | Importi lordo/netto/IVA separati | 1 | PASS |
+| AC-72.4 | Banca appoggio da IBAN fattura | 1 | PASS |
+| AC-72.5 | Default 30gg se giorni_pagamento assente | 1 | PASS |
+| - | generate_all_missing idempotente | 1 | PASS |
+
+### US-73: Scadenzario attivo
+
+| AC ID | Descrizione | Tests | Status |
+|-------|-------------|:-----:|--------|
+| AC-73.1 | Lista ordinata per data scadenza | 1 | PASS |
+| AC-73.2 | Colonne complete | 1 | PASS |
+| AC-73.3 | Stati: aperto, pagato, insoluto, parziale | 1 | PASS |
+| AC-73.4 | Colori: rosso/giallo/verde | 1 | PASS |
+| AC-73.5 | Filtri per stato e controparte | 1 | PASS |
+| AC-73.6 | Totali per stato | 1 | PASS |
+
+### US-74: Scadenzario passivo
+
+| AC ID | Descrizione | Tests | Status |
+|-------|-------------|:-----:|--------|
+| AC-74.1 | Lista scadenze passive da fatture | 1 | PASS |
+| AC-74.2 | Colonne complete passivo | 1 | PASS |
+| AC-74.3 | Stati passivo con filtro | 1 | PASS |
+| AC-74.5 | Totali per stato passivo | 1 | PASS |
+| - | API endpoint attivo | 1 | PASS |
+| - | API endpoint passivo | 1 | PASS |
+| - | API generate endpoint | 1 | PASS |
+
+**Nuovi file:**
+- `api/modules/scadenzario/service.py` — ScadenzarioService (generazione, list attivo/passivo, filtri, colori)
+- `api/modules/scadenzario/schemas.py` — ScadenzaItem, ScadenzarioResponse, GenerateResponse
+- `api/modules/scadenzario/router.py` — 3 endpoint: POST generate, GET attivo, GET passivo
+- `tests/integration/test_sprint18_api.py` — 19 test
+
+---
+
+## Sprint 19: Chiusura Scadenze + Insoluti + Cash Flow (Pivot 6)
+
+### Stories Status
+
+| ID | Titolo | SP | Status | Date | Tests Written | Tests Passing | Bugs Found |
+|----|--------|:--:|--------|------|:-------------:|:-------------:|:----------:|
+| US-75 | Chiusura automatica scadenze da movimenti banca | 5 | Completata | 2026-04-01 | 4 | 4 | 0 |
+| US-76 | Gestione insoluti | 3 | Completata | 2026-04-01 | 4 | 4 | 0 |
+| US-77 | Cash flow previsionale da scadenzario | 8 | Completata | 2026-04-01 | 8 | 8 | 0 |
+
+**Sprint 19 Totale:** 16 SP | 3/3 stories completate | 16 test | 16 PASS | 0 bugs
+
+---
+
+### US-75: Chiusura scadenze
+
+| AC ID | Descrizione | Tests | Status |
+|-------|-------------|:-----:|--------|
+| AC-75.1 | Incasso fattura attiva → "incassato" | 1 | PASS |
+| AC-75.2 | Pagamento fattura passiva → "pagato" | 1 | PASS |
+| AC-75.3 | Importo parziale → "parziale" con residuo | 1 | PASS |
+| AC-75.4 | Anticipata → scarico anticipo segnalato | 1 | PASS |
+
+### US-76: Gestione insoluti
+
+| AC ID | Descrizione | Tests | Status |
+|-------|-------------|:-----:|--------|
+| AC-76.1 | Segna insoluto su scadenze attive | 1 | PASS |
+| AC-76.2 | Warning riaddebito se anticipata | 1 | PASS |
+| AC-76.3/4 | Insoluto resta in scadenzario, badge rosso | 1 | PASS |
+| - | Passivo non può essere insoluto | 1 | PASS |
+
+### US-77: Cash flow previsionale
+
+| AC ID | Descrizione | Tests | Status |
+|-------|-------------|:-----:|--------|
+| AC-77.1 | Calcolo: saldo + incassi - pagamenti | 1 | PASS |
+| AC-77.2 | Vista 30/60/90 giorni | 1 | PASS |
+| AC-77.3 | Breakdown settimanale con saldo progressivo | 1 | PASS |
+| AC-77.4 | Alert soglia liquidità | 1 | PASS |
+| - | No alert se sopra soglia | 1 | PASS |
+| - | API endpoint chiudi | 1 | PASS |
+| - | API endpoint insoluto | 1 | PASS |
+| - | API endpoint cash-flow | 1 | PASS |
+
+**File modificati:**
+- `api/modules/scadenzario/service.py` — aggiunto `chiudi_scadenza()`, `segna_insoluto()`, `cash_flow_previsionale()`
+- `api/modules/scadenzario/router.py` — 3 nuovi endpoint: POST chiudi, POST insoluto, GET cash-flow
+- `tests/integration/test_sprint19_api.py` — 16 test
+
+---
+
+## Sprint 20: Cash Flow per Banca + Config Fidi (Pivot 6)
+
+### Stories Status
+
+| ID | Titolo | SP | Status | Date | Tests Written | Tests Passing | Bugs Found |
+|----|--------|:--:|--------|------|:-------------:|:-------------:|:----------:|
+| US-78 | Cash flow per banca | 5 | Completata | 2026-04-01 | 2 | 2 | 0 |
+| US-79 | Configurazione fido anticipo per banca | 5 | Completata | 2026-04-01 | 7 | 7 | 0 |
+
+**Sprint 20 Totale:** 10 SP | 2/2 stories | 9 test | 9 PASS | 0 bugs
+
+**Endpoint:** GET /scadenzario/cash-flow/per-banca, GET /fidi, POST /fidi
+**Test:** `tests/integration/test_sprint20_api.py`
+
+---
+
+## Sprint 21: Anticipo Fatture Completo (Pivot 6)
+
+### Stories Status
+
+| ID | Titolo | SP | Status | Date | Tests Written | Tests Passing | Bugs Found |
+|----|--------|:--:|--------|------|:-------------:|:-------------:|:----------:|
+| US-80 | Anticipo fattura — Presentazione | 8 | Completata | 2026-04-01 | 7 | 7 | 0 |
+| US-81 | Anticipo fattura — Incasso e scarico | 5 | Completata | 2026-04-01 | 3 | 3 | 0 |
+| US-82 | Anticipo fattura — Insoluto | 3 | Completata | 2026-04-01 | 4 | 4 | 0 |
+
+**Sprint 21 Totale:** 16 SP | 3/3 stories | 14 test | 14 PASS | 0 bugs
+
+**Endpoint:** POST /scadenzario/{id}/anticipa, POST /anticipi/{id}/incassa, POST /anticipi/{id}/insoluto
+**Test:** `tests/integration/test_sprint21_api.py`
+
+---
+
+## Sprint 22: Confronto Costi Anticipo (Pivot 6)
+
+### Stories Status
+
+| ID | Titolo | SP | Status | Date | Tests Written | Tests Passing | Bugs Found |
+|----|--------|:--:|--------|------|:-------------:|:-------------:|:----------:|
+| US-83 | Confronto costi anticipo tra banche | 3 | Completata | 2026-04-01 | 4 | 4 | 0 |
+
+**Sprint 22 Totale:** 3 SP | 1/1 stories | 4 test | 4 PASS | 0 bugs
+
+**Endpoint:** GET /scadenzario/{id}/confronta-anticipi
+**Test:** `tests/integration/test_sprint22_api.py`
+
+---
+
+## PIVOT 6 COMPLETATO
+
+| Sprint | Stories | SP | Tests | Status |
+|--------|---------|----|-------|--------|
+| Sprint 17 | US-70, US-71, US-84, US-85, US-86 | 12 | 13 | PASS |
+| Sprint 18 | US-72, US-73, US-74 | 15 | 19 | PASS |
+| Sprint 19 | US-75, US-76, US-77 | 16 | 16 | PASS |
+| Sprint 20 | US-78, US-79 | 10 | 9 | PASS |
+| Sprint 21 | US-80, US-81, US-82 | 16 | 14 | PASS |
+| Sprint 22 | US-83 | 3 | 4 | PASS |
+| **TOTALE** | **17 stories** | **72 SP** | **75 test** | **75 PASS** |
+
+---
+
+## Sprint 23: CRM Interno — Modelli DB + Migrazione (Pivot 7)
+
+### Stories Status
+
+| ID | Titolo | SP | Status | Date | Tests Written | Tests Passing | Bugs Found |
+|----|--------|:--:|--------|------|:-------------:|:-------------:|:----------:|
+| US-87 | Modello contatti CRM | 3 | Completata | 2026-04-03 | 5 | 5 | 0 |
+| US-88 | Modello deal + pipeline stages | 5 | Completata | 2026-04-03 | 6 | 6 | 0 |
+| US-89 | Modello attivita CRM | 3 | Completata | 2026-04-03 | 5 | 5 | 0 |
+| US-99 | Migrazione endpoint CRM da Odoo a DB interno | 5 | Completata | 2026-04-03 | 7 | 7 | 0 |
+
+**Sprint 23 Totale:** 16 SP | 4/4 stories | 23 test | 23 PASS | 0 bugs
+
+**Nuovi modelli in `api/db/models.py`:**
+- `CrmContact` — contatti aziendali (name, type, piva, email, phone, sector, source, assigned_to, email_opt_in)
+- `CrmPipelineStage` — stadi pipeline configurabili (name, sequence, probability_default, color, is_won, is_lost)
+- `CrmDeal` — opportunita/deal (contact_id, stage_id, deal_type, revenue, daily_rate, order_*, lost_reason)
+- `CrmActivity` — attivita su deal/contatto (type: call/email/meeting/note/task, status, timestamps)
+
+**File riscritti (migrazione Odoo → DB interno):**
+- `api/modules/crm/service.py` — CRMService usa DB interno, non piu Odoo adapter
+- `api/modules/crm/router.py` — endpoint con auth + tenant, nuovi endpoint activities
+- `api/modules/crm/schemas.py` — schema aggiornati per UUID string
+
+**Test:** `tests/integration/test_sprint23_crm_api.py` — 23 test
+
+---
+
+## Sprint 24: Kanban Pipeline + Analytics (Pivot 7)
+
+### Stories Status
+
+| ID | Titolo | SP | Status | Date | Tests Written | Tests Passing | Bugs Found |
+|----|--------|:--:|--------|------|:-------------:|:-------------:|:----------:|
+| US-90 | Pipeline Kanban drag-and-drop | 8 | Completata | 2026-04-03 | 4 | 4 | 0 |
+| US-91 | Pipeline analytics | 5 | Completata | 2026-04-03 | 4 | 4 | 0 |
+
+**Sprint 24 Totale:** 13 SP | 2/2 stories | 8 test | 8 PASS | 0 bugs
+
+**US-90 — Kanban:**
+- Frontend riscritto come Kanban board con colonne per stage
+- Card deal con drag-and-drop HTML5 nativo (no libreria esterna)
+- Header colonna: nome, count, totale EUR
+- Toggle Kanban/Tabella
+- Mobile: dropdown per cambiare stage
+- Filtri per tipo deal
+- PATCH /crm/deals/{id} aggiorna stage + auto-probabilita
+
+**US-91 — Analytics:**
+- Endpoint GET /crm/pipeline/analytics
+- Weighted pipeline value (revenue x probability)
+- Won/Lost ratio
+- Conversion rate per stage
+- Analytics bar nella pagina Kanban
+
+**File:**
+- `frontend/src/pages/crm/CrmPipelinePage.tsx` — riscritto come Kanban
+- `api/modules/crm/service.py` — aggiunto `get_pipeline_analytics()`
+- `api/modules/crm/router.py` — aggiunto endpoint analytics
+- `frontend/src/api/hooks.ts` — +2 hooks (analytics, updateDeal)
+- `tests/integration/test_sprint24_crm_api.py` — 8 test
+
+---
+
+## Sprint 25: Email Marketing con Brevo (Pivot 7)
+
+### Stories Status
+
+| ID | Titolo | SP | Status | Date | Tests Written | Tests Passing | Bugs Found |
+|----|--------|:--:|--------|------|:-------------:|:-------------:|:----------:|
+| US-92 | Adapter Brevo per invio email | 3 | Completata | 2026-04-03 | 2 | 2 | 0 |
+| US-93 | Webhook email tracking | 5 | Completata | 2026-04-03 | 5 | 5 | 0 |
+| US-94 | Template email con variabili | 5 | Completata | 2026-04-03 | 9 | 9 | 0 |
+
+**Sprint 25 Totale:** 13 SP | 3/3 stories | 16 test | 16 PASS | 0 bugs
+
+**Nuovi modelli in `api/db/models.py`:**
+- `EmailTemplate` — template HTML con variabili, categorie, active flag
+- `EmailCampaign` — campagne (single/sequence/trigger) con stats aggregate
+- `EmailSend` — singoli invii con brevo_message_id, timestamps open/click, contatori
+- `EmailEvent` — eventi webhook (delivered, opened, clicked, bounce, unsub, spam)
+
+**Nuovi file:**
+- `api/adapters/brevo.py` — BrevoClient async con invio email e variable substitution
+- `api/modules/email_marketing/service.py` — template CRUD, invio con tracking, webhook processing, stats
+- `api/modules/email_marketing/router.py` — 8 endpoint (templates, send, webhook, sends, stats)
+- 3 template default italiani pre-caricati (Benvenuto, Follow-up, Reminder)
+
+**Endpoint:**
+- GET /email/templates, POST /email/templates, GET /email/templates/{id}, PATCH /email/templates/{id}
+- POST /email/templates/{id}/preview
+- POST /email/send, GET /email/sends, GET /email/stats
+- POST /email/webhook (no auth — riceve da Brevo)
+
+**Test:** `tests/integration/test_sprint25_email_api.py` — 16 test
+
+---
+
+## Sprint 26: Invio Email + Analytics Dashboard (Pivot 7)
+
+| ID | Titolo | SP | Status | Tests |
+|----|--------|:--:|--------|:-----:|
+| US-95 | Invio email singola a contatto | 5 | Completata | 4 |
+| US-96 | Dashboard email analytics | 3 | Completata | 6 |
+
+**Sprint 26 Totale:** 8 SP | 10 test | 10 PASS
+
+**Aggiunto:** analytics avanzate (breakdown per template, top contatti, bounced contacts), endpoint GET /email/analytics
+
+---
+
+## Sprint 27: Sequenze Email Automatiche (Pivot 7)
+
+| ID | Titolo | SP | Status | Tests |
+|----|--------|:--:|--------|:-----:|
+| US-97 | Sequenze email multi-step | 8 | Completata | 5 |
+| US-98 | Trigger automatici su eventi CRM | 5 | Completata | 5 |
+
+**Sprint 27 Totale:** 13 SP | 10 test | 10 PASS
+
+**Nuovi modelli:** `EmailSequenceStep`, `EmailSequenceEnrollment`
+**Features:** sequenze multi-step con condizioni (if_opened, if_not_opened), enrollment con dedup, trigger su deal_stage_changed e contact_created, config filter per stage
+
+**Endpoint:** POST /email/sequences, POST /email/sequences/{id}/steps, GET /email/sequences/{id}/steps, POST /email/sequences/{id}/enroll
+
+---
+
+## PIVOT 7 COMPLETATO — CRM Interno + Brevo Email
+
+| Sprint | Stories | SP | Tests | Status |
+|--------|---------|----|-------|--------|
+| Sprint 23 | US-87, US-88, US-89, US-99 | 16 | 23 | PASS |
+| Sprint 24 | US-90, US-91 | 13 | 8 | PASS |
+| Sprint 25 | US-92, US-93, US-94 | 13 | 16 | PASS |
+| Sprint 26 | US-95, US-96 | 8 | 10 | PASS |
+| Sprint 27 | US-97, US-98 | 13 | 10 | PASS |
+| **TOTALE** | **13 stories** | **63 SP** | **67 test** | **67 PASS** |
+
+---

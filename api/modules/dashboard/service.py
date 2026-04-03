@@ -313,10 +313,15 @@ class DashboardService:
         except Exception:
             finanziamenti = {"count": 0, "totale_annuo": 0.0}
 
-        # --- Totali aggregati ---
-        ricavi_totali = round(fatture_attive["totale"] + corrispettivi["totale"], 2)
+        # --- IVA netta (debito - credito = da versare) ---
+        iva_debito = fatture_attive["iva"]  # IVA vendite
+        iva_credito = fatture_passive["iva"]  # IVA acquisti
+        iva_netta = round(iva_debito - iva_credito, 2)
+
+        # --- Totali aggregati (al NETTO IVA — US-70) ---
+        ricavi_totali = round(fatture_attive["imponibile"] + corrispettivi["totale"], 2)
         costi_totali = round(
-            fatture_passive["totale"]
+            fatture_passive["imponibile"]
             + costo_personale["totale"]
             + note_spese["totale"]
             + finanziamenti["totale_annuo"],
@@ -330,7 +335,7 @@ class DashboardService:
                 SELECT
                     json_extract(structured_data, '$.destinatario_nome') as nome,
                     json_extract(structured_data, '$.destinatario_piva') as piva,
-                    SUM(importo_totale) as totale,
+                    SUM(COALESCE(importo_netto, importo_totale)) as totale,
                     COUNT(*) as count
                 FROM invoices
                 WHERE tenant_id = :tid
@@ -346,7 +351,7 @@ class DashboardService:
                 SELECT
                     structured_data->>'destinatario_nome' as nome,
                     structured_data->>'destinatario_piva' as piva,
-                    SUM(importo_totale) as totale,
+                    SUM(COALESCE(importo_netto, importo_totale)) as totale,
                     COUNT(*) as count
                 FROM invoices
                 WHERE tenant_id = :tid
@@ -376,7 +381,7 @@ class DashboardService:
                 SELECT
                     emittente_nome as nome,
                     emittente_piva as piva,
-                    SUM(importo_totale) as totale,
+                    SUM(COALESCE(importo_netto, importo_totale)) as totale,
                     COUNT(*) as count
                 FROM invoices
                 WHERE tenant_id = :tid
@@ -391,7 +396,7 @@ class DashboardService:
                 SELECT
                     emittente_nome as nome,
                     emittente_piva as piva,
-                    SUM(importo_totale) as totale,
+                    SUM(COALESCE(importo_netto, importo_totale)) as totale,
                     COUNT(*) as count
                 FROM invoices
                 WHERE tenant_id = :tid
@@ -413,15 +418,15 @@ class DashboardService:
             for row in fornitori_result.fetchall()
         ]
 
-        # --- Fatture per mese ---
+        # --- Fatture per mese (importi NETTI — US-70 AC-70.4) ---
         if is_sqlite:
             per_mese_sql = text("""
                 SELECT
                     CAST(strftime('%m', data_fattura) AS INTEGER) as mese,
                     SUM(CASE WHEN type = 'attiva' THEN 1 ELSE 0 END) as attive_count,
-                    SUM(CASE WHEN type = 'attiva' THEN importo_totale ELSE 0 END) as attive_totale,
+                    SUM(CASE WHEN type = 'attiva' THEN COALESCE(importo_netto, importo_totale) ELSE 0 END) as attive_totale,
                     SUM(CASE WHEN type = 'passiva' THEN 1 ELSE 0 END) as passive_count,
-                    SUM(CASE WHEN type = 'passiva' THEN importo_totale ELSE 0 END) as passive_totale
+                    SUM(CASE WHEN type = 'passiva' THEN COALESCE(importo_netto, importo_totale) ELSE 0 END) as passive_totale
                 FROM invoices
                 WHERE tenant_id = :tid
                   AND CAST(strftime('%Y', data_fattura) AS INTEGER) = :year
@@ -433,9 +438,9 @@ class DashboardService:
                 SELECT
                     EXTRACT(MONTH FROM data_fattura)::int as mese,
                     SUM(CASE WHEN type = 'attiva' THEN 1 ELSE 0 END) as attive_count,
-                    SUM(CASE WHEN type = 'attiva' THEN importo_totale ELSE 0 END) as attive_totale,
+                    SUM(CASE WHEN type = 'attiva' THEN COALESCE(importo_netto, importo_totale) ELSE 0 END) as attive_totale,
                     SUM(CASE WHEN type = 'passiva' THEN 1 ELSE 0 END) as passive_count,
-                    SUM(CASE WHEN type = 'passiva' THEN importo_totale ELSE 0 END) as passive_totale
+                    SUM(CASE WHEN type = 'passiva' THEN COALESCE(importo_netto, importo_totale) ELSE 0 END) as passive_totale
                 FROM invoices
                 WHERE tenant_id = :tid
                   AND EXTRACT(YEAR FROM data_fattura) = :year
@@ -497,6 +502,11 @@ class DashboardService:
             "ricavi_totali": ricavi_totali,
             "costi_totali": costi_totali,
             "margine_lordo": margine_lordo,
+            "iva_netta": {
+                "iva_debito": iva_debito,
+                "iva_credito": iva_credito,
+                "saldo": iva_netta,
+            },
             "top_clienti": top_clienti,
             "top_fornitori": top_fornitori,
             "fatture_per_mese": fatture_per_mese,
@@ -516,6 +526,7 @@ class DashboardService:
             "ricavi_totali": 0.0,
             "costi_totali": 0.0,
             "margine_lordo": 0.0,
+            "iva_netta": {"iva_debito": 0.0, "iva_credito": 0.0, "saldo": 0.0},
             "top_clienti": [],
             "top_fornitori": [],
             "fatture_per_mese": [

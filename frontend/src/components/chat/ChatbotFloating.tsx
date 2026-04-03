@@ -180,8 +180,8 @@ export default function ChatbotFloating() {
     <>
       <div
         className="fixed z-50
-          bottom-4 left-4 right-4
-          md:bottom-6 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-[min(600px,90vw)]"
+          bottom-20 left-3 right-3
+          lg:bottom-6 lg:left-1/2 lg:right-auto lg:-translate-x-1/2 lg:w-[min(600px,90vw)]"
         role="search"
         aria-label="Chat con AgentFlow AI"
       >

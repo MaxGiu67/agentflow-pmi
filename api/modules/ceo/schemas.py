@@ -82,17 +82,23 @@ class AlertsResponse(BaseModel):
 # ============================================================
 
 
-class BudgetEntry(BaseModel):
-    """Single budget entry."""
-    year: int
+class BudgetMonthValue(BaseModel):
+    """Single month budget/actual pair."""
     month: int
+    label: str
+    budget: float = 0.0
+    actual: float = 0.0
+
+
+class BudgetEntry(BaseModel):
+    """Budget category with monthly grid (Pivot 5 format)."""
     category: str
-    budget_amount: float
-    actual_amount: float
-    delta_amount: float = 0.0
-    delta_percent: float | None = None
-    over_threshold: bool = False  # >10% scostamento
-    non_prevista: bool = False  # AC-40.5
+    label: str = ""
+    monthly: list[BudgetMonthValue] = []
+    total_budget: float = 0.0
+    total_actual: float = 0.0
+    variance: float = 0.0
+    variance_pct: float = 0.0
 
     model_config = {"from_attributes": True}
 
@@ -105,12 +111,18 @@ class BudgetCreateRequest(BaseModel):
 
 
 class BudgetListResponse(BaseModel):
-    """Budget vs consuntivo response."""
+    """Budget vs consuntivo response (monthly grid)."""
     year: int
-    entries: list[BudgetEntry]
+    entries: list[BudgetEntry] = []
+    month_labels: list[str] = []
     total_budget: float = 0.0
     total_actual: float = 0.0
     total_delta: float = 0.0
+    # Wizard fallback fields (when no budget exists)
+    has_budget: bool | None = None
+    message: str | None = None
+    suggested_categories: list[str] | None = None
+    suggestions: list[dict] | None = None
 
 
 class BudgetProjection(BaseModel):

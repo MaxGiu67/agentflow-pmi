@@ -16,6 +16,7 @@ import {
   Puzzle,
   Target,
   CreditCard,
+  Briefcase,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
@@ -52,6 +53,13 @@ const navSections: NavSection[] = [
       { to: '/personale', label: 'Personale', icon: Users },
       { to: '/spese', label: 'Spese', icon: CreditCard },
       { to: '/corrispettivi', label: 'Corrispettivi', icon: Receipt },
+    ],
+  },
+  {
+    title: 'Commerciale',
+    items: [
+      { to: '/crm', label: 'Pipeline CRM', icon: Briefcase },
+      { to: '/crm/contatti', label: 'Contatti', icon: Users },
     ],
   },
   {

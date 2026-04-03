@@ -240,4 +240,34 @@ FASE 5 (v2.0):     AgentFlow Enterprise
 ```
 
 ---
-_Aggiornato con analisi gap CEO — 2026-03-22_
+
+## Pivot 6: Finanza Operativa (2026-04-02)
+
+AgentFlow non e solo un contabile — e un **controller finanziario**. Il Pivot 6 aggiunge:
+- **IVA scorporata** — tutti i KPI usano importo_netto (l'IVA e transito, non ricavo/costo)
+- **Scadenzario intelligente** — generazione automatica scadenze da fatture, colori per urgenza, chiusura automatica da banca
+- **Cash flow previsionale** — saldo_banca + incassi_previsti - pagamenti_previsti, vista 30/60/90gg, alert soglia
+- **Gestione fidi bancari** — plafond, tasso, commissioni per ogni banca
+- **Anticipo fatture** — presentazione → verifica plafond → incasso/insoluto, confronto costi tra banche
+
+## Pivot 7: Sales & Email Marketing (2026-04-03)
+
+AgentFlow diventa anche il **CRM del commerciale**. Il Pivot 7 aggiunge:
+- **CRM interno** — pipeline Kanban drag-and-drop, contatti, deal (T&M, fixed, spot, hardware), attivita
+- **Email marketing** — template con variabili, tracking (open/click/bounce), sequenze automatiche con condizioni
+- **Trigger CRM→Email** — quando un deal cambia stage, parte la sequenza email
+- **Zero dipendenza Odoo** — tutto in PostgreSQL interno, Brevo per l'infrastruttura email (25 EUR/mese)
+
+**ADR-009**: Keap scartato (5x costo, no italiano), Odoo declassato a opzionale. Pattern: build logic / buy infrastructure.
+
+## PWA (2026-04-03)
+
+AgentFlow e una **Progressive Web App** installabile:
+- Manifest + Service Worker + install prompt
+- Code splitting React.lazy (bundle -66%)
+- Bottom nav mobile (5 tab), safe areas iOS
+- Skeleton loading, ErrorBoundary, useOptimistic (React 19)
+- Design system: DM Sans, CSS variables, dark mode prep
+
+---
+_Aggiornato: 2026-04-03 — Pivot 6+7 + PWA_

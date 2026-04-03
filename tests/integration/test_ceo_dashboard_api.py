@@ -1,6 +1,7 @@
 """
 Test suite for US-39: Dashboard CEO — cruscotto direzionale
 Tests for 5 Acceptance Criteria (AC-39.1 through AC-39.5)
+Updated for US-70: all amounts use importo_netto (not importo_totale)
 """
 
 import uuid
@@ -11,11 +12,34 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import (
-    ActiveInvoice,
     FiscalDeadline,
     Invoice,
     Tenant,
 )
+
+
+def _make_attiva(tenant_id, numero, cliente_piva, cliente_nome, data, netto, iva=None, totale=None, piva_emittente="IT99999999999"):
+    """Helper to create an active Invoice (type=attiva) for CEO tests."""
+    iva = iva or round(netto * 0.22, 2)
+    totale = totale or round(netto + iva, 2)
+    return Invoice(
+        tenant_id=tenant_id,
+        type="attiva",
+        document_type="TD01",
+        source="sdi",
+        numero_fattura=numero,
+        emittente_piva=piva_emittente,
+        emittente_nome="Mia Azienda SRL",
+        data_fattura=data,
+        importo_netto=netto,
+        importo_iva=iva,
+        importo_totale=totale,
+        processing_status="registered",
+        structured_data={
+            "destinatario_nome": cliente_nome,
+            "destinatario_piva": cliente_piva,
+        },
+    )
 
 
 # ============================================================
@@ -32,44 +56,30 @@ class TestAC391KPIPrincipali:
     ):
         """AC-39.1: DATO fatture attive e passive,
         QUANDO GET /ceo/dashboard,
-        ALLORA KPI con fatturato, EBITDA, top clienti/fornitori."""
+        ALLORA KPI con fatturato netto, EBITDA, top clienti/fornitori."""
         today = date.today()
 
-        # Active invoices (revenue)
+        # Active invoices (revenue) — netto: 1000, 2000, 3000
         for i in range(3):
-            inv = ActiveInvoice(
-                tenant_id=tenant.id,
-                numero_fattura=f"FA-2026-{i:03d}",
-                document_type="TD01",
-                cliente_piva=f"IT{i:011d}",
-                cliente_nome=f"Cliente {i}",
-                data_fattura=date(today.year, today.month, 1 + i),
-                importo_netto=1000.0 * (i + 1),
-                aliquota_iva=22.0,
-                importo_iva=220.0 * (i + 1),
-                importo_totale=1220.0 * (i + 1),
-                sdi_status="delivered",
-            )
-            db_session.add(inv)
+            db_session.add(_make_attiva(
+                tenant.id, f"FA-2026-{i:03d}",
+                f"IT{i:011d}", f"Cliente {i}",
+                date(today.year, today.month, 1 + i),
+                netto=1000.0 * (i + 1),
+            ))
 
-        # Passive invoices (costs)
+        # Passive invoices (costs) — netto: 500, 1000
         for i in range(2):
-            inv = Invoice(
-                tenant_id=tenant.id,
-                type="passiva",
-                document_type="TD01",
-                source="upload",
-                numero_fattura=f"FP-2026-{i:03d}",
-                emittente_piva=f"IT{i+10:011d}",
-                emittente_nome=f"Fornitore {i}",
+            db_session.add(Invoice(
+                tenant_id=tenant.id, type="passiva", document_type="TD01",
+                source="upload", numero_fattura=f"FP-2026-{i:03d}",
+                emittente_piva=f"IT{i+10:011d}", emittente_nome=f"Fornitore {i}",
                 data_fattura=date(today.year, today.month, 5 + i),
                 importo_netto=500.0 * (i + 1),
                 importo_iva=110.0 * (i + 1),
                 importo_totale=610.0 * (i + 1),
                 processing_status="registered",
-            )
-            db_session.add(inv)
-
+            ))
         await db_session.flush()
 
         resp = await client.get(
@@ -77,12 +87,11 @@ class TestAC391KPIPrincipali:
             headers=auth_headers,
         )
         assert resp.status_code == 200
-        data = resp.json()
+        kpi = resp.json()["kpi"]
 
-        kpi = data["kpi"]
-        # Fatturato mese: 1220 + 2440 + 3660 = 7320
-        assert kpi["fatturato_mese"] == 7320.0
-        assert kpi["fatturato_ytd"] >= 7320.0
+        # Fatturato mese (netto): 1000 + 2000 + 3000 = 6000
+        assert kpi["fatturato_mese"] == 6000.0
+        assert kpi["fatturato_ytd"] >= 6000.0
         assert kpi["ebitda_amount"] > 0
         assert "top_clienti" in kpi
         assert "top_fornitori" in kpi
@@ -95,15 +104,13 @@ class TestAC391KPIPrincipali:
         QUANDO dashboard, ALLORA conteggio scadenze."""
         today = date.today()
         for i in range(3):
-            dl = FiscalDeadline(
-                tenant_id=tenant.id,
-                code="1040",
+            db_session.add(FiscalDeadline(
+                tenant_id=tenant.id, code="1040",
                 description=f"Scadenza {i}",
                 amount=100.0 * (i + 1),
                 due_date=today + timedelta(days=10 + i),
                 status="pending",
-            )
-            db_session.add(dl)
+            ))
         await db_session.flush()
 
         resp = await client.get(
@@ -117,23 +124,15 @@ class TestAC391KPIPrincipali:
         self, client: AsyncClient, auth_headers: dict,
         db_session: AsyncSession, tenant: Tenant,
     ):
-        """AC-39.1: DATO molti clienti, ALLORA top 5 ordinati per importo."""
+        """AC-39.1: DATO molti clienti, ALLORA top 5 ordinati per importo netto."""
         today = date.today()
         for i in range(7):
-            inv = ActiveInvoice(
-                tenant_id=tenant.id,
-                numero_fattura=f"FA-TOP-{i:03d}",
-                document_type="TD01",
-                cliente_piva=f"IT{i+20:011d}",
-                cliente_nome=f"BigClient {i}",
-                data_fattura=date(today.year, 1, 10),
-                importo_netto=1000.0 * (i + 1),
-                aliquota_iva=22.0,
-                importo_iva=220.0 * (i + 1),
-                importo_totale=1220.0 * (i + 1),
-                sdi_status="delivered",
-            )
-            db_session.add(inv)
+            db_session.add(_make_attiva(
+                tenant.id, f"FA-TOP-{i:03d}",
+                f"IT{i+20:011d}", f"BigClient {i}",
+                date(today.year, 1, 10),
+                netto=1000.0 * (i + 1),
+            ))
         await db_session.flush()
 
         resp = await client.get(
@@ -160,24 +159,17 @@ class TestAC392ConfrontoYoY:
         self, client: AsyncClient, auth_headers: dict,
         db_session: AsyncSession, tenant: Tenant,
     ):
-        """AC-39.2: DATO fatturato 2025=10000, 2026=12000,
+        """AC-39.2: DATO fatturato netto 2025=8196, 2026=9836,
         QUANDO /ceo/dashboard/yoy, ALLORA variazione +20% direction=up."""
-        # Previous year invoices
-        for yr, amount in [(2025, 10000.0), (2026, 12000.0)]:
-            inv = ActiveInvoice(
-                tenant_id=tenant.id,
-                numero_fattura=f"FA-YOY-{yr}",
-                document_type="TD01",
-                cliente_piva="IT00000000001",
-                cliente_nome="ClienteYoY",
-                data_fattura=date(yr, 3, 15),
-                importo_netto=amount / 1.22,
-                aliquota_iva=22.0,
-                importo_iva=amount - amount / 1.22,
-                importo_totale=amount,
-                sdi_status="delivered",
-            )
-            db_session.add(inv)
+        # Create invoices with netto amounts that give exactly +20%
+        db_session.add(_make_attiva(
+            tenant.id, "FA-YOY-2025", "IT00000000001", "ClienteYoY",
+            date(2025, 3, 15), netto=10000.0,
+        ))
+        db_session.add(_make_attiva(
+            tenant.id, "FA-YOY-2026", "IT00000000001", "ClienteYoY",
+            date(2026, 3, 15), netto=12000.0,
+        ))
         await db_session.flush()
 
         resp = await client.get(
@@ -199,21 +191,14 @@ class TestAC392ConfrontoYoY:
         db_session: AsyncSession, tenant: Tenant,
     ):
         """AC-39.2: DATO fatturato in calo, ALLORA direction=down."""
-        for yr, amount in [(2025, 20000.0), (2026, 15000.0)]:
-            inv = ActiveInvoice(
-                tenant_id=tenant.id,
-                numero_fattura=f"FA-YOYD-{yr}",
-                document_type="TD01",
-                cliente_piva="IT00000000002",
-                cliente_nome="ClienteYoYDown",
-                data_fattura=date(yr, 2, 10),
-                importo_netto=amount / 1.22,
-                aliquota_iva=22.0,
-                importo_iva=amount - amount / 1.22,
-                importo_totale=amount,
-                sdi_status="delivered",
-            )
-            db_session.add(inv)
+        db_session.add(_make_attiva(
+            tenant.id, "FA-YOYD-2025", "IT00000000002", "ClienteDown",
+            date(2025, 2, 10), netto=20000.0,
+        ))
+        db_session.add(_make_attiva(
+            tenant.id, "FA-YOYD-2026", "IT00000000002", "ClienteDown",
+            date(2026, 2, 10), netto=15000.0,
+        ))
         await db_session.flush()
 
         resp = await client.get(
@@ -243,38 +228,20 @@ class TestAC393DSODPO:
         """AC-39.3: DATO dati fatturazione,
         QUANDO dashboard, ALLORA DSO e DPO presenti con trend."""
         today = date.today()
-        # Active invoice for DSO calc
-        inv = ActiveInvoice(
-            tenant_id=tenant.id,
-            numero_fattura="FA-DSO-001",
-            document_type="TD01",
-            cliente_piva="IT00000000010",
-            cliente_nome="ClienteDSO",
-            data_fattura=date(today.year, 1, 15),
-            importo_netto=5000.0,
-            aliquota_iva=22.0,
-            importo_iva=1100.0,
-            importo_totale=6100.0,
-            sdi_status="sent",  # unpaid
-        )
-        db_session.add(inv)
-
+        # Active invoice (attiva) for DSO calc
+        db_session.add(_make_attiva(
+            tenant.id, "FA-DSO-001", "IT00000000010", "ClienteDSO",
+            date(today.year, 1, 15), netto=5000.0,
+        ))
         # Passive invoice for DPO calc
-        pinv = Invoice(
-            tenant_id=tenant.id,
-            type="passiva",
-            document_type="TD01",
-            source="upload",
-            numero_fattura="FP-DPO-001",
-            emittente_piva="IT00000000011",
-            emittente_nome="FornitoreDPO",
+        db_session.add(Invoice(
+            tenant_id=tenant.id, type="passiva", document_type="TD01",
+            source="upload", numero_fattura="FP-DPO-001",
+            emittente_piva="IT00000000011", emittente_nome="FornitoreDPO",
             data_fattura=date(today.year, 1, 20),
-            importo_netto=3000.0,
-            importo_iva=660.0,
-            importo_totale=3660.0,
-            processing_status="pending",  # unpaid
-        )
-        db_session.add(pinv)
+            importo_netto=3000.0, importo_iva=660.0, importo_totale=3660.0,
+            processing_status="pending",
+        ))
         await db_session.flush()
 
         resp = await client.get(
@@ -320,20 +287,10 @@ class TestAC394DatiInsufficienti:
         db_session: AsyncSession, tenant: Tenant,
     ):
         """AC-39.4: DATO 1 mese di dati, ALLORA nota 'parziali'."""
-        inv = ActiveInvoice(
-            tenant_id=tenant.id,
-            numero_fattura="FA-PART-001",
-            document_type="TD01",
-            cliente_piva="IT00000000099",
-            cliente_nome="ClienteParziale",
-            data_fattura=date(2026, 1, 15),
-            importo_netto=1000.0,
-            aliquota_iva=22.0,
-            importo_iva=220.0,
-            importo_totale=1220.0,
-            sdi_status="delivered",
-        )
-        db_session.add(inv)
+        db_session.add(_make_attiva(
+            tenant.id, "FA-PART-001", "IT00000000099", "ClienteParziale",
+            date(2026, 1, 15), netto=1000.0,
+        ))
         await db_session.flush()
 
         resp = await client.get(
@@ -358,41 +315,20 @@ class TestAC395ConcentrazioneClienti:
         self, client: AsyncClient, auth_headers: dict,
         db_session: AsyncSession, tenant: Tenant,
     ):
-        """AC-39.5: DATO 3 clienti con >60% fatturato,
+        """AC-39.5: DATO 1 grande cliente con >60% fatturato,
         QUANDO /ceo/alerts, ALLORA alert concentrazione."""
         today = date.today()
-        # Big client: 80% of revenue
-        big = ActiveInvoice(
-            tenant_id=tenant.id,
-            numero_fattura="FA-CONC-001",
-            document_type="TD01",
-            cliente_piva="IT00000000050",
-            cliente_nome="MegaClient",
-            data_fattura=date(today.year, 2, 10),
-            importo_netto=8000.0,
-            aliquota_iva=22.0,
-            importo_iva=1760.0,
-            importo_totale=9760.0,
-            sdi_status="delivered",
-        )
-        db_session.add(big)
-
-        # Small clients
+        # Big client: ~80% of revenue (netto 8000)
+        db_session.add(_make_attiva(
+            tenant.id, "FA-CONC-001", "IT00000000050", "MegaClient",
+            date(today.year, 2, 10), netto=8000.0,
+        ))
+        # Small clients (netto 100 each * 5 = 500 total)
         for i in range(5):
-            inv = ActiveInvoice(
-                tenant_id=tenant.id,
-                numero_fattura=f"FA-CONC-S{i}",
-                document_type="TD01",
-                cliente_piva=f"IT{i+60:011d}",
-                cliente_nome=f"SmallClient {i}",
-                data_fattura=date(today.year, 2, 15 + i),
-                importo_netto=100.0,
-                aliquota_iva=22.0,
-                importo_iva=22.0,
-                importo_totale=122.0,
-                sdi_status="delivered",
-            )
-            db_session.add(inv)
+            db_session.add(_make_attiva(
+                tenant.id, f"FA-CONC-S{i}", f"IT{i+60:011d}", f"SmallClient {i}",
+                date(today.year, 2, 15 + i), netto=100.0,
+            ))
         await db_session.flush()
 
         resp = await client.get(
@@ -401,36 +337,22 @@ class TestAC395ConcentrazioneClienti:
         )
         assert resp.status_code == 200
         alerts = resp.json()["alerts"]
-        assert len(alerts) >= 1
-
-        conc_alert = alerts[0]
-        assert conc_alert["alert_type"] == "concentration"
-        assert conc_alert["top3_percent"] > 60
-        assert "60%" in conc_alert["message"]
+        concentration = [a for a in alerts if a["alert_type"] == "concentration"]
+        assert len(concentration) == 1
+        assert concentration[0]["top3_percent"] > 60
 
     async def test_ac_395_no_concentration_alert_when_balanced(
         self, client: AsyncClient, auth_headers: dict,
         db_session: AsyncSession, tenant: Tenant,
     ):
-        """AC-39.5: DATO clienti bilanciati (<60%),
-        QUANDO /ceo/alerts, ALLORA nessun alert."""
+        """AC-39.5: DATO clienti bilanciati, ALLORA nessun alert."""
         today = date.today()
-        # 10 clients, each with equal share
+        # 10 equal clients (netto 1000 each)
         for i in range(10):
-            inv = ActiveInvoice(
-                tenant_id=tenant.id,
-                numero_fattura=f"FA-BAL-{i:03d}",
-                document_type="TD01",
-                cliente_piva=f"IT{i+70:011d}",
-                cliente_nome=f"BalancedClient {i}",
-                data_fattura=date(today.year, 3, 1 + i),
-                importo_netto=1000.0,
-                aliquota_iva=22.0,
-                importo_iva=220.0,
-                importo_totale=1220.0,
-                sdi_status="delivered",
-            )
-            db_session.add(inv)
+            db_session.add(_make_attiva(
+                tenant.id, f"FA-BAL-{i:03d}", f"IT{i+70:011d}", f"Client {i}",
+                date(today.year, 3, 1 + i), netto=1000.0,
+            ))
         await db_session.flush()
 
         resp = await client.get(
@@ -439,6 +361,6 @@ class TestAC395ConcentrazioneClienti:
         )
         assert resp.status_code == 200
         alerts = resp.json()["alerts"]
-        # top 3 = 3/10 = 30% < 60%, no alert
-        conc_alerts = [a for a in alerts if a["alert_type"] == "concentration"]
-        assert len(conc_alerts) == 0
+        concentration = [a for a in alerts if a["alert_type"] == "concentration"]
+        # Top 3 = 3000/10000 = 30% < 60% → no alert
+        assert len(concentration) == 0

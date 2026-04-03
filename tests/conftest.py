@@ -26,6 +26,19 @@ from api.db.models import (
     RecurringContract,
     Loan,
     ImportPromptTemplate,
+    Scadenza,
+    BankFacility,
+    InvoiceAdvance,
+    CrmContact,
+    CrmPipelineStage,
+    CrmDeal,
+    CrmActivity,
+    EmailTemplate,
+    EmailCampaign,
+    EmailSend,
+    EmailEvent,
+    EmailSequenceStep,
+    EmailSequenceEnrollment,
 )
 from api.db.session import get_db
 from api.main import app

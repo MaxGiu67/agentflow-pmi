@@ -1,91 +1,68 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import ProtectedRoute from './components/ui/ProtectedRoute'
 import AppLayout from './components/layout/AppLayout'
+import LoadingSpinner from './components/ui/LoadingSpinner'
+import InstallPrompt from './components/pwa/InstallPrompt'
+import OfflineIndicator from './components/pwa/OfflineIndicator'
 
-// Auth pages
+// Auth pages (eagerly loaded — first interaction)
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
 import VerifyEmailPage from './pages/auth/VerifyEmailPage'
 
-// Onboarding
-import OnboardingPage from './pages/onboarding/OnboardingPage'
-
-// Main pages
-import DashboardPage from './pages/DashboardPage'
-import HomePage from './pages/HomePage'
-import ScadenzarioPage from './pages/ScadenzarioPage'
-import ReportPage from './pages/ReportPage'
-import ImpostazioniPage from './pages/ImpostazioniPage'
-
-// Puzzle Dashboard
-import PuzzleDashboard from './pages/PuzzleDashboard'
-
-// Pivot 5 pages
-import CompletenessPage from './pages/onboarding/CompletenessPage'
-import ImportWizardPage from './pages/import/ImportWizardPage'
-import ControllerPage from './pages/controller/ControllerPage'
-import AlertsPage from './pages/alerts/AlertsPage'
-import CorrispettiviPage from './pages/corrispettivi/CorrispettiviPage'
-import RecurringPage from './pages/recurring/RecurringPage'
-import LoansPage from './pages/loans/LoansPage'
-
-// Fatture
-import FattureListPage from './pages/fatture/FattureListPage'
-import FatturaDetailPage from './pages/fatture/FatturaDetailPage'
-import CreateInvoicePage from './pages/fatture/CreateInvoicePage'
-import VerificaPage from './pages/fatture/VerificaPage'
-import UploadPage from './pages/fatture/UploadPage'
-
-// Contabilita
-import ScrittureListPage from './pages/contabilita/ScrittureListPage'
-import ScritturaDetailPage from './pages/contabilita/ScritturaDetailPage'
-import PianoContiPage from './pages/contabilita/PianoContiPage'
-import BilancioPage from './pages/contabilita/BilancioPage'
-
-// Fisco
-import FiscoIndexPage from './pages/fisco/FiscoIndexPage'
-import F24Page from './pages/fisco/F24Page'
-import LiquidazionePage from './pages/fisco/LiquidazionePage'
-import RitenutePage from './pages/fisco/RitenutePage'
-import CUPage from './pages/fisco/CUPage'
-import ConservazionePage from './pages/fisco/ConservazionePage'
-import BolloPage from './pages/fisco/BolloPage'
-
-// Banca
-import BankAccountsPage from './pages/banca/BankAccountsPage'
-import MovimentiPage from './pages/banca/MovimentiPage'
-import RiconciliazionePage from './pages/banca/RiconciliazionePage'
-import CashFlowPage from './pages/banca/CashFlowPage'
-
-// Spese
-import SpesePage from './pages/spese/SpesePage'
-
-// Cespiti
-import CespitiPage from './pages/cespiti/CespitiPage'
-
-// CEO
-import CeoDashboardPage from './pages/ceo/CeoDashboardPage'
-import BudgetPage from './pages/ceo/BudgetPage'
-
-// Budget
-import BudgetListPage from './pages/budget/BudgetListPage'
-import BudgetWizardPage from './pages/budget/BudgetWizardPage'
-
-// Chat
-import ChatPage from './pages/chat/ChatPage'
-
-// Agent Config
-import AgentConfigPage from './pages/impostazioni/AgentConfigPage'
-
-// Payroll
-import PayrollPage from './pages/payroll/PayrollPage'
-import GestioneImportPage from './pages/payroll/GestioneImportPage'
-
-// Test
-import ChatTestPage from './pages/ChatTestPage'
+// Lazy-loaded pages (code splitting)
+const OnboardingPage = lazy(() => import('./pages/onboarding/OnboardingPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const HomePage = lazy(() => import('./pages/HomePage'))
+const ScadenzarioPage = lazy(() => import('./pages/ScadenzarioPage'))
+const ReportPage = lazy(() => import('./pages/ReportPage'))
+const ImpostazioniPage = lazy(() => import('./pages/ImpostazioniPage'))
+const PuzzleDashboard = lazy(() => import('./pages/PuzzleDashboard'))
+const CompletenessPage = lazy(() => import('./pages/onboarding/CompletenessPage'))
+const ImportWizardPage = lazy(() => import('./pages/import/ImportWizardPage'))
+const ControllerPage = lazy(() => import('./pages/controller/ControllerPage'))
+const AlertsPage = lazy(() => import('./pages/alerts/AlertsPage'))
+const CorrispettiviPage = lazy(() => import('./pages/corrispettivi/CorrispettiviPage'))
+const RecurringPage = lazy(() => import('./pages/recurring/RecurringPage'))
+const LoansPage = lazy(() => import('./pages/loans/LoansPage'))
+const FattureListPage = lazy(() => import('./pages/fatture/FattureListPage'))
+const FatturaDetailPage = lazy(() => import('./pages/fatture/FatturaDetailPage'))
+const CreateInvoicePage = lazy(() => import('./pages/fatture/CreateInvoicePage'))
+const VerificaPage = lazy(() => import('./pages/fatture/VerificaPage'))
+const UploadPage = lazy(() => import('./pages/fatture/UploadPage'))
+const ScrittureListPage = lazy(() => import('./pages/contabilita/ScrittureListPage'))
+const ScritturaDetailPage = lazy(() => import('./pages/contabilita/ScritturaDetailPage'))
+const PianoContiPage = lazy(() => import('./pages/contabilita/PianoContiPage'))
+const BilancioPage = lazy(() => import('./pages/contabilita/BilancioPage'))
+const FiscoIndexPage = lazy(() => import('./pages/fisco/FiscoIndexPage'))
+const F24Page = lazy(() => import('./pages/fisco/F24Page'))
+const LiquidazionePage = lazy(() => import('./pages/fisco/LiquidazionePage'))
+const RitenutePage = lazy(() => import('./pages/fisco/RitenutePage'))
+const CUPage = lazy(() => import('./pages/fisco/CUPage'))
+const ConservazionePage = lazy(() => import('./pages/fisco/ConservazionePage'))
+const BolloPage = lazy(() => import('./pages/fisco/BolloPage'))
+const BankAccountsPage = lazy(() => import('./pages/banca/BankAccountsPage'))
+const MovimentiPage = lazy(() => import('./pages/banca/MovimentiPage'))
+const RiconciliazionePage = lazy(() => import('./pages/banca/RiconciliazionePage'))
+const CashFlowPage = lazy(() => import('./pages/banca/CashFlowPage'))
+const SpesePage = lazy(() => import('./pages/spese/SpesePage'))
+const CespitiPage = lazy(() => import('./pages/cespiti/CespitiPage'))
+const CeoDashboardPage = lazy(() => import('./pages/ceo/CeoDashboardPage'))
+const BudgetPage = lazy(() => import('./pages/ceo/BudgetPage'))
+const BudgetListPage = lazy(() => import('./pages/budget/BudgetListPage'))
+const BudgetWizardPage = lazy(() => import('./pages/budget/BudgetWizardPage'))
+const ChatPage = lazy(() => import('./pages/chat/ChatPage'))
+const AgentConfigPage = lazy(() => import('./pages/impostazioni/AgentConfigPage'))
+const PayrollPage = lazy(() => import('./pages/payroll/PayrollPage'))
+const GestioneImportPage = lazy(() => import('./pages/payroll/GestioneImportPage'))
+const CrmPipelinePage = lazy(() => import('./pages/crm/CrmPipelinePage'))
+const CrmDealDetailPage = lazy(() => import('./pages/crm/CrmDealDetailPage'))
+const CrmContactsPage = lazy(() => import('./pages/crm/CrmContactsPage'))
+const ChatTestPage = lazy(() => import('./pages/ChatTestPage'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -99,6 +76,8 @@ const queryClient = new QueryClient({
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <OfflineIndicator />
+      <InstallPrompt />
       <BrowserRouter>
         <Routes>
           {/* Public routes */}
@@ -184,6 +163,11 @@ export default function App() {
               <Route path="/corrispettivi" element={<CorrispettiviPage />} />
               <Route path="/contratti" element={<RecurringPage />} />
               <Route path="/finanziamenti" element={<LoansPage />} />
+
+              {/* CRM */}
+              <Route path="/crm" element={<CrmPipelinePage />} />
+              <Route path="/crm/deals/:dealId" element={<CrmDealDetailPage />} />
+              <Route path="/crm/contatti" element={<CrmContactsPage />} />
 
               {/* Test */}
               <Route path="/test/chatbot" element={<ChatTestPage />} />

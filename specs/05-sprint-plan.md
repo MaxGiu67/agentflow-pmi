@@ -9,12 +9,14 @@
 
 ## Sprint Overview
 
-- **Velocity**: 20-24 SP/sprint
+- **Velocity**: 13-16 SP/sprint
 - **Durata Sprint**: 2 settimane
-- **Sprint Totali**: 16 (10 completati + 6 Pivot 5)
-- **SP Totali Progetto**: 365 (224 completati + 141 Pivot 5)
+- **Sprint Totali**: 27 completati
+- **SP Totali Progetto**: ~500 (224 base + 141 Pivot 5 + 72 Pivot 6 + 63 Pivot 7)
 - **v0.1-v0.4 (Sprint 1-10):** 224 SP — COMPLETATO
 - **v0.5-v0.7 (Sprint 11-16):** 141 SP — Pivot 5: Controller Aziendale AI
+- **v0.8 (Sprint 17-22):** 72 SP — Pivot 6: Scadenzario + Finanza Operativa — COMPLETATO
+- **v0.9 (Sprint 23-27):** 63 SP — Pivot 7: CRM Sales + Email Marketing — COMPLETATO
 
 ---
 
@@ -839,5 +841,60 @@ Completare il quadro con contratti ricorrenti, finanziamenti, email commercialis
 **Timeline stimata:** 12 settimane (6 sprint × 2 settimane)
 
 ---
+
+## Pivot 6: Scadenzario + Finanza Operativa (Sprint 17-22) — COMPLETATO
+
+**Stories source:** `specs/03-user-stories-pivot6.md` (US-70 → US-86)
+
+| Sprint | Stories | SP | Focus |
+|--------|---------|-----|-------|
+| Sprint 17 | US-70, US-71, US-84, US-85, US-86 | 12 | IVA netto + modelli DB (Scadenza, BankFacility, InvoiceAdvance) |
+| Sprint 18 | US-72, US-73, US-74 | 15 | Scadenzario attivo/passivo + generazione auto |
+| Sprint 19 | US-75, US-76, US-77 | 16 | Chiusura scadenze + insoluti + cash flow 30/60/90 |
+| Sprint 20 | US-78, US-79 | 10 | Cash flow per banca + config fidi |
+| Sprint 21 | US-80, US-81, US-82 | 16 | Anticipo fatture completo |
+| Sprint 22 | US-83 | 3 | Confronto costi anticipo tra banche |
+| **TOTALE** | **17 stories** | **72** | **75 test PASS** |
+
+---
+
+## Pivot 7: CRM Sales + Email Marketing (Sprint 23-27) — COMPLETATO
+
+**Stories source:** `specs/03-user-stories-pivot7-crm.md` (US-87 → US-99)
+
+| Sprint | Stories | SP | Focus |
+|--------|---------|-----|-------|
+| Sprint 23 | US-87, US-88, US-89, US-99 | 16 | CRM modelli DB + migrazione Odoo→interno |
+| Sprint 24 | US-90, US-91 | 13 | Kanban drag-and-drop + pipeline analytics |
+| Sprint 25 | US-92, US-93, US-94 | 13 | Adapter Brevo + webhook + template email |
+| Sprint 26 | US-95, US-96 | 8 | Invio email singola + dashboard analytics |
+| Sprint 27 | US-97, US-98 | 13 | Sequenze automatiche + trigger CRM |
+| **TOTALE** | **13 stories** | **63** | **67 test PASS** |
+
+---
+
+## Frontend PWA (non sprint-based) — COMPLETATO
+
+| Fase | Cosa | Impatto |
+|------|------|---------|
+| PWA Foundation | manifest, SW, icons, install prompt | App installabile |
+| Responsive | Bottom nav, safe areas, touch targets | Mobile-first |
+| React 19 | Lazy loading, Suspense, useOptimistic | Bundle -66% |
+| Design System | DM Sans, CSS variables, dark mode prep | Identita visiva |
+
+---
+
+## Riepilogo Completo
+
+| Blocco | Sprint | Stories | SP | Test |
+|--------|--------|---------|-----|------|
+| Base (v0.1-v0.4) | 1-10 | 40 | 224 | 369 |
+| Pivot 5 (v0.5-v0.7) | 11-16 | 29 | 146 | ~90 |
+| Pivot 6 (v0.8) | 17-22 | 17 | 72 | 75 |
+| Pivot 7 (v0.9) | 23-27 | 13 | 63 | 67 |
+| **TOTALE** | **27** | **~99** | **~505** | **~601** |
+
+---
+_Sprint Plan aggiornato: 2026-04-03 — Pivot 6+7 completati_
 _Sprint Plan aggiornato post Pivot 5 — 2026-03-29_
 _Sprint Plan generato — 2026-03-22_

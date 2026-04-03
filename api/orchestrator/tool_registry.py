@@ -21,6 +21,7 @@ from api.db.models import (
     JournalEntry,
 )
 from api.modules.dashboard.default_widgets import DEFAULT_WIDGETS
+from api.adapters.odoo_crm import OdooCRMClient
 
 logger = logging.getLogger(__name__)
 
@@ -1187,6 +1188,202 @@ async def crea_budget_handler(
 
 # ============================================================
 # Tool definitions registry
+# ── CRM handlers (Odoo pipeline) ─────────────────────────
+
+
+async def crm_pipeline_summary_handler(
+    db: AsyncSession, tenant_id: uuid.UUID, **kwargs: object,
+) -> dict:
+    """Riepilogo pipeline commerciale da Odoo CRM."""
+    client = OdooCRMClient()
+    if not client.is_configured():
+        return {
+            "error": "CRM Odoo non configurato. Imposta ODOO_URL/DB/USER/API_KEY nel .env"
+        }
+    try:
+        summary = await client.get_pipeline_summary()
+        items = []
+        for stage_name, data in summary.get("by_stage", {}).items():
+            items.append({
+                "fase": stage_name,
+                "deal": data["count"],
+                "valore": f"{data['value']:,.0f} EUR",
+            })
+        return {
+            "message": (
+                f"Pipeline CRM: {summary['total_deals']} deal totali, "
+                f"valore {summary['total_value']:,.0f} EUR"
+            ),
+            "items": items,
+            "content_blocks": [{
+                "type": "table",
+                "title": "Pipeline CRM",
+                "headers": ["Fase", "Deal", "Valore"],
+                "rows": [[i["fase"], str(i["deal"]), i["valore"]] for i in items],
+            }],
+        }
+    except Exception as e:
+        logger.error("CRM pipeline error: %s", e)
+        return {"error": f"Errore connessione Odoo CRM: {e}"}
+
+
+async def crm_list_deals_handler(
+    db: AsyncSession, tenant_id: uuid.UUID, **kwargs: object,
+) -> dict:
+    """Elenca deal dalla pipeline Odoo."""
+    client = OdooCRMClient()
+    if not client.is_configured():
+        return {"error": "CRM Odoo non configurato."}
+    try:
+        from dataclasses import asdict
+        stage = kwargs.get("stage", "") or ""
+        deal_type = kwargs.get("deal_type", "") or ""
+        limit = int(kwargs.get("limit", 20) or 20)
+
+        domain: list = [["type", "=", "opportunity"]]
+        if stage:
+            domain.append(["stage_id.name", "ilike", stage])
+        if deal_type:
+            domain.append(["x_deal_type", "=", deal_type])
+
+        deals = await client.get_deals(domain=domain, limit=limit)
+        items = []
+        for d in deals:
+            items.append({
+                "nome": d.name,
+                "cliente": d.client_name,
+                "fase": d.stage,
+                "tipo": d.deal_type or "N/D",
+                "valore": f"{d.expected_revenue:,.0f} EUR",
+                "tecnologia": d.technology or "",
+            })
+        return {
+            "count": len(items),
+            "items": items,
+            "content_blocks": [{
+                "type": "table",
+                "title": f"Deal CRM ({len(items)})",
+                "headers": ["Nome", "Cliente", "Fase", "Tipo", "Valore", "Tech"],
+                "rows": [[i["nome"], i["cliente"], i["fase"],
+                          i["tipo"], i["valore"], i["tecnologia"]] for i in items],
+            }],
+        }
+    except Exception as e:
+        logger.error("CRM list deals error: %s", e)
+        return {"error": f"Errore: {e}"}
+
+
+async def crm_list_contacts_handler(
+    db: AsyncSession, tenant_id: uuid.UUID, **kwargs: object,
+) -> dict:
+    """Elenca contatti dal CRM Odoo."""
+    client = OdooCRMClient()
+    if not client.is_configured():
+        return {"error": "CRM Odoo non configurato."}
+    try:
+        search = kwargs.get("search", "") or ""
+        limit = int(kwargs.get("limit", 50) or 50)
+        domain: list = [["is_company", "=", True]]
+        if search:
+            domain.append(["name", "ilike", f"%{search}%"])
+        contacts = await client.get_contacts(domain=domain, limit=limit)
+        items = []
+        for c in contacts:
+            items.append({
+                "nome": c.name,
+                "email": c.email,
+                "telefono": c.phone,
+                "piva": c.vat or "",
+                "citta": c.city,
+            })
+        return {
+            "count": len(items),
+            "items": items,
+            "content_blocks": [{
+                "type": "table",
+                "title": f"Contatti CRM ({len(items)})",
+                "headers": ["Nome", "Email", "Telefono", "P.IVA", "Citta"],
+                "rows": [[i["nome"], i["email"], i["telefono"],
+                          i["piva"], i["citta"]] for i in items],
+            }],
+        }
+    except Exception as e:
+        logger.error("CRM list contacts error: %s", e)
+        return {"error": f"Errore: {e}"}
+
+
+async def crm_won_deals_handler(
+    db: AsyncSession, tenant_id: uuid.UUID, **kwargs: object,
+) -> dict:
+    """Deal vinti dal CRM Odoo."""
+    client = OdooCRMClient()
+    if not client.is_configured():
+        return {"error": "CRM Odoo non configurato."}
+    try:
+        since = kwargs.get("since", "") or ""
+        deals = await client.get_won_deals(since_date=since)
+        items = []
+        total_value = 0.0
+        for d in deals:
+            items.append({
+                "nome": d.name,
+                "cliente": d.client_name,
+                "tipo": d.deal_type or "N/D",
+                "valore": f"{d.expected_revenue:,.0f} EUR",
+            })
+            total_value += d.expected_revenue
+        return {
+            "message": f"{len(items)} deal vinti, totale {total_value:,.0f} EUR",
+            "count": len(items),
+            "items": items,
+            "content_blocks": [{
+                "type": "table",
+                "title": f"Deal Vinti ({len(items)})",
+                "headers": ["Nome", "Cliente", "Tipo", "Valore"],
+                "rows": [[i["nome"], i["cliente"], i["tipo"], i["valore"]] for i in items],
+            }],
+        }
+    except Exception as e:
+        logger.error("CRM won deals error: %s", e)
+        return {"error": f"Errore: {e}"}
+
+
+async def crm_pending_orders_handler(
+    db: AsyncSession, tenant_id: uuid.UUID, **kwargs: object,
+) -> dict:
+    """Ordini cliente ricevuti in attesa di conferma."""
+    client = OdooCRMClient()
+    if not client.is_configured():
+        return {"error": "CRM Odoo non configurato."}
+    try:
+        deals = await client.get_pending_orders()
+        items = []
+        for d in deals:
+            items.append({
+                "nome": d.name,
+                "cliente": d.client_name,
+                "tipo_ordine": d.order_type or "N/D",
+                "riferimento": d.order_reference or "",
+                "data": d.order_date or "",
+                "valore": f"{d.expected_revenue:,.0f} EUR",
+            })
+        return {
+            "message": f"{len(items)} ordini in attesa di conferma",
+            "count": len(items),
+            "items": items,
+            "content_blocks": [{
+                "type": "table",
+                "title": f"Ordini da Confermare ({len(items)})",
+                "headers": ["Deal", "Cliente", "Tipo Ordine", "Rif.", "Data", "Valore"],
+                "rows": [[i["nome"], i["cliente"], i["tipo_ordine"],
+                          i["riferimento"], i["data"], i["valore"]] for i in items],
+            }],
+        }
+    except Exception as e:
+        logger.error("CRM pending orders error: %s", e)
+        return {"error": f"Errore: {e}"}
+
+
 # ============================================================
 
 
@@ -1431,6 +1628,70 @@ TOOLS: list[dict] = [
             },
         },
         "handler": crea_budget_handler,
+    },
+    # ── CRM (Odoo pipeline) ──────────────────────────────
+    {
+        "name": "crm_pipeline_summary",
+        "description": (
+            "Mostra il riepilogo della pipeline commerciale CRM: "
+            "deal per fase, valore totale, deal vinti. "
+            "Usa quando l'utente chiede della pipeline, dei deal, "
+            "delle opportunita commerciali, dei clienti prospect."
+        ),
+        "parameters": {"type": "object", "properties": {}},
+        "handler": crm_pipeline_summary_handler,
+    },
+    {
+        "name": "crm_list_deals",
+        "description": (
+            "Elenca i deal/opportunita dalla pipeline CRM Odoo. "
+            "Filtra per fase (es. Qualificazione, Proposta, Vinto) "
+            "o tipo (T&M, fixed, spot, hardware)."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "stage": {"type": "string", "description": "Nome fase pipeline"},
+                "deal_type": {"type": "string", "description": "Tipo deal: T&M, fixed, spot, hardware"},
+                "limit": {"type": "integer", "description": "Numero massimo risultati"},
+            },
+        },
+        "handler": crm_list_deals_handler,
+    },
+    {
+        "name": "crm_list_contacts",
+        "description": (
+            "Elenca i contatti/clienti aziendali dal CRM Odoo. "
+            "Cerca per nome."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "search": {"type": "string", "description": "Ricerca per nome cliente"},
+                "limit": {"type": "integer", "description": "Numero massimo risultati"},
+            },
+        },
+        "handler": crm_list_contacts_handler,
+    },
+    {
+        "name": "crm_won_deals",
+        "description": "Mostra i deal chiusi come vinti, con filtro data opzionale.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "since": {"type": "string", "description": "Data YYYY-MM-DD da cui filtrare"},
+            },
+        },
+        "handler": crm_won_deals_handler,
+    },
+    {
+        "name": "crm_pending_orders",
+        "description": (
+            "Mostra gli ordini cliente ricevuti in attesa di conferma. "
+            "Ordini PO, email, firma Word o portale da confermare."
+        ),
+        "parameters": {"type": "object", "properties": {}},
+        "handler": crm_pending_orders_handler,
     },
 ]
 

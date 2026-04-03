@@ -54,6 +54,12 @@ TOOL_AGENT_MAP: dict[str, str] = {
     "sync_cassetto": "fisco",
     "apertura_conti": "controller",
     "crea_budget": "controller",
+    # CRM (Odoo pipeline)
+    "crm_pipeline_summary": "crm",
+    "crm_list_deals": "crm",
+    "crm_list_contacts": "crm",
+    "crm_won_deals": "crm",
+    "crm_pending_orders": "crm",
 }
 
 
@@ -177,6 +183,41 @@ def keyword_route(message: str) -> list[dict]:
         if time_params.get("year"):
             args["year"] = time_params["year"]
         return [{"tool": "crea_budget", "args": args}]
+
+    # CRM / Pipeline keywords
+    crm_pipeline_keywords = [
+        "pipeline", "deal", "opportunit", "prospect", "commerciale",
+        "pipeline crm", "stato pipeline", "quanti deal", "nuovi deal",
+        "offerte in corso", "trattative",
+    ]
+    if any(k in msg_lower for k in crm_pipeline_keywords):
+        return [{"tool": "crm_pipeline_summary", "args": {}}]
+
+    crm_contacts_keywords = [
+        "contatti crm", "clienti crm", "anagrafica crm", "contatti odoo",
+        "clienti odoo", "lista clienti crm",
+    ]
+    if any(k in msg_lower for k in crm_contacts_keywords):
+        args = {}
+        query = _extract_query(msg_lower)
+        if query:
+            args["search"] = query
+        return [{"tool": "crm_list_contacts", "args": args}]
+
+    crm_won_keywords = [
+        "deal vint", "deal chius", "contratti vint", "contratti chius",
+        "vinto", "deal won",
+    ]
+    if any(k in msg_lower for k in crm_won_keywords):
+        return [{"tool": "crm_won_deals", "args": {}}]
+
+    crm_orders_keywords = [
+        "ordini in attesa", "ordini da confermare", "ordini pendenti",
+        "ordine ricevuto", "ordini ricevuti", "po ricevut",
+        "conferma ordine", "confermare ordini",
+    ]
+    if any(k in msg_lower for k in crm_orders_keywords):
+        return [{"tool": "crm_pending_orders", "args": {}}]
 
     # US-A07: Multi-agent detection — broad questions
     broad_keywords = [

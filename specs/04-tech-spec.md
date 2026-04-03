@@ -23,6 +23,7 @@
 | API Cassetto Fiscale | **FiscoAPI** | F24, dichiarazioni, visure |
 | API Fatturazione SDI | **A-Cube API** | SDI + Open Banking (AISP/PISP) |
 | Open Banking Gateway | **A-Cube / Fabrick (fallback)** | PSD2 AISP lettura conto, PISP pagamenti |
+| CRM Pipeline | **Odoo 18 Online** | Pipeline vendite, contatti, deal — integrato via JSON-RPC (ADR-008) |
 | Infra | **AWS (eu-south-1 Milano)** | Data residency EU/GDPR |
 | CI/CD | **GitHub Actions** | Standard, gratuito |
 | Auth | **OAuth2 + JWT + SPID/CIE** | SPID/CIE per FiscoAPI (v0.1), Google OAuth per login alternativo |
@@ -59,6 +60,16 @@
 - **Decisione:** Un database Odoo separato per tenant, gestito dal database manager di Odoo
 - **Trade-off:** Più risorse server, ma isolamento GDPR totale
 - **Alternativa scartata:** DB condiviso con company_id — troppo rischioso per dati finanziari
+
+### ADR-008: Odoo 18 come CRM esterno (non contabile)
+- **Contesto:** NExadata ha 3 commerciali, 65 risorse, 100 progetti/anno. Serve CRM per pipeline, contatti, deal (T&M, fixed, spot, hardware). La contabilita resta sull'engine interno (ADR-007).
+- **Decisione:** Odoo 18 Online come CRM esterno, integrato via JSON-RPC adapter (`api/adapters/odoo_crm.py`). Nuovo modulo `api/modules/crm/` con 11 endpoint REST.
+- **Keap scartato:** Pensato per e-commerce/marketing automation, non per IT consulting/body rental. Score 2/12 vs Odoo 10/12.
+- **Alternative valutate:** Teamleader (8/12, buono ma meno personalizzabile), Pipedrive (6/12, no T&M nativo), HubSpot (3/12, overkill per 3 utenti).
+- **Costo:** €93/mese (3 utenti). Campi custom Odoo con prefisso `x_` per deal_type, daily_rate, estimated_days, technology, hours_consumed, invoiced_amount.
+- **Integrazione bidirezionale:** Odoo CRM → AgentFlow (pipeline, contatti) + AgentFlow → Odoo (write-back ore e fatturato)
+- **Orchestrator:** 4 tool CRM nel sistema agentico, agente "crm" come settimo agente
+- **Trade-off:** Dipendenza Odoo per CRM, ma l'adapter e astratto e sostituibile
 
 ### ADR-006: A-Cube come provider unico SDI + Open Banking
 - **Contesto:** Serve leggere saldi/movimenti conto corrente per CashFlowAgent e riconciliazione. PSD2 (EU 2015/2366) obbliga le banche a esporre API via AISP/PISP.
@@ -266,10 +277,28 @@ Gestito interamente da Odoo:
 | Crea fattura | `account.move` (type=out_invoice) | XML-RPC / JSON-2 |
 | Liquidazione IVA | `account.vat.period.end.statement` | XML-RPC / JSON-2 |
 
+### API CRM (FastAPI → Odoo 18 JSON-RPC) — 11 Endpoint
+
+| Operazione | Odoo Model | Endpoint AgentFlow |
+|-----------|-----------|-------------------|
+| Lista contatti | `res.partner` | GET /api/v1/crm/contacts |
+| Crea contatto | `res.partner` | POST /api/v1/crm/contacts |
+| Lista deal | `crm.lead` | GET /api/v1/crm/deals |
+| Deal vinti | `crm.lead` (probability=100) | GET /api/v1/crm/deals/won |
+| Dettaglio deal | `crm.lead` | GET /api/v1/crm/deals/{id} |
+| Crea deal | `crm.lead` | POST /api/v1/crm/deals |
+| Aggiorna deal | `crm.lead` | PATCH /api/v1/crm/deals/{id} |
+| Registra ordine cliente | `crm.lead` (x_order_*) | POST /api/v1/crm/deals/{id}/order |
+| Ordini in sospeso | `crm.lead` (stage=Ordine Ricevuto) | GET /api/v1/crm/orders/pending |
+| Conferma ordine | `crm.lead` (x_order_confirmed=True) | POST /api/v1/crm/deals/{id}/order/confirm |
+| Riepilogo pipeline | `crm.lead` + `crm.stage` | GET /api/v1/crm/pipeline/summary |
+| Fasi pipeline | `crm.stage` | GET /api/v1/crm/pipeline/stages |
+
 ### API Esterne
 
 | Servizio | Uso | Frequenza |
 |----------|-----|-----------|
+| **Odoo 18 CRM** | Pipeline vendite, contatti, deal (JSON-RPC) | On-demand (v1.0) |
 | **FiscoAPI** | Scarico fatture cassetto fiscale, F24, dichiarazioni (SPID/CIE) | Giornaliero (v0.1) |
 | **A-Cube SDI** | Ricezione fatture real-time + invio fatture attive | Real-time webhook (v0.2+) |
 | **A-Cube AISP** | Saldi e movimenti conto corrente | Giornaliero + on-demand (v0.3+) |
@@ -305,6 +334,21 @@ Gestito interamente da Odoo:
 - **AISP + PISP** con licenza propria, leader italiano
 - **Copertura:** Tutte le banche italiane via CBI Globe
 - **Pattern:** BankingAdapter astratto → switch senza toccare business logic
+
+### Odoo 18 CRM (ADR-008 — Gestione Ordini Cliente)
+- **Funzionalita:** Pipeline commerciale, contatti aziendali, deal/opportunita, registrazione e conferma ordini cliente
+- **Deploy:** Odoo Online (SaaS) — https://nexadata.odoo.com
+- **Costo:** €93/mese (3 utenti CRM)
+- **API:** JSON-RPC (authenticate → execute), API key da Preferenze > Sicurezza
+- **Adapter:** `api/adapters/odoo_crm.py` — client async con httpx, 18 metodi
+- **Modulo:** `api/modules/crm/` — router (11 endpoint), service, schemas (Pydantic)
+- **Orchestrator:** 4 tool CRM, agente "crm" (settimo agente)
+- **Pipeline Odoo:** Nuovo Lead → Qualificato → Proposta Inviata → Ordine Ricevuto → Confermato
+- **Campi custom (x_):** x_deal_type (T&M/fixed/spot/hardware), x_daily_rate, x_estimated_days, x_technology, x_order_type (PO/email/firma_word/portale), x_order_reference, x_order_date, x_order_notes
+- **Flusso ordine:** POST /deals/{id}/order registra l'ordine ricevuto → GET /orders/pending mostra ordini in sospeso → POST /deals/{id}/order/confirm conferma (dopo conferma, commerciale crea commessa in NExadata)
+- **Rate limit:** ~60 richieste/minuto su Odoo Online
+- **Sicurezza:** API key (non password), webhook con secret validation
+- **Pattern:** Stesso pattern Salt Edge / FiscoAPI (constructor injection, async, httpx)
 
 ---
 
@@ -917,5 +961,223 @@ ALTER TABLE assets ADD COLUMN IF NOT EXISTS
 ```
 
 ---
+
+## Pivot 6: Modelli DB Scadenzario + Finanza (Sprint 17-22)
+
+### Nuove tabelle
+
+```sql
+-- Scadenzario attivo/passivo
+CREATE TABLE scadenze (
+    id UUID PRIMARY KEY, tenant_id UUID NOT NULL,
+    tipo VARCHAR(10) NOT NULL, -- attivo, passivo
+    source_type VARCHAR(20) NOT NULL, -- fattura, stipendio, f24, mutuo, contratto
+    source_id UUID, controparte VARCHAR(255),
+    importo_lordo FLOAT NOT NULL, importo_netto FLOAT NOT NULL, importo_iva FLOAT DEFAULT 0,
+    data_scadenza DATE NOT NULL, data_pagamento DATE,
+    stato VARCHAR(20) DEFAULT 'aperto', -- aperto, pagato, insoluto, parziale
+    importo_pagato FLOAT DEFAULT 0,
+    banca_appoggio_id UUID, anticipata BOOLEAN DEFAULT FALSE, anticipo_id UUID,
+    created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Fidi bancari
+CREATE TABLE bank_facilities (
+    id UUID PRIMARY KEY, tenant_id UUID NOT NULL, bank_account_id UUID NOT NULL,
+    tipo VARCHAR(30) DEFAULT 'anticipo_fatture',
+    plafond FLOAT NOT NULL, percentuale_anticipo FLOAT DEFAULT 80,
+    tasso_interesse_annuo FLOAT DEFAULT 0, commissione_presentazione_pct FLOAT DEFAULT 0,
+    commissione_incasso FLOAT DEFAULT 0, commissione_insoluto FLOAT DEFAULT 0,
+    giorni_max INT DEFAULT 120, attivo BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Anticipo fatture
+CREATE TABLE invoice_advances (
+    id UUID PRIMARY KEY, tenant_id UUID NOT NULL,
+    facility_id UUID NOT NULL, invoice_id UUID NOT NULL,
+    importo_fattura FLOAT NOT NULL, importo_anticipato FLOAT NOT NULL,
+    commissione FLOAT DEFAULT 0, interessi_stimati FLOAT DEFAULT 0, interessi_effettivi FLOAT,
+    data_presentazione DATE NOT NULL, data_scadenza_prevista DATE NOT NULL, data_chiusura DATE,
+    stato VARCHAR(20) DEFAULT 'attivo', -- attivo, incassato, insoluto
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### Nuovi endpoint (12 — modulo scadenzario)
+
+| # | Method | Path | Descrizione |
+|---|--------|------|-------------|
+| E-P6-01 | POST | /scadenzario/generate | Genera scadenze da fatture |
+| E-P6-02 | GET | /scadenzario/attivo | Lista scadenze attive (crediti) |
+| E-P6-03 | GET | /scadenzario/passivo | Lista scadenze passive (debiti) |
+| E-P6-04 | POST | /scadenzario/{id}/chiudi | Chiudi scadenza (full/partial) |
+| E-P6-05 | POST | /scadenzario/{id}/insoluto | Segna insoluto |
+| E-P6-06 | GET | /scadenzario/cash-flow | Cash flow 30/60/90gg |
+| E-P6-07 | GET | /scadenzario/cash-flow/per-banca | Cash flow per banca |
+| E-P6-08 | GET | /scadenzario/{id}/confronta-anticipi | Confronto costi anticipo |
+| E-P6-09 | POST | /scadenzario/{id}/anticipa | Presenta anticipo fattura |
+| E-P6-10 | POST | /anticipi/{id}/incassa | Incassa anticipo |
+| E-P6-11 | POST | /anticipi/{id}/insoluto | Insoluto anticipo |
+| E-P6-12 | GET | /fidi | Lista fidi bancari |
+| E-P6-13 | POST | /fidi | Crea fido bancario |
+
+---
+
+## Pivot 7: CRM Sales + Email Marketing (Sprint 23-27)
+
+### Nuove tabelle CRM
+
+```sql
+CREATE TABLE crm_contacts (
+    id UUID PRIMARY KEY, tenant_id UUID NOT NULL,
+    name VARCHAR(255) NOT NULL, type VARCHAR(20) DEFAULT 'lead',
+    piva VARCHAR(11), codice_fiscale VARCHAR(16), email VARCHAR(255), phone VARCHAR(20),
+    website VARCHAR(255), address VARCHAR(500), city VARCHAR(100), province VARCHAR(2),
+    sector VARCHAR(50), source VARCHAR(50), assigned_to UUID,
+    notes TEXT, email_opt_in BOOLEAN DEFAULT TRUE, last_contact_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE crm_pipeline_stages (
+    id UUID PRIMARY KEY, tenant_id UUID NOT NULL,
+    name VARCHAR(100) NOT NULL, sequence INT NOT NULL,
+    probability_default FLOAT DEFAULT 0, color VARCHAR(7) DEFAULT '#6B7280',
+    is_won BOOLEAN DEFAULT FALSE, is_lost BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE crm_deals (
+    id UUID PRIMARY KEY, tenant_id UUID NOT NULL,
+    contact_id UUID, stage_id UUID, name VARCHAR(300) NOT NULL,
+    deal_type VARCHAR(20), expected_revenue FLOAT DEFAULT 0,
+    daily_rate FLOAT DEFAULT 0, estimated_days FLOAT DEFAULT 0,
+    technology VARCHAR(255), probability FLOAT DEFAULT 10,
+    assigned_to UUID, expected_close_date DATE,
+    order_type VARCHAR(20), order_reference VARCHAR(100), order_date DATE, order_notes TEXT,
+    lost_reason VARCHAR(255),
+    created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE crm_activities (
+    id UUID PRIMARY KEY, tenant_id UUID NOT NULL,
+    deal_id UUID, contact_id UUID, user_id UUID,
+    type VARCHAR(20) NOT NULL, subject VARCHAR(255) NOT NULL,
+    description TEXT, scheduled_at TIMESTAMP, completed_at TIMESTAMP,
+    status VARCHAR(20) DEFAULT 'planned',
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### Nuove tabelle Email
+
+```sql
+CREATE TABLE email_templates (
+    id UUID PRIMARY KEY, tenant_id UUID NOT NULL,
+    name VARCHAR(100) NOT NULL, subject VARCHAR(255) NOT NULL,
+    html_body TEXT NOT NULL, text_body TEXT, variables JSON,
+    category VARCHAR(50) DEFAULT 'followup', active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE email_campaigns (
+    id UUID PRIMARY KEY, tenant_id UUID NOT NULL,
+    name VARCHAR(200) NOT NULL, type VARCHAR(20) DEFAULT 'single',
+    trigger_event VARCHAR(50), trigger_config JSON,
+    status VARCHAR(20) DEFAULT 'draft',
+    stats_sent INT DEFAULT 0, stats_opened INT DEFAULT 0, stats_clicked INT DEFAULT 0, stats_bounced INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE email_sends (
+    id UUID PRIMARY KEY, tenant_id UUID NOT NULL,
+    campaign_id UUID, contact_id UUID, template_id UUID,
+    brevo_message_id VARCHAR(200), subject_sent VARCHAR(255) NOT NULL,
+    to_email VARCHAR(255) NOT NULL, to_name VARCHAR(255),
+    sent_at TIMESTAMP DEFAULT NOW(), status VARCHAR(20) DEFAULT 'sent',
+    opened_at TIMESTAMP, clicked_at TIMESTAMP,
+    open_count INT DEFAULT 0, click_count INT DEFAULT 0
+);
+
+CREATE TABLE email_events (
+    id UUID PRIMARY KEY, send_id UUID NOT NULL,
+    event_type VARCHAR(20) NOT NULL, url_clicked VARCHAR(500),
+    ip_address VARCHAR(45), user_agent VARCHAR(500),
+    timestamp TIMESTAMP NOT NULL, raw_payload JSON,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE email_sequence_steps (
+    id UUID PRIMARY KEY, campaign_id UUID NOT NULL,
+    step_order INT DEFAULT 1, template_id UUID NOT NULL,
+    delay_days INT DEFAULT 0, delay_hours INT DEFAULT 0,
+    condition_type VARCHAR(30) DEFAULT 'none',
+    condition_link VARCHAR(500), skip_if_replied BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE email_sequence_enrollments (
+    id UUID PRIMARY KEY, tenant_id UUID NOT NULL,
+    campaign_id UUID NOT NULL, contact_id UUID NOT NULL,
+    current_step INT DEFAULT 0, status VARCHAR(20) DEFAULT 'active',
+    next_send_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### Nuovi endpoint CRM (15+)
+
+| # | Method | Path | Descrizione |
+|---|--------|------|-------------|
+| E-P7-01 | GET | /crm/contacts | Lista contatti con ricerca/filtri |
+| E-P7-02 | POST | /crm/contacts | Crea contatto |
+| E-P7-03 | PATCH | /crm/contacts/{id} | Aggiorna contatto |
+| E-P7-04 | DELETE | /crm/contacts/{id} | Elimina contatto |
+| E-P7-05 | GET | /crm/deals | Lista deal con filtri |
+| E-P7-06 | POST | /crm/deals | Crea deal |
+| E-P7-07 | PATCH | /crm/deals/{id} | Aggiorna deal (drag-drop stage) |
+| E-P7-08 | GET | /crm/deals/{id} | Dettaglio deal |
+| E-P7-09 | GET | /crm/deals/won | Deal vinti |
+| E-P7-10 | POST | /crm/deals/{id}/order | Registra ordine |
+| E-P7-11 | GET | /crm/orders/pending | Ordini da confermare |
+| E-P7-12 | POST | /crm/deals/{id}/order/confirm | Conferma ordine |
+| E-P7-13 | GET | /crm/pipeline/summary | Riepilogo pipeline |
+| E-P7-14 | GET | /crm/pipeline/analytics | Analytics (weighted, conversion, won/lost) |
+| E-P7-15 | GET | /crm/pipeline/stages | Stadi pipeline |
+| E-P7-16 | GET | /crm/activities | Lista attivita |
+| E-P7-17 | POST | /crm/activities | Crea attivita |
+| E-P7-18 | POST | /crm/activities/{id}/complete | Completa attivita |
+
+### Nuovi endpoint Email (10)
+
+| # | Method | Path | Descrizione |
+|---|--------|------|-------------|
+| E-P7-19 | GET | /email/templates | Lista template |
+| E-P7-20 | POST | /email/templates | Crea template |
+| E-P7-21 | GET | /email/templates/{id} | Dettaglio template |
+| E-P7-22 | PATCH | /email/templates/{id} | Aggiorna template |
+| E-P7-23 | POST | /email/templates/{id}/preview | Preview con dati |
+| E-P7-24 | POST | /email/send | Invia email |
+| E-P7-25 | GET | /email/sends | Storico invii |
+| E-P7-26 | GET | /email/stats | Stats base |
+| E-P7-27 | GET | /email/analytics | Analytics avanzate |
+| E-P7-28 | POST | /email/webhook | Webhook Brevo (no auth) |
+| E-P7-29 | POST | /email/sequences | Crea sequenza |
+| E-P7-30 | POST | /email/sequences/{id}/steps | Aggiungi step |
+| E-P7-31 | GET | /email/sequences/{id}/steps | Lista step |
+| E-P7-32 | POST | /email/sequences/{id}/enroll | Enrollment contatto |
+
+### Adapter Brevo
+
+```
+api/adapters/brevo.py
+- BrevoClient (async httpx)
+- send_email(to, subject, html, params) → messageId
+- Variable substitution: {{nome}} → valore
+- Auth: api-key header
+- Rate limit: 400/ora (Starter)
+```
+
+---
+_Tech Spec aggiornata: 2026-04-03 — Pivot 6+7 (32 endpoint, 10 tabelle, Brevo adapter)_
 _Tech Spec aggiornata post Pivot 5: Controller Aziendale AI — 2026-03-29_
-_Tech Spec aggiornata post review v3 — 2026-03-22_

@@ -74,6 +74,13 @@ class LoanSummary(BaseModel):
     totale_annuo: float = 0.0
 
 
+class IvaNettaSummary(BaseModel):
+    """IVA netta summary (US-70 AC-70.5)."""
+    iva_debito: float = 0.0
+    iva_credito: float = 0.0
+    saldo: float = 0.0
+
+
 class YearlyStats(BaseModel):
     """Complete yearly statistics for the dashboard."""
     year: int
@@ -86,6 +93,7 @@ class YearlyStats(BaseModel):
     ricavi_totali: float = 0.0
     costi_totali: float = 0.0
     margine_lordo: float = 0.0
+    iva_netta: IvaNettaSummary = IvaNettaSummary()
     top_clienti: list[TopEntity] = []
     top_fornitori: list[TopEntity] = []
     fatture_per_mese: list[MonthlyBreakdown] = []

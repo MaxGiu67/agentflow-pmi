@@ -758,6 +758,284 @@ class BudgetMeta(Base):
 
 
 # ============================================================
+# Pivot 6: US-84 — Scadenzario Attivo/Passivo
+# ============================================================
+
+
+class Scadenza(Base):
+    """Payment deadline from invoices, payroll, loans, contracts (US-84)."""
+    __tablename__ = "scadenze"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    tipo: Mapped[str] = mapped_column(String(10), nullable=False)  # attivo, passivo
+    source_type: Mapped[str] = mapped_column(String(20), nullable=False)  # fattura, stipendio, f24, mutuo, contratto
+    source_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    controparte: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    importo_lordo: Mapped[float] = mapped_column(Float, nullable=False)
+    importo_netto: Mapped[float] = mapped_column(Float, nullable=False)
+    importo_iva: Mapped[float] = mapped_column(Float, default=0.0)
+    data_scadenza: Mapped[date] = mapped_column(Date, nullable=False)
+    data_pagamento: Mapped[date | None] = mapped_column(Date, nullable=True)
+    stato: Mapped[str] = mapped_column(String(20), default="aperto")  # aperto, pagato, insoluto, parziale
+    importo_pagato: Mapped[float] = mapped_column(Float, default=0.0)
+    banca_appoggio_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # FK BankAccount
+    anticipata: Mapped[bool] = mapped_column(Boolean, default=False)
+    anticipo_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # FK InvoiceAdvance (future)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# ============================================================
+# Pivot 6: US-85 — Fidi Bancari
+# ============================================================
+
+
+class BankFacility(Base):
+    """Bank credit facility for invoice advances (US-85)."""
+    __tablename__ = "bank_facilities"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    bank_account_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)  # FK BankAccount
+    tipo: Mapped[str] = mapped_column(String(30), nullable=False, default="anticipo_fatture")  # anticipo_fatture, sbf, riba
+    plafond: Mapped[float] = mapped_column(Float, nullable=False)
+    percentuale_anticipo: Mapped[float] = mapped_column(Float, nullable=False, default=80.0)  # % of invoice
+    tasso_interesse_annuo: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    commissione_presentazione_pct: Mapped[float] = mapped_column(Float, default=0.0)
+    commissione_incasso: Mapped[float] = mapped_column(Float, default=0.0)  # EUR per invoice
+    commissione_insoluto: Mapped[float] = mapped_column(Float, default=0.0)  # EUR per insoluto
+    giorni_max: Mapped[int] = mapped_column(Integer, default=120)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# ============================================================
+# Pivot 6: US-86 — Anticipo Fatture
+# ============================================================
+
+
+class InvoiceAdvance(Base):
+    """Single invoice advance tracking (US-86)."""
+    __tablename__ = "invoice_advances"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    facility_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)  # FK BankFacility
+    invoice_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)  # FK Invoice
+    importo_fattura: Mapped[float] = mapped_column(Float, nullable=False)
+    importo_anticipato: Mapped[float] = mapped_column(Float, nullable=False)
+    commissione: Mapped[float] = mapped_column(Float, default=0.0)
+    interessi_stimati: Mapped[float] = mapped_column(Float, default=0.0)
+    interessi_effettivi: Mapped[float | None] = mapped_column(Float, nullable=True)
+    data_presentazione: Mapped[date] = mapped_column(Date, nullable=False)
+    data_scadenza_prevista: Mapped[date] = mapped_column(Date, nullable=False)
+    data_chiusura: Mapped[date | None] = mapped_column(Date, nullable=True)
+    stato: Mapped[str] = mapped_column(String(20), default="attivo")  # attivo, incassato, insoluto
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# ============================================================
+# Pivot 7: US-87/88/89 — CRM Interno
+# ============================================================
+
+
+class CrmContact(Base):
+    """CRM contact (azienda cliente/lead/prospect) — US-87."""
+    __tablename__ = "crm_contacts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    type: Mapped[str] = mapped_column(String(20), default="lead")  # lead, prospect, cliente, ex_cliente
+    piva: Mapped[str | None] = mapped_column(String(11), nullable=True)
+    codice_fiscale: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    website: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    province: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    sector: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    source: Mapped[str | None] = mapped_column(String(50), nullable=True)  # web, referral, evento, cold
+    assigned_to: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    email_opt_in: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_contact_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class CrmPipelineStage(Base):
+    """CRM pipeline stage — US-88."""
+    __tablename__ = "crm_pipeline_stages"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    probability_default: Mapped[float] = mapped_column(Float, default=0.0)
+    color: Mapped[str] = mapped_column(String(7), default="#6B7280")
+    is_won: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_lost: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class CrmDeal(Base):
+    """CRM deal/opportunity — US-88."""
+    __tablename__ = "crm_deals"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    stage_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    name: Mapped[str] = mapped_column(String(300), nullable=False)
+    deal_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # T&M, fixed, spot, hardware
+    expected_revenue: Mapped[float] = mapped_column(Float, default=0.0)
+    daily_rate: Mapped[float] = mapped_column(Float, default=0.0)
+    estimated_days: Mapped[float] = mapped_column(Float, default=0.0)
+    technology: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    probability: Mapped[float] = mapped_column(Float, default=10.0)
+    assigned_to: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    expected_close_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    order_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    order_reference: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    order_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    order_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    lost_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class CrmActivity(Base):
+    """CRM activity (call, email, meeting, note) — US-89."""
+    __tablename__ = "crm_activities"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    deal_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    type: Mapped[str] = mapped_column(String(20), nullable=False)  # call, email, meeting, note, task
+    subject: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    scheduled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="planned")  # planned, completed, cancelled
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+# ============================================================
+# Pivot 7: US-92/93/94 — Email Marketing (Brevo)
+# ============================================================
+
+
+class EmailTemplate(Base):
+    """Email template with variables — US-94."""
+    __tablename__ = "email_templates"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    subject: Mapped[str] = mapped_column(String(255), nullable=False)
+    html_body: Mapped[str] = mapped_column(Text, nullable=False)
+    text_body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    variables: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    category: Mapped[str] = mapped_column(String(50), default="followup")  # welcome, followup, proposal, reminder, nurture
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class EmailCampaign(Base):
+    """Email campaign (single/sequence/trigger) — US-97."""
+    __tablename__ = "email_campaigns"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    type: Mapped[str] = mapped_column(String(20), default="single")  # single, sequence, trigger
+    trigger_event: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    trigger_config: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft, active, paused, completed
+    stats_sent: Mapped[int] = mapped_column(Integer, default=0)
+    stats_opened: Mapped[int] = mapped_column(Integer, default=0)
+    stats_clicked: Mapped[int] = mapped_column(Integer, default=0)
+    stats_bounced: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class EmailSend(Base):
+    """Single email send with tracking — US-93/95."""
+    __tablename__ = "email_sends"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    campaign_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    template_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    brevo_message_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    subject_sent: Mapped[str] = mapped_column(String(255), nullable=False)
+    to_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    to_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    sent_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    status: Mapped[str] = mapped_column(String(20), default="sent")  # queued, sent, delivered, opened, clicked, bounced, failed
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    clicked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    open_count: Mapped[int] = mapped_column(Integer, default=0)
+    click_count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class EmailEvent(Base):
+    """Email tracking event from Brevo webhook — US-93."""
+    __tablename__ = "email_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    send_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(20), nullable=False)  # delivered, opened, clicked, hard_bounce, soft_bounce, unsubscribed, spam
+    url_clicked: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    raw_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class EmailSequenceStep(Base):
+    """Step in an email sequence — US-97."""
+    __tablename__ = "email_sequence_steps"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    campaign_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    step_order: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    template_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    delay_days: Mapped[int] = mapped_column(Integer, default=0)
+    delay_hours: Mapped[int] = mapped_column(Integer, default=0)
+    condition_type: Mapped[str] = mapped_column(String(30), default="none")  # none, if_opened, if_not_opened, if_clicked
+    condition_link: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    skip_if_replied: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class EmailSequenceEnrollment(Base):
+    """Enrollment of a contact in a sequence — US-97/98."""
+    __tablename__ = "email_sequence_enrollments"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    campaign_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    contact_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    current_step: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active, completed, paused, cancelled
+    next_send_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# ============================================================
 # Sprint 11: US-A01/A02/A04 — Agentic System (Chat, Orchestrator)
 # ============================================================
 

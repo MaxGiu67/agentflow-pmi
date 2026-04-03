@@ -147,15 +147,25 @@ Il mercato della gestione contabile per PMI italiane è saturo di soluzioni trad
 | H5 | Gestione presenze base (ferie, permessi, malattia) | v1.5 | Necessario per calcolo costi per commessa |
 | H6 | Integrazione buste paga (import da Zucchetti/TeamSystem) | v1.5 | Il calcolo buste paga resta al provider specializzato |
 
-### EPIC 11: Gestione Commerciale — CRM Base (v1.0)
+### EPIC 11: Gestione Ordini Cliente — CRM via Odoo 18 (v1.0) ✅ INTEGRAZIONE COMPLETATA
 
-| # | Requisito | Priorità | Giustificazione |
-|---|-----------|----------|-----------------|
-| V1 | Anagrafica clienti e fornitori arricchita (contatti, settore, note, storico) | v1.0 | CRM base, collega vendite a fatturazione |
-| V2 | Pipeline vendite (opportunità → trattativa → preventivo → ordine → fattura) | v1.0 | Il CEO vede il futuro, non solo il passato |
-| V3 | Generazione preventivi da template | v1.0 | Conversione preventivo → fattura automatica |
-| V4 | Dashboard commerciale (pipeline, win rate, tempo chiusura) | v1.0 | Visibilità sul motore di fatturato |
-| V5 | Contratti attivi e scadenzario rinnovi | v1.5 | Alert pre-scadenza 30/60/90 giorni |
+**Strategia (ADR-008 — Aggiornato):** CRM delegato a Odoo 18 Online (€93/mese, 3 utenti) per il ciclo pre-vendita: pipeline → offerta → ordine cliente → conferma. Dopo conferma, il commerciale crea la "commessa" nel sistema proprietario NExadata. Keap scartato (e-commerce oriented, inadeguato per IT consulting/body rental/T&M).
+
+**Pipeline CRM:** Nuovo Lead → Qualificato → Proposta Inviata → Ordine Ricevuto → Confermato
+
+| # | Requisito | Priorità | Status | Giustificazione |
+|---|-----------|----------|--------|-----------------|
+| V1 | Anagrafica clienti e fornitori da Odoo (res.partner) | v1.0 | ✅ Implementato | Adapter + REST endpoint + tool orchestrator |
+| V2 | Pipeline vendite da Odoo (crm.lead con fasi personalizzate) | v1.0 | ✅ Implementato | 11 endpoint REST, 4 tool agente "crm" |
+| V3 | Campi custom NExadata (x_deal_type, x_daily_rate, x_technology) | v1.0 | ✅ Implementato | T&M/fixed/spot/hardware — modello business NExadata |
+| V4 | Dashboard commerciale (pipeline summary, deal per fase, valore) | v1.0 | ✅ Implementato | Tool crm_pipeline_summary nell'orchestrator |
+| V5 | Registrazione ordine cliente (POST /deals/{id}/order) | v1.0 | ✅ Implementato | Tipi: PO, email, firma_word, portale. Campi: x_order_type, x_order_reference, x_order_date, x_order_notes |
+| V6 | Conferma ordine e passaggio a commessa NExadata (POST /deals/{id}/order/confirm) | v1.0 | ✅ Implementato | Ordini in sospeso su GET /orders/pending |
+| V7 | Webhook deal vinto → creazione progetto timesheet | v1.0 | 🔜 Prossimo | Odoo Automated Actions → /webhook/deal-won |
+| V8 | Contratti attivi e scadenzario rinnovi | v1.5 | — | Alert pre-scadenza 30/60/90 giorni |
+
+**Multi-Tenant Potential (2026-04-02):**
+L'integrazione CRM via Odoo non è solo interna a NExadata. AgentFlow PMI è progettato per supportare client deployments: 4-5 clienti di NExadata sono gia interessati ad usare AgentFlow PMI + Odoo CRM integrato. La soluzione è pronta per multi-tenancy: ogni cliente può avere una propria istanza Odoo (o un database separato) mentre AgentFlow rimane centralizzato con tenant routing. Questo apre un nuovo revenue stream: NExadata può offrire AgentFlow PMI + Odoo CRM come bundle ai propri clienti di consulting IT.
 
 ### EPIC 12: Gestione Progetti e Commesse (v1.5)
 
@@ -514,5 +524,63 @@ AgentFlow non sostituisce il programma di contabilita — lo affianca. Non e' ri
 4. **Import da caos** — Migration wizard critico: l'utente viene da Excel/carta.
 
 ---
-_Aggiornato con Pivot 5: Controller Aziendale AI — 2026-03-29_
-_Aggiornato con analisi gap CEO — 2026-03-22_
+
+## EPIC 13: Finanza Operativa — Scadenzario e Cash Flow (Pivot 6)
+
+| # | Requisito | Priorita |
+|---|-----------|----------|
+| F1 | IVA scorporata — tutti i KPI dashboard/budget usano importo_netto | Must |
+| F2 | Scadenzario attivo/passivo generato automaticamente da fatture | Must |
+| F3 | Cash flow previsionale 30/60/90gg (saldo + incassi - pagamenti) | Must |
+| F4 | Gestione fidi bancari per banca (plafond, tasso, commissioni) | Should |
+| F5 | Anticipo fatture con lifecycle completo (presentazione → incasso/insoluto) | Should |
+| F6 | Confronto costi anticipo tra banche | Could |
+
+**Modelli DB:** Scadenza, BankFacility, InvoiceAdvance
+**Stories:** US-70 → US-86 (17 stories, 72 SP)
+
+## EPIC 14: CRM Sales — Pipeline e Ordini Cliente (Pivot 7)
+
+| # | Requisito | Priorita |
+|---|-----------|----------|
+| S1 | CRM interno PostgreSQL (contatti, deal, stage, attivita) — no Odoo | Must |
+| S2 | Pipeline Kanban drag-and-drop con 6 stadi configurabili | Must |
+| S3 | Deal type: T&M, fixed, spot, hardware (con daily_rate x days) | Must |
+| S4 | Ordini cliente: 4 tipi (PO, email, firma_word, portale) | Must |
+| S5 | Pipeline analytics: weighted value, conversion, won/lost ratio | Should |
+| S6 | Attivita CRM: call, email, meeting, note, task con storico | Should |
+
+**Modelli DB:** CrmContact, CrmPipelineStage, CrmDeal, CrmActivity
+**Stories:** US-87 → US-91, US-99 (6 stories, 29 SP)
+**ADR-009:** Keap scartato, Odoo declassato a opzionale
+
+## EPIC 15: Email Marketing con Brevo (Pivot 7)
+
+| # | Requisito | Priorita |
+|---|-----------|----------|
+| E1 | Adapter Brevo per invio email con variable substitution | Must |
+| E2 | Webhook tracking: open, click, bounce, unsubscribe, spam | Must |
+| E3 | Template email con variabili {{nome}}, {{azienda}}, {{deal_name}} | Must |
+| E4 | Invio email singola da dettaglio contatto/deal | Must |
+| E5 | Dashboard email analytics: open/click/bounce rate, breakdown, top contacts | Should |
+| E6 | Sequenze email multi-step con condizioni (if_opened, if_not_opened) | Should |
+| E7 | Trigger automatici su eventi CRM (deal_stage_changed, contact_created) | Should |
+
+**Modelli DB:** EmailTemplate, EmailCampaign, EmailSend, EmailEvent, EmailSequenceStep, EmailSequenceEnrollment
+**Stories:** US-92 → US-98 (7 stories, 34 SP)
+**Infrastruttura:** Brevo 25 EUR/mese — pattern build logic / buy infrastructure
+
+## EPIC 16: Frontend PWA (2026-04-03)
+
+| # | Requisito | Priorita |
+|---|-----------|----------|
+| P1 | PWA installabile (manifest, service worker, icons) | Must |
+| P2 | Code splitting React.lazy (riduzione bundle -66%) | Must |
+| P3 | Bottom nav mobile (5 tab) + safe areas iOS | Must |
+| P4 | Skeleton loading + ErrorBoundary | Must |
+| P5 | Design system: DM Sans, CSS variables, dark mode prep | Should |
+| P6 | useOptimistic per Kanban drag-and-drop | Should |
+
+---
+_Aggiornato: 2026-04-03 — Pivot 6+7 (EPIC 13-16)_
+_Aggiornato: 2026-03-29 — Pivot 5: Controller Aziendale AI_
