@@ -17,6 +17,9 @@ import {
   Target,
   CreditCard,
   Briefcase,
+  Mail,
+  Zap,
+  Shield,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
@@ -60,6 +63,9 @@ const navSections: NavSection[] = [
     items: [
       { to: '/crm', label: 'Pipeline CRM', icon: Briefcase },
       { to: '/crm/contatti', label: 'Contatti', icon: Users },
+      { to: '/email/templates', label: 'Email Template', icon: Mail },
+      { to: '/email/sequenze', label: 'Sequenze', icon: Zap },
+      { to: '/email/analytics', label: 'Email Stats', icon: BarChart3 },
     ],
   },
   {
@@ -67,6 +73,7 @@ const navSections: NavSection[] = [
     items: [
       { to: '/import', label: 'Import', icon: Upload },
       { to: '/scadenze', label: 'Scadenzario', icon: CalendarClock },
+      { to: '/banca/fidi', label: 'Fidi Bancari', icon: Shield },
       { to: '/fisco', label: 'Fisco', icon: Calculator },
     ],
   },

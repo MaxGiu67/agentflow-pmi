@@ -1057,3 +1057,183 @@ export function useConfirmOrder() {
     },
   })
 }
+
+// ── Scadenzario ──
+
+export function useScadenzarioAttivo(stato?: string, controparte?: string) {
+  const params = new URLSearchParams()
+  if (stato) params.set('stato', stato)
+  if (controparte) params.set('controparte', controparte)
+  return useQuery({
+    queryKey: ['scadenzario-attivo', stato, controparte],
+    queryFn: () => api.get(`/scadenzario/attivo?${params}`).then((r) => r.data),
+  })
+}
+
+export function useScadenzarioPassivo(stato?: string, controparte?: string) {
+  const params = new URLSearchParams()
+  if (stato) params.set('stato', stato)
+  if (controparte) params.set('controparte', controparte)
+  return useQuery({
+    queryKey: ['scadenzario-passivo', stato, controparte],
+    queryFn: () => api.get(`/scadenzario/passivo?${params}`).then((r) => r.data),
+  })
+}
+
+export function useGenerateScadenze() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post('/scadenzario/generate').then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['scadenzario-attivo'] })
+      qc.invalidateQueries({ queryKey: ['scadenzario-passivo'] })
+    },
+  })
+}
+
+export function useChiudiScadenza() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; importo_pagato: number; data_pagamento: string }) =>
+      api.post(`/scadenzario/${id}/chiudi`, data).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['scadenzario-attivo'] })
+      qc.invalidateQueries({ queryKey: ['scadenzario-passivo'] })
+    },
+  })
+}
+
+export function useSegnaInsoluto() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/scadenzario/${id}/insoluto`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['scadenzario-attivo'] }),
+  })
+}
+
+export function useCashFlow(giorni: number = 30) {
+  return useQuery({
+    queryKey: ['cash-flow-scadenzario', giorni],
+    queryFn: () => api.get(`/scadenzario/cash-flow?giorni=${giorni}`).then((r) => r.data),
+  })
+}
+
+export function useCashFlowPerBanca(giorni: number = 30) {
+  return useQuery({
+    queryKey: ['cash-flow-per-banca', giorni],
+    queryFn: () => api.get(`/scadenzario/cash-flow/per-banca?giorni=${giorni}`).then((r) => r.data),
+  })
+}
+
+// ── Email Marketing ──
+
+export function useEmailTemplates() {
+  return useQuery({
+    queryKey: ['email-templates'],
+    queryFn: () => api.get('/email/templates').then((r) => r.data),
+  })
+}
+
+export function useEmailTemplate(id: string) {
+  return useQuery({
+    queryKey: ['email-template', id],
+    queryFn: () => api.get(`/email/templates/${id}`).then((r) => r.data),
+    enabled: !!id,
+  })
+}
+
+export function useCreateEmailTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/email/templates', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['email-templates'] }),
+  })
+}
+
+export function useUpdateEmailTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) =>
+      api.patch(`/email/templates/${id}`, data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['email-templates'] }),
+  })
+}
+
+export function usePreviewTemplate() {
+  return useMutation({
+    mutationFn: ({ id, params }: { id: string; params: Record<string, string> }) =>
+      api.post(`/email/templates/${id}/preview`, { params }).then((r) => r.data),
+  })
+}
+
+export function useSendEmail() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/email/send', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['email-sends'] }),
+  })
+}
+
+export function useEmailSends(contactId?: string) {
+  const params = contactId ? `?contact_id=${contactId}` : ''
+  return useQuery({
+    queryKey: ['email-sends', contactId],
+    queryFn: () => api.get(`/email/sends${params}`).then((r) => r.data),
+  })
+}
+
+export function useEmailAnalytics() {
+  return useQuery({
+    queryKey: ['email-analytics'],
+    queryFn: () => api.get('/email/analytics').then((r) => r.data),
+  })
+}
+
+export function useEmailSequences() {
+  return useQuery({
+    queryKey: ['email-sequences'],
+    queryFn: () => api.get('/email/sequences').then((r) => r.data).catch(() => []),
+  })
+}
+
+export function useCreateSequence() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/email/sequences', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['email-sequences'] }),
+  })
+}
+
+export function useFidi() {
+  return useQuery({
+    queryKey: ['fidi'],
+    queryFn: () => api.get('/fidi').then((r) => r.data),
+  })
+}
+
+export function useCreateFido() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/fidi', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fidi'] }),
+  })
+}
+
+export function useAnticipaFattura() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (scadenzaId: string) => api.post(`/scadenzario/${scadenzaId}/anticipa`).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['scadenzario-attivo'] })
+      qc.invalidateQueries({ queryKey: ['fidi'] })
+    },
+  })
+}
+
+export function useConfrontaAnticipo(scadenzaId: string) {
+  return useQuery({
+    queryKey: ['confronta-anticipo', scadenzaId],
+    queryFn: () => api.get(`/scadenzario/${scadenzaId}/confronta-anticipi`).then((r) => r.data),
+    enabled: !!scadenzaId,
+  })
+}

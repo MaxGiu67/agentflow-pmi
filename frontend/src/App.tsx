@@ -62,6 +62,10 @@ const GestioneImportPage = lazy(() => import('./pages/payroll/GestioneImportPage
 const CrmPipelinePage = lazy(() => import('./pages/crm/CrmPipelinePage'))
 const CrmDealDetailPage = lazy(() => import('./pages/crm/CrmDealDetailPage'))
 const CrmContactsPage = lazy(() => import('./pages/crm/CrmContactsPage'))
+const EmailTemplatesPage = lazy(() => import('./pages/email/EmailTemplatesPage'))
+const EmailAnalyticsPage = lazy(() => import('./pages/email/EmailAnalyticsPage'))
+const EmailSequencesPage = lazy(() => import('./pages/email/EmailSequencesPage'))
+const FidiPage = lazy(() => import('./pages/banca/FidiPage'))
 const ChatTestPage = lazy(() => import('./pages/ChatTestPage'))
 
 const queryClient = new QueryClient({
@@ -124,6 +128,7 @@ export default function App() {
               <Route path="/banca/movimenti/:accountId" element={<MovimentiPage />} />
               <Route path="/banca/riconciliazione" element={<RiconciliazionePage />} />
               <Route path="/banca/cashflow" element={<CashFlowPage />} />
+              <Route path="/banca/fidi" element={<FidiPage />} />
 
               {/* Scadenzario */}
               <Route path="/scadenze" element={<ScadenzarioPage />} />
@@ -168,6 +173,11 @@ export default function App() {
               <Route path="/crm" element={<CrmPipelinePage />} />
               <Route path="/crm/deals/:dealId" element={<CrmDealDetailPage />} />
               <Route path="/crm/contatti" element={<CrmContactsPage />} />
+
+              {/* Email Marketing */}
+              <Route path="/email/templates" element={<EmailTemplatesPage />} />
+              <Route path="/email/analytics" element={<EmailAnalyticsPage />} />
+              <Route path="/email/sequenze" element={<EmailSequencesPage />} />
 
               {/* Test */}
               <Route path="/test/chatbot" element={<ChatTestPage />} />
