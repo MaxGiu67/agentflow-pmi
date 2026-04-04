@@ -75,6 +75,17 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE assets ADD COLUMN IF NOT EXISTS source VARCHAR(20) DEFAULT 'manual'",
             "ALTER TABLE assets ADD COLUMN IF NOT EXISTS detected_from_invoice_id UUID",
             "ALTER TABLE budgets ADD COLUMN IF NOT EXISTS label VARCHAR(200)",
+            # Pivot 9: User management columns
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS sender_email VARCHAR(255)",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS sender_name VARCHAR(255)",
+            # Pivot 7: Tenant email config
+            "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS sender_email VARCHAR(255)",
+            "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS sender_name VARCHAR(255)",
+            "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS sender_domain VARCHAR(100)",
+            "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS email_quota_monthly INTEGER DEFAULT 5000",
+            "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS email_sent_month INTEGER DEFAULT 0",
+            "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS email_month_reset VARCHAR(7)",
         ]:
             try:
                 await conn.execute(text(stmt))
