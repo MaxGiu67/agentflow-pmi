@@ -67,6 +67,7 @@ const CrmContactsPage = lazy(() => import('./pages/crm/CrmContactsPage'))
 const EmailTemplatesPage = lazy(() => import('./pages/email/EmailTemplatesPage'))
 const EmailAnalyticsPage = lazy(() => import('./pages/email/EmailAnalyticsPage'))
 const EmailSequencesPage = lazy(() => import('./pages/email/EmailSequencesPage'))
+const EmailBuilderPage = lazy(() => import('./pages/email/EmailBuilderPage'))
 const FidiPage = lazy(() => import('./pages/banca/FidiPage'))
 const UsersPage = lazy(() => import('./pages/impostazioni/UsersPage'))
 const IntegrazioniPage = lazy(() => import('./pages/impostazioni/IntegrazioniPage'))
@@ -187,6 +188,7 @@ export default function App() {
               <Route path="/email/templates" element={<EmailTemplatesPage />} />
               <Route path="/email/analytics" element={<EmailAnalyticsPage />} />
               <Route path="/email/sequenze" element={<EmailSequencesPage />} />
+              <Route path="/email/builder" element={<EmailBuilderPage />} />
 
               {/* Test */}
               <Route path="/test/chatbot" element={<ChatTestPage />} />
