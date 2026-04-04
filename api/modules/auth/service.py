@@ -58,23 +58,31 @@ class AuthService:
         result = await self.db.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
 
-    async def register(self, email: str, password: str, name: str | None = None) -> User:
-        """Registra un nuovo utente e invia email di verifica.
+    async def register(
+        self, email: str, password: str, name: str | None = None,
+        azienda_nome: str | None = None, azienda_tipo: str | None = None,
+        azienda_piva: str | None = None, regime_fiscale: str | None = None,
+    ) -> User:
+        """Registra un nuovo utente, crea il tenant (azienda) e invia email di verifica."""
+        from api.db.models import Tenant
 
-        Args:
-            email: Indirizzo email dell'utente.
-            password: Password in chiaro (verra hashata).
-            name: Nome opzionale dell'utente.
-
-        Returns:
-            L'oggetto User creato.
-
-        Raises:
-            ValueError: Se l'email e gia registrata.
-        """
         existing = await self._get_user_by_email(email)
         if existing:
             raise ValueError("Email gia registrata")
+
+        # Create tenant if company info provided
+        tenant_id = None
+        if azienda_nome:
+            tenant = Tenant(
+                name=azienda_nome,
+                type=azienda_tipo or "srl",
+                regime_fiscale=regime_fiscale or "ordinario",
+                piva=azienda_piva,
+            )
+            self.db.add(tenant)
+            await self.db.flush()
+            tenant_id = tenant.id
+            logger.info("Tenant created: %s (%s)", azienda_nome, tenant_id)
 
         verification_token = secrets.token_urlsafe(32)
         user = User(
@@ -84,13 +92,14 @@ class AuthService:
             role="owner",
             email_verified=False,
             verification_token=verification_token,
+            tenant_id=tenant_id,
         )
         self.db.add(user)
         await self.db.flush()
 
         await self._send_verification_email(user.email, verification_token)
 
-        logger.info("User registered: %s", email)
+        logger.info("User registered: %s (tenant: %s)", email, tenant_id)
         return user
 
     async def _send_verification_email(self, email: str, token: str) -> None:

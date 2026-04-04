@@ -9,6 +9,11 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     name: str | None = None
+    # Tenant/azienda fields (optional — creates tenant if provided)
+    azienda_nome: str | None = None
+    azienda_tipo: str | None = None  # srl, srls, piva, ditta_individuale
+    azienda_piva: str | None = None
+    regime_fiscale: str | None = None  # ordinario, semplificato, forfettario
 
     @field_validator("password")
     @classmethod

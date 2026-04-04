@@ -32,6 +32,10 @@ async def register(
             email=request.email,
             password=request.password,
             name=request.name,
+            azienda_nome=request.azienda_nome,
+            azienda_tipo=request.azienda_tipo,
+            azienda_piva=request.azienda_piva,
+            regime_fiscale=request.regime_fiscale,
         )
     except ValueError as e:
         raise HTTPException(

@@ -17,7 +17,7 @@ interface AuthState {
   user: User | null
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>
-  register: (email: string, password: string, name?: string) => Promise<{ id: string; email: string; message: string }>
+  register: (email: string, password: string, name?: string, azienda?: Record<string, string | undefined>) => Promise<{ id: string; email: string; message: string }>
   logout: () => void
   loadProfile: () => Promise<void>
   requestPasswordReset: (email: string) => Promise<void>
@@ -33,8 +33,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.setItem('refresh_token', data.refresh_token)
     set({ token: data.access_token, isAuthenticated: true })
   },
-  register: async (email, password, name) => {
-    const { data } = await api.post('/auth/register', { email, password, name })
+  register: async (email, password, name, azienda) => {
+    const { data } = await api.post('/auth/register', { email, password, name, ...azienda })
     return data
   },
   logout: () => {
