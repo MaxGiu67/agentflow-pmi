@@ -40,6 +40,7 @@ from api.db.models import (
     EmailSequenceStep,
     EmailSequenceEnrollment,
     TenantSetting,
+    TenantUsage,
 )
 from api.db.session import get_db
 from api.main import app

@@ -67,6 +67,23 @@ class Tenant(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class TenantUsage(Base):
+    """Monthly usage counters per tenant for metering/billing."""
+    __tablename__ = "tenant_usage"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    month: Mapped[str] = mapped_column(String(7), nullable=False)  # "2026-04"
+    llm_tokens_in: Mapped[int] = mapped_column(Integer, default=0)
+    llm_tokens_out: Mapped[int] = mapped_column(Integer, default=0)
+    llm_requests: Mapped[int] = mapped_column(Integer, default=0)
+    pdf_pages: Mapped[int] = mapped_column(Integer, default=0)
+    api_calls: Mapped[int] = mapped_column(Integer, default=0)
+    email_sent: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class TenantSetting(Base):
     """Encrypted per-tenant configuration (API keys, integrations)."""
     __tablename__ = "tenant_settings"

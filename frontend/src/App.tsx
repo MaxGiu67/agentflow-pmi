@@ -67,6 +67,7 @@ const EmailAnalyticsPage = lazy(() => import('./pages/email/EmailAnalyticsPage')
 const EmailSequencesPage = lazy(() => import('./pages/email/EmailSequencesPage'))
 const FidiPage = lazy(() => import('./pages/banca/FidiPage'))
 const UsersPage = lazy(() => import('./pages/impostazioni/UsersPage'))
+const IntegrazioniPage = lazy(() => import('./pages/impostazioni/IntegrazioniPage'))
 const ChatTestPage = lazy(() => import('./pages/ChatTestPage'))
 
 const queryClient = new QueryClient({
@@ -156,6 +157,7 @@ export default function App() {
               <Route path="/impostazioni" element={<ImpostazioniPage />} />
               <Route path="/impostazioni/agenti" element={<AgentConfigPage />} />
               <Route path="/impostazioni/utenti" element={<UsersPage />} />
+              <Route path="/impostazioni/integrazioni" element={<IntegrazioniPage />} />
 
               {/* Payroll */}
               <Route path="/personale" element={<PayrollPage />} />
