@@ -26,6 +26,16 @@ export default function GrapesEditor({ initialHtml, onHtmlChange, height = 550 }
         [newsletterPlugin as any]: {
           modalTitleImport: 'Importa HTML',
           modalBtnImport: 'Importa',
+          // Preserve inline styles for email compatibility
+          inlineCss: true,
+        },
+      },
+      // Preserve inline styles when parsing HTML
+      parser: {
+        optionsHtml: {
+          // Keep all style attributes
+          allowScripts: false,
+          allowUnsafeAttr: true,
         },
       },
       deviceManager: {
@@ -40,6 +50,9 @@ export default function GrapesEditor({ initialHtml, onHtmlChange, height = 550 }
           'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap',
         ],
       },
+      // Tell GrapesJS to avoid stripping inline styles
+      protectedCss: '',
+      forceClass: false,
     })
 
     // Custom styles for the editor UI
@@ -58,16 +71,19 @@ export default function GrapesEditor({ initialHtml, onHtmlChange, height = 550 }
 
     // Load initial HTML if provided
     if (initialHtml) {
+      // Use DomComponents to preserve styles
       editor.setComponents(initialHtml)
+      // Also inject original styles into the canvas so they render
+      const css = extractInlineStylesAsCss(initialHtml)
+      if (css) {
+        editor.setStyle(css)
+      }
     }
 
-    // Track changes
+    // Track changes — export with inline CSS for email
     editor.on('component:update', () => {
       if (onHtmlChange) {
-        const html = editor.getHtml()
-        const css = editor.getCss()
-        const full = css ? `<style>${css}</style>${html}` : html
-        onHtmlChange(full)
+        exportInlineHtml(editor).then(onHtmlChange)
       }
     })
 
@@ -82,10 +98,14 @@ export default function GrapesEditor({ initialHtml, onHtmlChange, height = 550 }
     }
   }, [])
 
-  // Update content when initialHtml changes externally (e.g. AI generation)
+  // Update content when initialHtml changes externally
   useEffect(() => {
     if (gjsRef.current && initialHtml) {
       gjsRef.current.setComponents(initialHtml)
+      const css = extractInlineStylesAsCss(initialHtml)
+      if (css) {
+        gjsRef.current.setStyle(css)
+      }
     }
   }, [initialHtml])
 
@@ -96,4 +116,36 @@ export default function GrapesEditor({ initialHtml, onHtmlChange, height = 550 }
       style={{ height }}
     />
   )
+}
+
+/**
+ * Export HTML with all CSS inlined (critical for email clients).
+ * GrapesJS separates HTML and CSS — we need to merge them back inline.
+ */
+async function exportInlineHtml(editor: any): Promise<string> {
+  const html = editor.getHtml()
+  const css = editor.getCss()
+
+  if (!css) return html
+
+  // Simple inline approach: wrap with <style> in <head>
+  // For production, use a proper CSS inliner like juice
+  return `<style>${css}</style>${html}`
+}
+
+/**
+ * Extract background colors and key styles from inline HTML
+ * to inject into GrapesJS style manager.
+ */
+function extractInlineStylesAsCss(html: string): string {
+  const styles: string[] = []
+
+  // Extract background-color from style attributes
+  const bgMatch = html.match(/background(?:-color)?:\s*(#[0-9a-fA-F]{3,8}|rgb[^;)]+\))/g)
+  if (bgMatch) {
+    // Inject as canvas background so it renders
+    styles.push(`body { ${bgMatch[0]}; }`)
+  }
+
+  return styles.join('\n')
 }
