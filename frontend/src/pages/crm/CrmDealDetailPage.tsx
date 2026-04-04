@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useCrmDeal, useRegisterOrder, useConfirmOrder } from '../../api/hooks'
+import { useCrmDeal, useRegisterOrder, useConfirmOrder, useEmailSends } from '../../api/hooks'
 import { formatCurrency } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
-import { ArrowLeft, FileCheck, CheckCircle, AlertCircle } from 'lucide-react'
+import SendEmailModal from '../../components/email/SendEmailModal'
+import { ArrowLeft, FileCheck, CheckCircle, AlertCircle, Mail, Eye, MousePointer } from 'lucide-react'
 
 const ORDER_TYPES = [
   { value: 'po', label: 'Purchase Order (PO)' },
@@ -13,19 +14,29 @@ const ORDER_TYPES = [
   { value: 'portale', label: 'Accettazione da portale' },
 ]
 
+const STATUS_ICONS: Record<string, { icon: typeof Mail; color: string; label: string }> = {
+  sent: { icon: Mail, color: 'text-gray-400', label: 'Inviata' },
+  delivered: { icon: CheckCircle, color: 'text-blue-400', label: 'Consegnata' },
+  opened: { icon: Eye, color: 'text-green-500', label: 'Letta' },
+  clicked: { icon: MousePointer, color: 'text-purple-500', label: 'Cliccata' },
+  bounced: { icon: AlertCircle, color: 'text-red-500', label: 'Rimbalzata' },
+}
+
 export default function CrmDealDetailPage() {
   const { dealId } = useParams()
   const navigate = useNavigate()
-  const id = parseInt(dealId || '0', 10)
+  const id = dealId || '0'
 
-  const { data: deal, isLoading } = useCrmDeal(id)
+  const { data: deal, isLoading } = useCrmDeal(parseInt(id, 10))
   const registerOrder = useRegisterOrder()
   const confirmOrder = useConfirmOrder()
+  const { data: emailHistory } = useEmailSends(deal?.client_id || undefined)
 
   const [showOrderForm, setShowOrderForm] = useState(false)
   const [orderType, setOrderType] = useState('po')
   const [orderRef, setOrderRef] = useState('')
   const [orderNotes, setOrderNotes] = useState('')
+  const [showEmailModal, setShowEmailModal] = useState(false)
 
   if (isLoading) return <LoadingSpinner />
   if (!deal) return <div className="p-8 text-center text-gray-500">Deal non trovato</div>
@@ -35,7 +46,7 @@ export default function CrmDealDetailPage() {
 
   const handleRegisterOrder = async () => {
     await registerOrder.mutateAsync({
-      dealId: id,
+      dealId: parseInt(id, 10),
       order_type: orderType,
       order_reference: orderRef,
       order_notes: orderNotes,
@@ -44,7 +55,7 @@ export default function CrmDealDetailPage() {
   }
 
   const handleConfirm = async () => {
-    await confirmOrder.mutateAsync(String(id))
+    await confirmOrder.mutateAsync(id)
   }
 
   return (
@@ -53,13 +64,22 @@ export default function CrmDealDetailPage() {
         title={deal.name}
         subtitle={`${deal.client_name} - ${deal.stage}`}
         actions={
-          <button
-            onClick={() => navigate('/crm')}
-            className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Torna alla pipeline
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowEmailModal(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
+            >
+              <Mail className="h-4 w-4" />
+              Invia email
+            </button>
+            <button
+              onClick={() => navigate('/crm')}
+              className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Pipeline
+            </button>
+          </div>
         }
       />
 
@@ -90,7 +110,7 @@ export default function CrmDealDetailPage() {
             </div>
             <div>
               <p className="text-xs text-gray-400">Responsabile</p>
-              <p className="font-medium text-gray-900">{deal.user_name || '-'}</p>
+              <p className="font-medium text-gray-900">{deal.user_name || deal.assigned_to || '-'}</p>
             </div>
             {deal.daily_rate > 0 && (
               <>
@@ -209,6 +229,44 @@ export default function CrmDealDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Email History */}
+      {emailHistory && emailHistory.length > 0 && (
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <h3 className="text-sm font-semibold uppercase text-gray-400 mb-4">Email inviate</h3>
+          <div className="space-y-2">
+            {emailHistory.map((email: any) => {
+              const st = STATUS_ICONS[email.status] || STATUS_ICONS.sent
+              const Icon = st.icon
+              return (
+                <div key={email.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-2.5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Icon className={`h-4 w-4 shrink-0 ${st.color}`} />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{email.subject}</p>
+                      <p className="text-xs text-gray-400">{email.to_email} — {email.sent_at?.split('T')[0]}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`text-xs font-medium ${st.color}`}>{st.label}</span>
+                    {email.open_count > 0 && <span className="text-[10px] text-gray-400">{email.open_count}x aperta</span>}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Send Email Modal */}
+      <SendEmailModal
+        open={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        toEmail={deal.client_name ? '' : ''}
+        toName={deal.client_name}
+        contactId={deal.client_id}
+        defaultParams={{ deal_name: deal.name, deal_value: String(deal.expected_revenue) }}
+      />
     </div>
   )
 }

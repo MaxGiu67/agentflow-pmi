@@ -3,12 +3,14 @@ import { useCrmContacts, useCreateCrmContact } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
-import { Users, Plus, Search, Building } from 'lucide-react'
+import { Users, Plus, Search, Building, Mail } from 'lucide-react'
+import SendEmailModal from '../../components/email/SendEmailModal'
 
 export default function CrmContactsPage() {
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', phone: '', vat: '' })
+  const [emailTarget, setEmailTarget] = useState<{ email: string; name: string; id: string } | null>(null)
 
   const { data, isLoading } = useCrmContacts(search)
   const createContact = useCreateCrmContact()
@@ -127,11 +129,26 @@ export default function CrmContactsPage() {
                       {c.city}{c.country ? `, ${c.country}` : ''}
                     </p>
                   )}
+                  {c.email && (
+                    <button onClick={() => setEmailTarget({ email: c.email, name: c.name, id: c.id })}
+                      className="mt-2 inline-flex items-center gap-1 rounded-lg bg-purple-50 px-2.5 py-1 text-xs font-medium text-purple-700 hover:bg-purple-100">
+                      <Mail className="h-3 w-3" /> Invia email
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
           ))}
         </div>
+      )}
+      {emailTarget && (
+        <SendEmailModal
+          open={!!emailTarget}
+          onClose={() => setEmailTarget(null)}
+          toEmail={emailTarget.email}
+          toName={emailTarget.name}
+          contactId={emailTarget.id}
+        />
       )}
     </div>
   )

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   useScadenzarioAttivo, useScadenzarioPassivo, useGenerateScadenze,
   useChiudiScadenza, useSegnaInsoluto, useCashFlow, useCashFlowPerBanca,
+  useAnticipaFattura, useConfrontaAnticipo,
 } from '../api/hooks'
 import { formatCurrency } from '../lib/utils'
 import PageHeader from '../components/ui/PageHeader'
@@ -9,7 +10,7 @@ import PageMeta from '../components/ui/PageMeta'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import EmptyState from '../components/ui/EmptyState'
 import Badge from '../components/ui/Badge'
-import { CalendarClock, RefreshCw, TrendingUp, Landmark, Search, X, Ban, CheckCircle } from 'lucide-react'
+import { CalendarClock, RefreshCw, TrendingUp, Landmark, Search, X, Ban, CheckCircle, Banknote } from 'lucide-react'
 
 const STATO_COLORS: Record<string, 'success' | 'warning' | 'error' | 'info' | 'default'> = {
   aperto: 'default',
@@ -35,6 +36,9 @@ export default function ScadenzarioPage() {
   const segnaInsoluto = useSegnaInsoluto()
   const cashFlow = useCashFlow(cfGiorni)
   const cashFlowBanca = useCashFlowPerBanca(cfGiorni)
+  const anticipaFattura = useAnticipaFattura()
+  const [showAnticipoId, setShowAnticipoId] = useState<string | null>(null)
+  const { data: confrontoAnticipo } = useConfrontaAnticipo(showAnticipoId || '')
 
   const currentData = tab === 'attivo' ? attivo.data : passivo.data
   const isLoading = tab === 'attivo' ? attivo.isLoading : tab === 'passivo' ? passivo.isLoading : cashFlow.isLoading
@@ -233,6 +237,12 @@ export default function ScadenzarioPage() {
                         className="inline-flex items-center gap-1 rounded-lg bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-100">
                         <CheckCircle className="h-3 w-3" /> {tab === 'attivo' ? 'Incassa' : 'Paga'}
                       </button>
+                      {tab === 'attivo' && !s.anticipata && (
+                        <button onClick={() => setShowAnticipoId(showAnticipoId === s.id ? null : s.id)}
+                          className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100">
+                          <Banknote className="h-3 w-3" /> Anticipa
+                        </button>
+                      )}
                       {tab === 'attivo' && s.giorni_residui < 0 && (
                         <button onClick={() => segnaInsoluto.mutate(s.id)}
                           className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-100">
@@ -259,6 +269,43 @@ export default function ScadenzarioPage() {
                       <button onClick={() => setShowChiudiId(null)} className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-400 hover:bg-gray-100">
                         <X className="h-3 w-3" />
                       </button>
+                    </div>
+                  )}
+
+                  {/* Confronto anticipo banche */}
+                  {showAnticipoId === s.id && confrontoAnticipo && (
+                    <div className="mt-2 rounded-lg bg-blue-50 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold text-blue-800">Confronto banche per anticipo</p>
+                        <button onClick={() => setShowAnticipoId(null)} className="text-blue-400 hover:text-blue-600"><X className="h-3 w-3" /></button>
+                      </div>
+                      {confrontoAnticipo.length === 0 ? (
+                        <p className="text-xs text-blue-600">Nessun fido configurato. Vai su Fidi Bancari per configurare.</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {confrontoAnticipo.map((b: any, i: number) => (
+                            <div key={i} className={`flex items-center justify-between rounded-lg border px-3 py-2 text-xs ${
+                              b.migliore ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white'
+                            }`}>
+                              <div>
+                                <p className="font-medium text-gray-900">{b.bank_name} {b.migliore && <span className="text-green-600">migliore</span>}</p>
+                                <p className="text-gray-500">Anticipo: {formatCurrency(b.importo_anticipabile)} | Costo: {formatCurrency(b.costo_totale)}</p>
+                              </div>
+                              <div className="text-right">
+                                {b.plafond_sufficiente ? (
+                                  <button onClick={() => { anticipaFattura.mutate(s.id); setShowAnticipoId(null) }}
+                                    disabled={anticipaFattura.isPending}
+                                    className="rounded bg-blue-600 px-3 py-1 text-white hover:bg-blue-700 disabled:opacity-50">
+                                    Anticipa
+                                  </button>
+                                ) : (
+                                  <span className="text-red-500">Plafond insufficiente</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
