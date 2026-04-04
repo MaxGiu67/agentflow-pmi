@@ -87,9 +87,7 @@ export default function EmailTemplatesPage() {
               <p className="text-xs text-gray-500">Descrivi l'email e l'AI la genera. Poi personalizzala e salva.</p>
             </div>
           </div>
-          <AIEmailEditor
-            onClose={() => setMode('list')}
-          />
+          <AIEmailEditor />
         </div>
       )}
 

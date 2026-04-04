@@ -179,24 +179,9 @@ export default function AIEmailEditor({ contactName, dealName, onSend }: AIEmail
                 },
               },
             },
-            tools: {
-              image: { enabled: true },
-              button: { enabled: true },
-              divider: { enabled: true },
-              html: { enabled: true },
-              social: { enabled: true },
-              video: { enabled: false },
-              timer: { enabled: false },
-              menu: { enabled: false },
-            },
-            features: {
-              stockImages: { enabled: false },
-              smartMergeTags: { enabled: true },
-            },
-            mergeTags: VARIABLES.map(v => ({
-              name: v.charAt(0).toUpperCase() + v.slice(1),
-              value: `{{${v}}}`,
-            })),
+            mergeTags: Object.fromEntries(
+              VARIABLES.map(v => [v, { name: v.charAt(0).toUpperCase() + v.slice(1), value: `{{${v}}}` }])
+            ),
           }}
           style={{ minHeight: 600 }}
         />
