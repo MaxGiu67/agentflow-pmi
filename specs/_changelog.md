@@ -14,7 +14,11 @@
 - **Fase 3**: User Stories generate — 20 stories (US-100 → US-120), 120 SP totali, 5 Epic
 - **Azione**: Aggiunto modulo Social Selling con architettura Core Engine + Configuration Layer
 - **5 moduli**: Origini configurabili, Attività e pre-funnel, Ruoli RBAC per esterni, Catalogo prodotti, Analytics e compensi
-- **File**: `specs/03-user-stories-pivot8-social.md`
+- **Fase 4**: Tech Spec generata — 32 endpoint, 11 nuove tabelle, 21 business rules, 10 wireframe
+- **File stories**: `specs/03-user-stories-pivot8-social.md`
+- **File tech spec**: `specs/04-tech-spec-pivot8.md`
+- **File schema DB**: `specs/database/schema-pivot8.md`
+- **File wireframe**: `specs/ux/wireframes-pivot8.md`
 - **Brainstorming**: 85 idee (divergenza), analisi critica (sfida), 3 concept (sintesi)
 - **Spec prodotto**: `Docs/Spec_Modulo_Social_Selling.md`
 - **Contesto**: NExadata attiva vendita LinkedIn con fractional account. Il modulo è progettato generico per qualsiasi PMI.

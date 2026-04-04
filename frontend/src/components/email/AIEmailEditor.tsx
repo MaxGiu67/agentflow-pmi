@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useGenerateEmail, useRefineEmail, useCreateEmailTemplate } from '../../api/hooks'
 import GrapesEditor from './GrapesEditor'
-import { Sparkles, RefreshCw, Save, Send } from 'lucide-react'
+import { Sparkles, RefreshCw, Save, Send, Eye, Pencil } from 'lucide-react'
 
 const TONES = [
   { value: 'professionale', label: 'Professionale' },
@@ -38,6 +38,7 @@ export default function AIEmailEditor({ contactName, dealName, onSend, editTempl
   const [saveName, setSaveName] = useState(editName || '')
   const [saveCategory, setSaveCategory] = useState(editCategory || 'followup')
   const [refinePrompt, setRefinePrompt] = useState('')
+  const [viewTab, setViewTab] = useState<'preview' | 'editor'>('preview')
 
   const handleGenerate = async () => {
     const result = await generate.mutateAsync({
@@ -68,7 +69,8 @@ export default function AIEmailEditor({ contactName, dealName, onSend, editTempl
 
   const handleSave = async () => {
     if (!saveName) return
-    const finalHtml = editorHtml || htmlBody
+    // Use original AI HTML (with styles) unless user edited in GrapesJS
+    const finalHtml = (viewTab === 'editor' && editorHtml) ? editorHtml : htmlBody
     await saveTemplate.mutateAsync({
       name: saveName,
       subject,
@@ -140,12 +142,37 @@ export default function AIEmailEditor({ contactName, dealName, onSend, editTempl
             </div>
           </div>
 
-          {/* ── Visual Editor (GrapesJS) ── */}
-          <GrapesEditor
-            initialHtml={htmlBody}
-            onHtmlChange={setEditorHtml}
-            height={550}
-          />
+          {/* ── Tab Preview / Editor ── */}
+          <div className="flex gap-1 rounded-lg bg-gray-100 p-1 w-fit">
+            <button onClick={() => setViewTab('preview')}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                viewTab === 'preview' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}>
+              <Eye className="h-3.5 w-3.5" /> Preview reale
+            </button>
+            <button onClick={() => setViewTab('editor')}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                viewTab === 'editor' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}>
+              <Pencil className="h-3.5 w-3.5" /> Editor blocchi
+            </button>
+          </div>
+
+          {/* ── Preview reale (HTML originale con tutti gli stili) ── */}
+          {viewTab === 'preview' && (
+            <div className="rounded-xl border border-gray-200 bg-white overflow-auto" style={{ maxHeight: 550 }}>
+              <div dangerouslySetInnerHTML={{ __html: htmlBody }} />
+            </div>
+          )}
+
+          {/* ── Editor blocchi (GrapesJS) ── */}
+          {viewTab === 'editor' && (
+            <GrapesEditor
+              initialHtml={htmlBody}
+              onHtmlChange={setEditorHtml}
+              height={550}
+            />
+          )}
 
           {/* ── Refine via AI Chat ── */}
           <div className="flex gap-2">

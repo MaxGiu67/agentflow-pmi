@@ -185,6 +185,10 @@ Ultimo aggiornamento: 2026-04-03
 
 **Documentazione:**
 - `Docs/Spec_Modulo_Social_Selling.md` — Spec prodotto completa
+- `specs/03-user-stories-pivot8-social.md` — 21 user stories, 120 SP
+- `specs/04-tech-spec-pivot8.md` — Tech spec: 32 endpoint, 11 tabelle, 21 BR
+- `specs/database/schema-pivot8.md` — DDL SQL completo con migrations
+- `specs/ux/wireframes-pivot8.md` — 10 wireframe ASCII
 - `brainstorm/13-15-social-selling-*.md` — Brainstorming strutturato
 
 ## Prossimi Passi
