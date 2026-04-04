@@ -31,33 +31,6 @@ const PROBLEMS = [
   },
 ]
 
-const PRICING = [
-  {
-    name: 'Starter',
-    price: '49',
-    desc: 'Per partite IVA e micro-imprese',
-    features: ['500 email/mese', '100 query AI', '1 conto banca', 'Fatturazione base', 'Scadenzario'],
-    cta: 'Inizia con Starter',
-    popular: false,
-  },
-  {
-    name: 'Business',
-    price: '99',
-    desc: 'Per PMI fino a 10 dipendenti',
-    features: ['5.000 email/mese', '500 query AI', '3 conti banca', 'CRM + Pipeline', 'Cash flow previsionale', '3 utenti inclusi'],
-    cta: 'Scegli Business',
-    popular: true,
-  },
-  {
-    name: 'Premium',
-    price: '199',
-    desc: 'Per aziende strutturate',
-    features: ['20.000 email/mese', 'Query AI illimitate', 'Conti illimitati', 'Anticipo fatture', 'Utenti illimitati', 'Supporto prioritario'],
-    cta: 'Scegli Premium',
-    popular: false,
-  },
-]
-
 export default function LandingPage() {
   return (
     <div className="min-h-[100dvh] bg-white" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
@@ -169,45 +142,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Pricing ── */}
-      <section className="bg-gray-50 py-20 sm:py-28" id="pricing">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">Prezzi semplici, senza sorprese.</h2>
-            <p className="mt-3 text-lg text-gray-500">Inizia gratis. Paga solo quando cresci.</p>
-          </div>
 
-          <div className="mt-16 grid gap-6 sm:grid-cols-3">
-            {PRICING.map((plan) => (
-              <div key={plan.name} className={`relative rounded-2xl border bg-white p-8 ${plan.popular ? 'border-purple-300 ring-2 ring-purple-100' : 'border-gray-200'}`}>
-                {plan.popular && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-purple-600 px-4 py-1 text-xs font-semibold text-white">
-                    Piu scelto
-                  </div>
-                )}
-                <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
-                <p className="mt-1 text-sm text-gray-500">{plan.desc}</p>
-                <div className="mt-4">
-                  <span className="text-4xl font-extrabold text-gray-900">{plan.price}</span>
-                  <span className="text-lg text-gray-400"> EUR/mese</span>
-                </div>
-                <ul className="mt-6 space-y-2.5">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-sm text-gray-600">
-                      <CheckCircle className="h-4 w-4 text-purple-500 shrink-0" /> {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link to="/register" className={`mt-8 block w-full rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition-colors ${
-                  plan.popular ? 'bg-purple-600 text-white hover:bg-purple-700' : 'border border-gray-200 text-gray-700 hover:bg-gray-50'
-                }`}>
-                  {plan.cta}
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* ── CTA Finale ── */}
       <section className="py-20 sm:py-28">
