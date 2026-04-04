@@ -52,6 +52,7 @@ from api.modules.scadenzario.router import router as scadenzario_router
 from api.modules.crm.router import router as crm_router
 from api.modules.email_marketing.router import router as email_marketing_router
 from api.modules.user_management.router import router as user_management_router
+from api.modules.tenant_settings.router import router as tenant_settings_router
 
 from contextlib import asynccontextmanager
 
@@ -158,3 +159,4 @@ app.include_router(scadenzario_router)
 app.include_router(crm_router, prefix="/api/v1")
 app.include_router(email_marketing_router)
 app.include_router(user_management_router)
+app.include_router(tenant_settings_router)

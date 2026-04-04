@@ -55,6 +55,27 @@ class Tenant(Base):
     email_aziendale: Mapped[str | None] = mapped_column(String(255))
     pec: Mapped[str | None] = mapped_column(String(255))
 
+    # Email marketing per tenant
+    sender_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    sender_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    sender_domain: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    email_quota_monthly: Mapped[int] = mapped_column(Integer, default=5000)
+    email_sent_month: Mapped[int] = mapped_column(Integer, default=0)
+    email_month_reset: Mapped[str | None] = mapped_column(String(7), nullable=True)  # "2026-04"
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class TenantSetting(Base):
+    """Encrypted per-tenant configuration (API keys, integrations)."""
+    __tablename__ = "tenant_settings"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    key: Mapped[str] = mapped_column(String(100), nullable=False)
+    value_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str] = mapped_column(String(20), default="platform")  # platform, custom
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 

@@ -39,6 +39,7 @@ from api.db.models import (
     EmailEvent,
     EmailSequenceStep,
     EmailSequenceEnrollment,
+    TenantSetting,
 )
 from api.db.session import get_db
 from api.main import app
