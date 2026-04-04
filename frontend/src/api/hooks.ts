@@ -1238,6 +1238,22 @@ export function useConfrontaAnticipo(scadenzaId: string) {
   })
 }
 
+// ── AI Email Generator ──
+
+export function useGenerateEmail() {
+  return useMutation({
+    mutationFn: (data: { prompt: string; tone?: string; contact_name?: string; deal_name?: string }) =>
+      api.post('/email/generate', data).then((r) => r.data),
+  })
+}
+
+export function useRefineEmail() {
+  return useMutation({
+    mutationFn: (data: { html_body: string; instruction: string }) =>
+      api.post('/email/refine', data).then((r) => r.data),
+  })
+}
+
 // ── User Management ──
 
 export function useTeamUsers() {

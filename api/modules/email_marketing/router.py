@@ -194,6 +194,78 @@ async def email_webhook(
     return result
 
 
+# ── AI Email Generator (ADR-010) ──────────────────────
+
+
+class GenerateEmailRequest(BaseModel):
+    prompt: str
+    tone: str = "professionale"
+    contact_name: str = ""
+    deal_name: str = ""
+
+
+class RefineEmailRequest(BaseModel):
+    html_body: str
+    instruction: str
+
+
+@router.post("/email/generate")
+async def generate_email(
+    body: GenerateEmailRequest,
+    user: User = Depends(get_current_user),
+):
+    """Generate professional HTML email from natural language prompt."""
+    from api.modules.email_marketing.ai_generator import generate_email_html
+    from api.modules.metering.service import MeteringService
+    from api.db.session import get_db as _get_db
+
+    tid = _require_tenant(user)
+
+    # Get tenant name for context
+    tenant_name = ""
+    try:
+        from api.db.models import Tenant
+        from sqlalchemy import select
+        db = next(iter(_get_db.__self__.__dict__.values())) if hasattr(_get_db, '__self__') else None
+    except Exception:
+        pass
+
+    result = await generate_email_html(
+        prompt=body.prompt,
+        tenant_name=tenant_name or "La tua azienda",
+        user_name=user.name or "",
+        contact_name=body.contact_name,
+        deal_name=body.deal_name,
+        tone=body.tone,
+    )
+
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+
+    return result
+
+
+@router.post("/email/refine")
+async def refine_email(
+    body: RefineEmailRequest,
+    user: User = Depends(get_current_user),
+):
+    """Refine existing email HTML with AI instruction."""
+    from api.modules.email_marketing.ai_generator import refine_email_html
+
+    _require_tenant(user)
+
+    result = await refine_email_html(
+        html_body=body.html_body,
+        instruction=body.instruction,
+    )
+
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+
+    return result
+
+
 # ── Sequences (US-97/98) ──────────────────────────────
 
 
