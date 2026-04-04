@@ -8,6 +8,20 @@
 
 ---
 
+## 2026-04-04 — Pivot 8: Social Selling Configurabile
+
+- **Fase 1**: Vision aggiornata con Pivot 8
+- **Fase 3**: User Stories generate — 20 stories (US-100 → US-120), 120 SP totali, 5 Epic
+- **Azione**: Aggiunto modulo Social Selling con architettura Core Engine + Configuration Layer
+- **5 moduli**: Origini configurabili, Attività e pre-funnel, Ruoli RBAC per esterni, Catalogo prodotti, Analytics e compensi
+- **File**: `specs/03-user-stories-pivot8-social.md`
+- **Brainstorming**: 85 idee (divergenza), analisi critica (sfida), 3 concept (sintesi)
+- **Spec prodotto**: `Docs/Spec_Modulo_Social_Selling.md`
+- **Contesto**: NExadata attiva vendita LinkedIn con fractional account. Il modulo è progettato generico per qualsiasi PMI.
+- **Principio**: Tutto configurabile dall'admin, nessun riferimento hardcoded a clienti/prodotti specifici
+
+---
+
 ## 2026-04-02 — Odoo Partnership Program — Opportunita Rivendita
 
 - **Contatto Odoo:** Achraf Kanice, Partnership Program Manager (acka@odoo.com, +32 2 616 86 72)

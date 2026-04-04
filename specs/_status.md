@@ -19,6 +19,7 @@ Ultimo aggiornamento: 2026-04-03
 | 5 | 2026-03 | Controller AI: import silenziosi, budget agent, puzzle dashboard |
 | **6** | **2026-04** | **IVA scorporo, scadenzario, cash flow, fidi, anticipi fatture** |
 | **7** | **2026-04** | **CRM Sales interno + Brevo email marketing + Kanban** |
+| **8** | **2026-04** | **Social Selling configurabile + Ruoli fractional + Catalogo prodotti + Analytics multi-canale** |
 
 ## Numeri del Progetto
 
@@ -170,13 +171,31 @@ Ultimo aggiornamento: 2026-04-03
 - `Docs/Analisi_Frontend_PWA_Roadmap.md` — Roadmap PWA 6 fasi
 - `Docs/Guida_Setup_Odoo18_CRM.md` — Setup Odoo (opzionale)
 
+## Pivot 8 — Social Selling Configurabile (in corso)
+
+**5 moduli — architettura Core Engine + Configuration Layer:**
+
+| Modulo | Descrizione | Sprint | Stato |
+|--------|-------------|--------|-------|
+| M1 — Origini configurabili | US-100→103 (21 SP) | TBD | Stories pronte |
+| M2 — Attività e pre-funnel | US-104→107 (18 SP) | TBD | Stories pronte |
+| M3 — Ruoli e collaboratori esterni | US-108→111 (29 SP) | TBD | Stories pronte |
+| M4 — Catalogo prodotti | US-112→115 (18 SP) | TBD | Stories pronte |
+| M5 — Analytics e compensi | US-116→120 (34 SP) | TBD | Stories pronte |
+
+**Documentazione:**
+- `Docs/Spec_Modulo_Social_Selling.md` — Spec prodotto completa
+- `brainstorm/13-15-social-selling-*.md` — Brainstorming strutturato
+
 ## Prossimi Passi
-1. **Commit** tutto il lavoro (Pivot 6+7, PWA, responsive)
-2. **Frontend scadenzario** — riscrivere con nuovi endpoint
-3. **Frontend email** — template + invio dal CRM
-4. **Account Brevo** — creare, API key, webhook
-5. **Test E2E** Playwright
-6. **Deploy** su Railway
+1. **User Stories Pivot 8** — generare stories per i 5 moduli
+2. **Tech Spec Pivot 8** — schema DB, endpoint API, componenti frontend
+3. **Sprint Planning** — organizzare stories in sprint
+4. **Frontend scadenzario** — riscrivere con nuovi endpoint
+5. **Frontend email** — template + invio dal CRM
+6. **Account Brevo** — creare, API key, webhook
+7. **Test E2E** Playwright
+8. **Deploy** su Railway
 
 ---
-_Ultimo aggiornamento: 2026-04-03_
+_Ultimo aggiornamento: 2026-04-04 — Pivot 8 Social Selling_

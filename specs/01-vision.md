@@ -269,5 +269,74 @@ AgentFlow e una **Progressive Web App** installabile:
 - Skeleton loading, ErrorBoundary, useOptimistic (React 19)
 - Design system: DM Sans, CSS variables, dark mode prep
 
+## Pivot 8: Social Selling Configurabile (2026-04-04)
+
+AgentFlow diventa una **piattaforma CRM configurabile per social selling B2B**, adatta a qualsiasi PMI che affianca al canale tradizionale un'attività di vendita su LinkedIn (o altri social) gestita da collaboratori esterni (fractional account manager).
+
+**Principio architetturale:** Core engine generico + Configuration layer per PMI. Tutto ciò che è specifico di una singola azienda (origini, attività, stadi, prodotti, template, ruoli, KPI, commissioni) è configurabile dall'admin. Il codice non contiene mai riferimenti a clienti, prodotti o settori specifici.
+
+### I 5 moduli del Pivot 8
+
+| Modulo | Cosa aggiunge | Impatto |
+|--------|---------------|---------|
+| **M1 — Origini configurabili** | L'admin definisce origini custom (linkedin_dm, fiera_mecspe, web...) con canale padre, icona, filtri | Qualsiasi canale tracciabile |
+| **M2 — Attività e pre-funnel** | Tipi attività custom (social_dm, visita_stabilimento...) + stadi pre-funnel configurabili prima del "Nuovo Lead" | Funnel completo dal warm-up al deal |
+| **M3 — Ruoli e collaboratori esterni** | Ruoli custom con matrice permessi granulare (RBAC), scadenza accesso, segregazione dati row-level, audit trail, export limitato | Governance sicura per fractional |
+| **M4 — Catalogo prodotti** | Entità Prodotto/Servizio con categoria, pricing model, margine target. Deal associabili a prodotti. Pipeline filtrabile per prodotto | Analytics per prodotto |
+| **M5 — Analytics e compensi** | Dashboard componibili con widget KPI configurabili. Modello compensi con regole definibili (% su deal, condizioni per canale/prodotto) | ROI misurabile per canale e collaboratore |
+
+### Differenziazione
+
+- **vs HubSpot**: HubSpot è omnibus e caro (>$500/mese). AgentFlow è snello, focalizzato PMI italiane, prezzo 10x inferiore
+- **vs Pipedrive**: Pipedrive non ha governance per collaboratori esterni, né pre-funnel social, né catalogo prodotti configurabile
+- **vs Apollo/Lemlist**: Sono tool di outreach puro (fire & forget). AgentFlow è relationship management con CRM integrato, analytics, e sequenze multi-canale
+- **Differenziatore core**: Unico CRM per PMI che combina vendita tradizionale + social selling + governance fractional + configurabilità totale in un'unica piattaforma a 25 EUR/mese di infrastruttura
+
+### Configurabilità: due esempi
+
+**PMI IT (es. NExadata):**
+Origini: linkedin_organico, linkedin_dm, linkedin_inmail | Prodotti: SaaS AI, Consulenza, Assessment | Ruolo: Fractional LinkedIn | Sequenze: LinkedIn → Demo → Proposta
+
+**PMI Manifatturiera:**
+Origini: fiera_mecspe, linkedin_dm, agente_zona | Prodotti: Linea CNC, Ricambi, Manutenzione | Ruolo: Agente di zona | Sequenze: Fiera → Campione → Preventivo → Ordine
+
+### Ipotesi Pivot 8
+
+- **H6 — Critica:** Le PMI che attivano il modulo social selling con almeno 1 fractional generano il 30%+ della pipeline da canale social entro 90 giorni
+- **H7 — Importante:** La configurabilità (origini, attività, ruoli custom) riduce il time-to-value a <1 giorno (vs 2-4 settimane per CRM enterprise)
+- **H8 — Strategica:** Il modello "piattaforma configurabile" abilita la rivendita tramite partner (consulenti, system integrator) senza fork del codice
+
+### Anti-scope Pivot 8
+
+| Escluso | Motivo |
+|---------|--------|
+| ML/NLP (sentiment, prediction) | PMI non ha dati né data scientist |
+| Sync real-time con LinkedIn | API non lo permettono, on-demand è sufficiente |
+| Social listening enterprise | Costo sproporzionato per PMI |
+| Multi-touch attribution complessa | First-touch semplice basta, il resto è over-engineering |
+| Scraping social | Violazione ToS, rischio ban |
+
+### Fonte
+- `Docs/Spec_Modulo_Social_Selling.md` — Spec completa con 5 moduli
+- `Docs/Gap_Analysis_AgentFlow_NExadata.md` — Gap analysis originale
+- `brainstorm/13-social-selling-divergenza.md` — 85 idee
+- `brainstorm/14-social-selling-sfida.md` — Analisi critica
+- `brainstorm/15-social-selling-sintesi.md` — 3 concept
+
 ---
-_Aggiornato: 2026-04-03 — Pivot 6+7 + PWA_
+
+## Strategia Evolutiva (aggiornata)
+
+```
+FASE 1 (v0.1-0.2): ContaBot + FiscoAgent — validazione
+FASE 2 (v0.3-0.4): + CashFlowAgent + Open Banking — agenti multipli
+FASE 3 (v1.0):     AgentFlow Pro — copilota del CEO + CRM + Email
+FASE 3b (v1.1):    + Social Selling Configurabile (Pivot 8)        ← NUOVA
+                    + Pre-funnel social + Ruoli fractional + Catalogo prodotti
+                    + Analytics multi-canale + Compensi configurabili
+FASE 4 (v1.5):     AgentFlow Pro+ — gestione operativa completa
+FASE 5 (v2.0):     AgentFlow Enterprise — marketplace agenti
+```
+
+---
+_Aggiornato: 2026-04-04 — Pivot 8 Social Selling Configurabile_
