@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
-import grapesjs from 'grapesjs'
+import GjsEditor from '@grapesjs/react'
+import type { Editor } from 'grapesjs'
 import 'grapesjs/dist/css/grapes.min.css'
-import newsletterPlugin from 'grapesjs-preset-newsletter'
+import mjmlPlugin from 'grapesjs-mjml'
 
 interface GrapesEditorProps {
   initialHtml?: string
@@ -10,142 +11,117 @@ interface GrapesEditorProps {
 }
 
 export default function GrapesEditor({ initialHtml, onHtmlChange, height = 550 }: GrapesEditorProps) {
-  const editorRef = useRef<HTMLDivElement>(null)
-  const gjsRef = useRef<any>(null)
+  const editorRef = useRef<Editor | null>(null)
+  const initialHtmlRef = useRef(initialHtml)
 
+  // Keep ref in sync for onEditor callback
   useEffect(() => {
-    if (!editorRef.current || gjsRef.current) return
-
-    const editor = grapesjs.init({
-      container: editorRef.current,
-      height: `${height}px`,
-      width: 'auto',
-      storageManager: false,
-      plugins: [newsletterPlugin],
-      pluginsOpts: {
-        [newsletterPlugin as any]: {
-          modalTitleImport: 'Importa HTML',
-          modalBtnImport: 'Importa',
-          // Preserve inline styles for email compatibility
-          inlineCss: true,
-        },
-      },
-      // Preserve inline styles when parsing HTML
-      parser: {
-        optionsHtml: {
-          // Keep all style attributes
-          allowScripts: false,
-          allowUnsafeAttr: true,
-        },
-      },
-      deviceManager: {
-        devices: [
-          { name: 'Desktop', width: '' },
-          { name: 'Mobile', width: '375px', widthMedia: '480px' },
-        ],
-      },
-      panels: { defaults: [] },
-      canvas: {
-        styles: [
-          'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap',
-        ],
-      },
-      // Tell GrapesJS to avoid stripping inline styles
-      protectedCss: '',
-      forceClass: false,
-    })
-
-    // Custom styles for the editor UI
-    const style = document.createElement('style')
-    style.textContent = `
-      .gjs-one-bg { background-color: #f9fafb !important; }
-      .gjs-two-color { color: #374151 !important; }
-      .gjs-three-bg { background-color: #863bff !important; }
-      .gjs-four-color, .gjs-four-color-h:hover { color: #863bff !important; }
-      .gjs-pn-panel { border: none !important; }
-      .gjs-cv-canvas { background-color: #f3f4f6 !important; }
-      .gjs-frame-wrapper { border-radius: 8px; overflow: hidden; }
-      .gjs-block { border-radius: 6px; }
-    `
-    document.head.appendChild(style)
-
-    // Load initial HTML if provided
-    if (initialHtml) {
-      // Use DomComponents to preserve styles
-      editor.setComponents(initialHtml)
-      // Also inject original styles into the canvas so they render
-      const css = extractInlineStylesAsCss(initialHtml)
-      if (css) {
-        editor.setStyle(css)
-      }
-    }
-
-    // Track changes — export with inline CSS for email
-    editor.on('component:update', () => {
-      if (onHtmlChange) {
-        exportInlineHtml(editor).then(onHtmlChange)
-      }
-    })
-
-    gjsRef.current = editor
-
-    return () => {
-      if (gjsRef.current) {
-        gjsRef.current.destroy()
-        gjsRef.current = null
-      }
-      style.remove()
-    }
-  }, [])
-
-  // Update content when initialHtml changes externally
-  useEffect(() => {
-    if (gjsRef.current && initialHtml) {
-      gjsRef.current.setComponents(initialHtml)
-      const css = extractInlineStylesAsCss(initialHtml)
-      if (css) {
-        gjsRef.current.setStyle(css)
-      }
+    initialHtmlRef.current = initialHtml
+    if (editorRef.current && initialHtml) {
+      // Reload MJML content when AI regenerates
+      const mjmlContent = htmlToMjml(initialHtml)
+      editorRef.current.setComponents(mjmlContent)
     }
   }, [initialHtml])
 
+  const onEditor = (editor: Editor) => {
+    editorRef.current = editor
+
+    // Load initial content
+    if (initialHtmlRef.current) {
+      const mjmlContent = htmlToMjml(initialHtmlRef.current)
+      editor.setComponents(mjmlContent)
+    }
+
+    // Track changes — export as compiled HTML (inline CSS)
+    editor.on('component:update', () => {
+      if (onHtmlChange) {
+        try {
+          // MJML plugin compiles to HTML with inline styles
+          const html = editor.getHtml()
+          const css = editor.getCss()
+          const full = css ? `<style>${css}</style>${html}` : html
+          onHtmlChange(full)
+        } catch {
+          // Fallback
+          onHtmlChange(editor.getHtml())
+        }
+      }
+    })
+  }
+
   return (
-    <div
-      ref={editorRef}
-      className="rounded-xl border border-gray-200 overflow-hidden"
-      style={{ height }}
-    />
+    <div className="rounded-xl border border-gray-200 overflow-hidden" style={{ height }}>
+      <GjsEditor
+        grapesjs="https://unpkg.com/grapesjs"
+        grapesjsCss="https://unpkg.com/grapesjs/dist/css/grapes.min.css"
+        onEditor={onEditor}
+        options={{
+          height: `${height}px`,
+          storageManager: false,
+          plugins: [mjmlPlugin],
+          pluginsOpts: {
+            [mjmlPlugin as unknown as string]: {
+              // Export with inline CSS
+              overwriteExport: true,
+              // MJML fonts
+              fonts: {
+                'DM Sans': 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap',
+              },
+            },
+          },
+          deviceManager: {
+            devices: [
+              { name: 'Desktop', width: '' },
+              { name: 'Mobile', width: '375px', widthMedia: '480px' },
+            ],
+          },
+          canvas: {
+            styles: [
+              'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap',
+            ],
+          },
+        }}
+      />
+      <style>{`
+        .gjs-one-bg { background-color: #f9fafb !important; }
+        .gjs-two-color { color: #374151 !important; }
+        .gjs-three-bg { background-color: #863bff !important; }
+        .gjs-four-color, .gjs-four-color-h:hover { color: #863bff !important; }
+      `}</style>
+    </div>
   )
 }
 
 /**
- * Export HTML with all CSS inlined (critical for email clients).
- * GrapesJS separates HTML and CSS — we need to merge them back inline.
+ * Convert plain HTML to basic MJML structure for the editor.
+ * This wraps HTML content in MJML tags so the MJML plugin can parse it.
  */
-async function exportInlineHtml(editor: any): Promise<string> {
-  const html = editor.getHtml()
-  const css = editor.getCss()
-
-  if (!css) return html
-
-  // Simple inline approach: wrap with <style> in <head>
-  // For production, use a proper CSS inliner like juice
-  return `<style>${css}</style>${html}`
-}
-
-/**
- * Extract background colors and key styles from inline HTML
- * to inject into GrapesJS style manager.
- */
-function extractInlineStylesAsCss(html: string): string {
-  const styles: string[] = []
-
-  // Extract background-color from style attributes
-  const bgMatch = html.match(/background(?:-color)?:\s*(#[0-9a-fA-F]{3,8}|rgb[^;)]+\))/g)
-  if (bgMatch) {
-    // Inject as canvas background so it renders
-    styles.push(`body { ${bgMatch[0]}; }`)
+function htmlToMjml(html: string): string {
+  // If already MJML, return as-is
+  if (html.includes('<mjml>') || html.includes('<mj-')) {
+    return html
   }
 
-  return styles.join('\n')
+  // Wrap HTML in MJML structure
+  return `
+    <mjml>
+      <mj-head>
+        <mj-attributes>
+          <mj-all font-family="-apple-system, BlinkMacSystemFont, 'DM Sans', sans-serif" />
+          <mj-text font-size="16px" color="#555555" line-height="1.6" />
+          <mj-button background-color="#863bff" border-radius="10px" font-size="16px" font-weight="600" />
+        </mj-attributes>
+      </mj-head>
+      <mj-body background-color="#f9fafb">
+        <mj-section>
+          <mj-column>
+            <mj-text>
+              ${html}
+            </mj-text>
+          </mj-column>
+        </mj-section>
+      </mj-body>
+    </mjml>
+  `
 }
