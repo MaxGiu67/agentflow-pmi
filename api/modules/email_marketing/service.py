@@ -20,7 +20,7 @@ DEFAULT_TEMPLATES = [
     {
         "name": "Benvenuto",
         "subject": "Benvenuto {{nome}} — {{azienda}}",
-        "html_body": "<h2>Gentile {{nome}},</h2><p>Grazie per il suo interesse in NExadata. Siamo a disposizione per qualsiasi esigenza.</p><p>Cordiali saluti,<br>{{commerciale}}</p>",
+        "html_body": "<h2>Gentile {{nome}},</h2><p>Grazie per il suo interesse in Nexa Data. Siamo a disposizione per qualsiasi esigenza.</p><p>Cordiali saluti,<br>{{commerciale}}</p>",
         "category": "welcome",
         "variables": ["nome", "azienda", "commerciale"],
     },

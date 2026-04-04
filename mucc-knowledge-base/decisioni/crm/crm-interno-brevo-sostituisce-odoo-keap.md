@@ -10,7 +10,7 @@ tags: crm, brevo, keap, odoo, email-tracking, kanban, pipeline, build-vs-buy
 # CRM interno + Brevo sostituisce Odoo e Keap (ADR-009)
 
 ## Contesto
-NExadata (3 commerciali, ~100 progetti/anno) ha riesaminato la scelta CRM dopo aver implementato l'integrazione Odoo 18 (ADR-008). La domanda: ha senso dipendere da un sistema esterno grande come Odoo quando serve solo pipeline + email?
+Nexa Data (3 commerciali, ~100 progetti/anno) ha riesaminato la scelta CRM dopo aver implementato l'integrazione Odoo 18 (ADR-008). La domanda: ha senso dipendere da un sistema esterno grande come Odoo quando serve solo pipeline + email?
 
 ## Opzioni valutate
 

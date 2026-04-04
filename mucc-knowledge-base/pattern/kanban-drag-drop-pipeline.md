@@ -45,4 +45,4 @@ crm_deals (id, tenant_id, stage_id, contact_id, name, deal_type, expected_revenu
 - NON usare react-beautiful-dnd (deprecato, non mantenuto)
 
 ## Applicazione in AgentFlow PMI
-Vista Kanban per i 3 commerciali NExadata. ~100 deal/anno = ~20-30 deal attivi in pipeline contemporaneamente. Nessun problema di performance, tutto in memoria.
+Vista Kanban per i 3 commerciali Nexa Data. ~100 deal/anno = ~20-30 deal attivi in pipeline contemporaneamente. Nessun problema di performance, tutto in memoria.

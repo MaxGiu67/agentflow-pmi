@@ -2,21 +2,21 @@
 
 **Data:** 2026-04-02
 **Stato:** APPROVATA
-**Decisori:** Massimiliano Giurelli (NExadata)
+**Decisori:** Massimiliano Giurelli (Nexa Data)
 
 ---
 
 ## Contesto
 
-NExadata e una societa di consulenza IT con 3 commerciali, 65 risorse e ~100 progetti/anno. Il modello di business comprende:
+Nexa Data e una societa di consulenza IT con 3 commerciali, 65 risorse e ~100 progetti/anno. Il modello di business comprende:
 - **T&M** (Time & Material): tariffa giornaliera × giorni
 - **Fixed price**: progetti a corpo
 - **Spot consulting**: 3-150 giorni/uomo
 - **Vendita hardware**
 
-Le offerte sono tutte in Word con template. Serve un CRM per gestire il ciclo commerciale pre-vendita: pipeline → offerta → ordine cliente → conferma. Dopo la conferma dell'ordine, il commerciale crea la "commessa" nel sistema proprietario NExadata.
+Le offerte sono tutte in Word con template. Serve un CRM per gestire il ciclo commerciale pre-vendita: pipeline → offerta → ordine cliente → conferma. Dopo la conferma dell'ordine, il commerciale crea la "commessa" nel sistema proprietario Nexa Data.
 
-AgentFlow PMI ha gia un engine contabile interno (ADR-007) e NON serve Odoo per la contabilita. Il timesheet e il billing sono su applicativi proprietari NExadata con API REST — Odoo CRM NON ha accesso a questi dati (nessun write-back).
+AgentFlow PMI ha gia un engine contabile interno (ADR-007) e NON serve Odoo per la contabilita. Il timesheet e il billing sono su applicativi proprietari Nexa Data con API REST — Odoo CRM NON ha accesso a questi dati (nessun write-back).
 
 ## Decisione
 
@@ -90,7 +90,7 @@ AgentFlow PMI ha gia un engine contabile interno (ADR-007) e NON serve Odoo per 
 - Sincronizzazione pagamenti/fatturazione tra Odoo e AgentFlow
 
 **Webhook (futuro):**
-- Odoo Automated Action su deal confermato → POST /webhook/deal-confirmed → crea commessa nel sistema NExadata
+- Odoo Automated Action su deal confermato → POST /webhook/deal-confirmed → crea commessa nel sistema Nexa Data
 
 ## Campi Custom Odoo (prefisso x_)
 
@@ -113,7 +113,7 @@ AgentFlow PMI ha gia un engine contabile interno (ADR-007) e NON serve Odoo per 
 | Qualificato | Lead qualificato, merita proposta |
 | Proposta Inviata | Offerta inviata al cliente |
 | Ordine Ricevuto | Ordine ricevuto dal cliente (campi x_order_* compilati) |
-| Confermato | Ordine confermato, passato a commessa in NExadata |
+| Confermato | Ordine confermato, passato a commessa in Nexa Data |
 
 ## Configurazione
 
@@ -133,29 +133,29 @@ ODOO_WEBHOOK_SECRET=<secret per validare webhook in ingresso>
 - AgentFlow ha visibilita sulla pipeline via agente "crm"
 - Gestione ordini cliente tracciata in Odoo (storia completa)
 - Costo contenuto: €93/mese
-- Separazione netta tra pre-vendita (Odoo) e gestione progetti/contabilità (NExadata + AgentFlow)
+- Separazione netta tra pre-vendita (Odoo) e gestione progetti/contabilità (Nexa Data + AgentFlow)
 
 ### Negative
 - Dipendenza Odoo per il CRM (mitigata: adapter astratto, sostituibile)
 - Rate limit ~60 req/min su Odoo Online (mitigato: caching in-memory)
 - Campi custom richiedono configurazione manuale in Odoo
-- Passaggio ordine da Odoo a NExadata richiede azione manuale del commerciale (non automatizzato)
+- Passaggio ordine da Odoo a Nexa Data richiede azione manuale del commerciale (non automatizzato)
 
 ### Rischi
 - Odoo Online potrebbe cambiare API → mitigato con adapter isolato
 - Latenza JSON-RPC → mitigata con caching per dati non critici
-- Sincronizzazione ordine→commessa potrebbe fallire se NExadata non disponibile → gestito con retry/queue
+- Sincronizzazione ordine→commessa potrebbe fallire se Nexa Data non disponibile → gestito con retry/queue
 
 ## Opportunita: Odoo Partnership Program e Multi-Tenant (2026-04-02)
 
 ### Contesto
 
-Odoo ha contattato NExadata (Achraf Kanice, acka@odoo.com, +32 2 616 86 72) per aderire al Partnership Program. Questo apre la possibilita per NExadata di rivendere licenze Odoo ai propri clienti con margine. Contemporaneamente, 4-5 clienti di NExadata sono gia interessati ad AgentFlow PMI con integrazione CRM Odoo.
+Odoo ha contattato Nexa Data (Achraf Kanice, acka@odoo.com, +32 2 616 86 72) per aderire al Partnership Program. Questo apre la possibilita per Nexa Data di rivendere licenze Odoo ai propri clienti con margine. Contemporaneamente, 4-5 clienti di Nexa Data sono gia interessati ad AgentFlow PMI con integrazione CRM Odoo.
 
 ### Implicazioni Architetturali
 
 **Multi-Tenant Readiness:**
-- Ogni cliente NExadata puo avere una propria istanza Odoo (SaaS separate) o un database Odoo distinto (on-prem)
+- Ogni cliente Nexa Data puo avere una propria istanza Odoo (SaaS separate) o un database Odoo distinto (on-prem)
 - AgentFlow PMI rimane centralizzato ma supporta multi-tenancy via tenant router (EPIC 13)
 - Adapter `api/adapters/odoo_crm.py` accetta `odoo_instance_url` per tenant — ogni tenant configura il suo endpoint Odoo
 
@@ -173,14 +173,14 @@ Odoo ha contattato NExadata (Achraf Kanice, acka@odoo.com, +32 2 616 86 72) per 
 
 ### Revenue Model
 
-- NExadata diventa Odoo Partner e addebita Odoo (€93/mese base) al cliente + margine
-- NExadata vende AgentFlow PMI come bundle: contabilita agentica + CRM Odoo integrato
+- Nexa Data diventa Odoo Partner e addebita Odoo (€93/mese base) al cliente + margine
+- Nexa Data vende AgentFlow PMI come bundle: contabilita agentica + CRM Odoo integrato
 - Per clienti IT consulting, il bundle costi ca. €200-300/mese (Odoo + AgentFlow + hosting)
 - 4-5 clienti rappresentano un TAM iniziale di ~€1k-1.5k/mese in MRR
 
 ### Roadmap
 
-1. Test interno: NExadata usa Odoo CRM + AgentFlow per 30 giorni (validare l'integrazione, formare commerciali)
+1. Test interno: Nexa Data usa Odoo CRM + AgentFlow per 30 giorni (validare l'integrazione, formare commerciali)
 2. Formalizzare Odoo Partnership (agreement legale, provisioning)
 3. Completare EPIC 13 (multi-tenant infrastructure)
 4. Commercializzare bundle ai 4-5 clienti interessati

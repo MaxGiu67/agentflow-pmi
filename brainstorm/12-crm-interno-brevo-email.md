@@ -8,7 +8,7 @@
 
 ## 1. Problema
 
-NExadata ha 3 commerciali che gestiscono ~100 progetti/anno. Servono:
+Nexa Data ha 3 commerciali che gestiscono ~100 progetti/anno. Servono:
 1. **Pipeline visuale** (Kanban) per tracciare lead → qualificato → proposta → ordine → confermato
 2. **Gestione contatti** aziendali con P.IVA, email, telefono
 3. **Email tracking** — sapere se il cliente ha letto l'email, cliccato i link
@@ -279,7 +279,7 @@ NExadata ha 3 commerciali che gestiscono ~100 progetti/anno. Servono:
 BREVO_API_KEY=xkeysib-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 BREVO_WEBHOOK_SECRET=random-32-bytes-hex
 BREVO_SENDER_EMAIL=commerciale@nexadata.it
-BREVO_SENDER_NAME=NExadata
+BREVO_SENDER_NAME=Nexa Data
 ```
 
 ### Webhook URL da configurare in Brevo

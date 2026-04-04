@@ -3,9 +3,9 @@
 Gestisce pipeline commerciale, contatti, deal e ordini cliente.
 L'adapter contabile resta in odoo.py (piano dei conti / registrazioni).
 
-Il timesheet, le commesse e il billing restano sul sistema proprietario NExadata.
+Il timesheet, le commesse e il billing restano sul sistema proprietario Nexa Data.
 Odoo CRM gestisce SOLO: pipeline -> offerta -> ordine cliente -> conferma.
-Quando l'ordine e confermato, il commerciale crea la commessa nel sistema NExadata.
+Quando l'ordine e confermato, il commerciale crea la commessa nel sistema Nexa Data.
 
 Questo adapter e async e usa httpx, seguendo il pattern Salt Edge / FiscoAPI.
 """
@@ -327,7 +327,7 @@ class OdooCRMClient:
     async def confirm_order(self, deal_id: int) -> bool:
         """Conferma l'ordine e sposta il deal in fase 'Confermato'.
 
-        Dopo la conferma, il commerciale crea la commessa nel sistema NExadata.
+        Dopo la conferma, il commerciale crea la commessa nel sistema Nexa Data.
         """
         stages = await self.get_stages()
         confirmed_stage = next(

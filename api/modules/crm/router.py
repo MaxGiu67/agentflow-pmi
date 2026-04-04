@@ -4,7 +4,7 @@ Prefix: /crm
 Tags: crm
 
 Migrato da Odoo (ADR-008) a DB interno (ADR-009).
-Flusso: Pipeline -> Offerta -> Ordine Cliente -> Conferma -> Commessa (sistema NExadata)
+Flusso: Pipeline -> Offerta -> Ordine Cliente -> Conferma -> Commessa (sistema Nexa Data)
 """
 
 import uuid
@@ -51,7 +51,9 @@ async def list_contacts(
     svc: CRMService = Depends(get_service),
 ):
     tid = _require_tenant(user)
-    return await svc.list_contacts(tid, search=search, contact_type=type, limit=limit)
+    # AC-110.2: commerciale sees only own contacts
+    assigned = user.id if user.role == "commerciale" else None
+    return await svc.list_contacts(tid, search=search, contact_type=type, limit=limit, assigned_to=assigned)
 
 
 @router.post("/contacts", status_code=201)
@@ -103,7 +105,9 @@ async def list_deals(
     svc: CRMService = Depends(get_service),
 ):
     tid = _require_tenant(user)
-    return await svc.list_deals(tid, stage=stage, deal_type=deal_type, limit=limit)
+    # AC-110.1: commerciale sees only own deals
+    assigned = user.id if user.role == "commerciale" else None
+    return await svc.list_deals(tid, stage=stage, deal_type=deal_type, limit=limit, assigned_to=assigned)
 
 
 @router.get("/deals/won", response_model=DealListResponse)

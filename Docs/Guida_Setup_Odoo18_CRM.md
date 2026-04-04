@@ -7,7 +7,7 @@
 ## 1. Accesso a Odoo 18 Online
 
 1. Vai su https://nexadata.odoo.com
-2. Login con le credenziali NExadata
+2. Login con le credenziali Nexa Data
 3. Verifica di avere l'app **CRM** installata (menu Impostazioni > App)
 
 Se il database non esiste ancora:

@@ -149,7 +149,7 @@ Il mercato della gestione contabile per PMI italiane è saturo di soluzioni trad
 
 ### EPIC 11: Gestione Ordini Cliente — CRM via Odoo 18 (v1.0) ✅ INTEGRAZIONE COMPLETATA
 
-**Strategia (ADR-008 — Aggiornato):** CRM delegato a Odoo 18 Online (€93/mese, 3 utenti) per il ciclo pre-vendita: pipeline → offerta → ordine cliente → conferma. Dopo conferma, il commerciale crea la "commessa" nel sistema proprietario NExadata. Keap scartato (e-commerce oriented, inadeguato per IT consulting/body rental/T&M).
+**Strategia (ADR-008 — Aggiornato):** CRM delegato a Odoo 18 Online (€93/mese, 3 utenti) per il ciclo pre-vendita: pipeline → offerta → ordine cliente → conferma. Dopo conferma, il commerciale crea la "commessa" nel sistema proprietario Nexa Data. Keap scartato (e-commerce oriented, inadeguato per IT consulting/body rental/T&M).
 
 **Pipeline CRM:** Nuovo Lead → Qualificato → Proposta Inviata → Ordine Ricevuto → Confermato
 
@@ -157,15 +157,15 @@ Il mercato della gestione contabile per PMI italiane è saturo di soluzioni trad
 |---|-----------|----------|--------|-----------------|
 | V1 | Anagrafica clienti e fornitori da Odoo (res.partner) | v1.0 | ✅ Implementato | Adapter + REST endpoint + tool orchestrator |
 | V2 | Pipeline vendite da Odoo (crm.lead con fasi personalizzate) | v1.0 | ✅ Implementato | 11 endpoint REST, 4 tool agente "crm" |
-| V3 | Campi custom NExadata (x_deal_type, x_daily_rate, x_technology) | v1.0 | ✅ Implementato | T&M/fixed/spot/hardware — modello business NExadata |
+| V3 | Campi custom Nexa Data (x_deal_type, x_daily_rate, x_technology) | v1.0 | ✅ Implementato | T&M/fixed/spot/hardware — modello business Nexa Data |
 | V4 | Dashboard commerciale (pipeline summary, deal per fase, valore) | v1.0 | ✅ Implementato | Tool crm_pipeline_summary nell'orchestrator |
 | V5 | Registrazione ordine cliente (POST /deals/{id}/order) | v1.0 | ✅ Implementato | Tipi: PO, email, firma_word, portale. Campi: x_order_type, x_order_reference, x_order_date, x_order_notes |
-| V6 | Conferma ordine e passaggio a commessa NExadata (POST /deals/{id}/order/confirm) | v1.0 | ✅ Implementato | Ordini in sospeso su GET /orders/pending |
+| V6 | Conferma ordine e passaggio a commessa Nexa Data (POST /deals/{id}/order/confirm) | v1.0 | ✅ Implementato | Ordini in sospeso su GET /orders/pending |
 | V7 | Webhook deal vinto → creazione progetto timesheet | v1.0 | 🔜 Prossimo | Odoo Automated Actions → /webhook/deal-won |
 | V8 | Contratti attivi e scadenzario rinnovi | v1.5 | — | Alert pre-scadenza 30/60/90 giorni |
 
 **Multi-Tenant Potential (2026-04-02):**
-L'integrazione CRM via Odoo non è solo interna a NExadata. AgentFlow PMI è progettato per supportare client deployments: 4-5 clienti di NExadata sono gia interessati ad usare AgentFlow PMI + Odoo CRM integrato. La soluzione è pronta per multi-tenancy: ogni cliente può avere una propria istanza Odoo (o un database separato) mentre AgentFlow rimane centralizzato con tenant routing. Questo apre un nuovo revenue stream: NExadata può offrire AgentFlow PMI + Odoo CRM come bundle ai propri clienti di consulting IT.
+L'integrazione CRM via Odoo non è solo interna a Nexa Data. AgentFlow PMI è progettato per supportare client deployments: 4-5 clienti di Nexa Data sono gia interessati ad usare AgentFlow PMI + Odoo CRM integrato. La soluzione è pronta per multi-tenancy: ogni cliente può avere una propria istanza Odoo (o un database separato) mentre AgentFlow rimane centralizzato con tenant routing. Questo apre un nuovo revenue stream: Nexa Data può offrire AgentFlow PMI + Odoo CRM come bundle ai propri clienti di consulting IT.
 
 ### EPIC 12: Gestione Progetti e Commesse (v1.5)
 

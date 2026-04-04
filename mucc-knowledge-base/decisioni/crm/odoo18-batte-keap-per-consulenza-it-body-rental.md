@@ -11,7 +11,7 @@ tags: crm, odoo, keap, brevo, pipeline, body-rental, consulenza-it, T&M
 # Evoluzione scelta CRM per consulenza IT e body rental
 
 ## Contesto
-NExadata (3 commerciali, 65 risorse, 100 progetti/anno) cercava un CRM per gestire pipeline vendite con deal T&M (tariffa giornaliera x giorni), fixed price, spot consulting e hardware.
+Nexa Data (3 commerciali, 65 risorse, 100 progetti/anno) cercava un CRM per gestire pipeline vendite con deal T&M (tariffa giornaliera x giorni), fixed price, spot consulting e hardware.
 
 ## Cronologia decisioni
 

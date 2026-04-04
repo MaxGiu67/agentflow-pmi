@@ -67,7 +67,10 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[str | None] = mapped_column(String(255))
-    role: Mapped[str] = mapped_column(String(20), default="viewer")  # owner, admin, viewer
+    role: Mapped[str] = mapped_column(String(20), default="viewer")  # owner, admin, commerciale, viewer
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    sender_email: Mapped[str | None] = mapped_column(String(255), nullable=True)  # email for Brevo sender
+    sender_name: Mapped[str | None] = mapped_column(String(255), nullable=True)  # name for Brevo sender
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     verification_token: Mapped[str | None] = mapped_column(String(255))
     password_reset_token: Mapped[str | None] = mapped_column(String(255))

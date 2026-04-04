@@ -19,7 +19,7 @@ tags: brevo, sendinblue, email, api, webhook, tracking, open, click, bounce
 ```python
 POST /v3/smtp/email
 {
-    "sender": {"name": "NExadata", "email": "commerciale@nexadata.it"},
+    "sender": {"name": "Nexa Data", "email": "commerciale@nexadata.it"},
     "to": [{"email": "cliente@example.com", "name": "Mario Rossi"}],
     "subject": "Proposta progetto {{deal_name}}",
     "htmlContent": "<html><body>Gentile {{nome}},...</body></html>",
@@ -73,7 +73,7 @@ class BrevoClient:
 
     async def send_email(self, to_email, to_name, subject, html, params=None, tags=None):
         resp = await self.client.post("/smtp/email", json={
-            "sender": {"name": "NExadata", "email": "commerciale@nexadata.it"},
+            "sender": {"name": "Nexa Data", "email": "commerciale@nexadata.it"},
             "to": [{"email": to_email, "name": to_name}],
             "subject": subject,
             "htmlContent": html,

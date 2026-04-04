@@ -12,27 +12,27 @@
 
 - **Contatto Odoo:** Achraf Kanice, Partnership Program Manager (acka@odoo.com, +32 2 616 86 72)
 - **Status:** Valutazione in corso per diventare Odoo Partner
-- **Clienti interessati:** 4-5 clienti NExadata interessati ad AgentFlow PMI con Odoo CRM integrato
-- **Test interno:** NExadata valuterà Odoo CRM internamente prima della commercializzazione
-- **Potenziale revenue stream:** Bundle AgentFlow PMI + Odoo CRM per clienti IT consulting di NExadata
+- **Clienti interessati:** 4-5 clienti Nexa Data interessati ad AgentFlow PMI con Odoo CRM integrato
+- **Test interno:** Nexa Data valuterà Odoo CRM internamente prima della commercializzazione
+- **Potenziale revenue stream:** Bundle AgentFlow PMI + Odoo CRM per clienti IT consulting di Nexa Data
 - **Impatto:** Nuovo mercato B2B2C, multi-tenant readiness, separazione chiara tra pre-vendita (Odoo) e gestione progetti/contabilità (AgentFlow)
 
 ---
 
 ## 2026-04-02 — PIVOT: Rimosso Write-Back Timesheet/Billing, Aggiunta Gestione Ordini Cliente
-- **Causa**: Odoo CRM deve gestire SOLO il ciclo pre-vendita (pipeline → offerta → ordine → conferma). NON è responsabile della contabilità. Dopo conferma ordine, il commerciale crea la "commessa" nel sistema proprietario NExadata. Write-back ore/fatturato verso Odoo rimosso.
+- **Causa**: Odoo CRM deve gestire SOLO il ciclo pre-vendita (pipeline → offerta → ordine → conferma). NON è responsabile della contabilità. Dopo conferma ordine, il commerciale crea la "commessa" nel sistema proprietario Nexa Data. Write-back ore/fatturato verso Odoo rimosso.
 - **Impatto**: 5 file modificati, 11 endpoint CRM stabili, nuovi campi x_order_type/reference/date/notes, nuova pipeline
 - **Decisione**: Odoo CRM rimane integrato (ADR-008), ma con ruolo definito in modo più ristretto
 - **File modificati**: _status.md, 02-prd.md (EPIC 11), 04-tech-spec.md (API CRM), ADR-008-odoo-crm.md (_changelog.md)
 - **Endpoint (11 totali):** GET /contacts, POST /contacts, GET /deals, POST /deals, PATCH /deals/{id}, GET /deals/{id}, GET /deals/won, POST /deals/{id}/order, GET /orders/pending, POST /deals/{id}/order/confirm, GET /pipeline/summary, GET /pipeline/stages
 - **Campi custom Odoo aggiunti**: x_order_type (PO/email/firma_word/portale), x_order_reference, x_order_date, x_order_notes
 - **Pipeline fasi**: Nuovo Lead → Qualificato → Proposta Inviata → Ordine Ricevuto → Confermato
-- **Flusso ordinale**: POST /deals/{id}/order (registra) → GET /orders/pending (visualizza ordini in sospeso) → POST /deals/{id}/order/confirm (conferma e passa a NExadata)
+- **Flusso ordinale**: POST /deals/{id}/order (registra) → GET /orders/pending (visualizza ordini in sospeso) → POST /deals/{id}/order/confirm (conferma e passa a Nexa Data)
 
 ---
 
 ## 2026-04-02 — Integrazione CRM Odoo 18 (ADR-008)
-- **Causa**: NExadata ha 3 commerciali, 65 risorse, 100 progetti/anno. Serve CRM per pipeline, contatti, deal. Keap valutato e scartato (e-commerce oriented, score 2/12). Odoo 18 scelto (score 10/12, €93/mese).
+- **Causa**: Nexa Data ha 3 commerciali, 65 risorse, 100 progetti/anno. Serve CRM per pipeline, contatti, deal. Keap valutato e scartato (e-commerce oriented, score 2/12). Odoo 18 scelto (score 10/12, €93/mese).
 - **Decisione**: Odoo 18 Online SOLO come CRM esterno. La contabilita resta sull'engine interno (ADR-007).
 - **Impatto**: 7 file nuovi/modificati, 11 endpoint REST, 4 tool orchestrator, 1 nuovo agente "crm"
 - **File nuovi**: `api/adapters/odoo_crm.py`, `api/modules/crm/` (router.py, service.py, schemas.py)

@@ -62,7 +62,7 @@
 - **Alternativa scartata:** DB condiviso con company_id — troppo rischioso per dati finanziari
 
 ### ADR-008: Odoo 18 come CRM esterno (non contabile)
-- **Contesto:** NExadata ha 3 commerciali, 65 risorse, 100 progetti/anno. Serve CRM per pipeline, contatti, deal (T&M, fixed, spot, hardware). La contabilita resta sull'engine interno (ADR-007).
+- **Contesto:** Nexa Data ha 3 commerciali, 65 risorse, 100 progetti/anno. Serve CRM per pipeline, contatti, deal (T&M, fixed, spot, hardware). La contabilita resta sull'engine interno (ADR-007).
 - **Decisione:** Odoo 18 Online come CRM esterno, integrato via JSON-RPC adapter (`api/adapters/odoo_crm.py`). Nuovo modulo `api/modules/crm/` con 11 endpoint REST.
 - **Keap scartato:** Pensato per e-commerce/marketing automation, non per IT consulting/body rental. Score 2/12 vs Odoo 10/12.
 - **Alternative valutate:** Teamleader (8/12, buono ma meno personalizzabile), Pipedrive (6/12, no T&M nativo), HubSpot (3/12, overkill per 3 utenti).
@@ -345,7 +345,7 @@ Gestito interamente da Odoo:
 - **Orchestrator:** 4 tool CRM, agente "crm" (settimo agente)
 - **Pipeline Odoo:** Nuovo Lead → Qualificato → Proposta Inviata → Ordine Ricevuto → Confermato
 - **Campi custom (x_):** x_deal_type (T&M/fixed/spot/hardware), x_daily_rate, x_estimated_days, x_technology, x_order_type (PO/email/firma_word/portale), x_order_reference, x_order_date, x_order_notes
-- **Flusso ordine:** POST /deals/{id}/order registra l'ordine ricevuto → GET /orders/pending mostra ordini in sospeso → POST /deals/{id}/order/confirm conferma (dopo conferma, commerciale crea commessa in NExadata)
+- **Flusso ordine:** POST /deals/{id}/order registra l'ordine ricevuto → GET /orders/pending mostra ordini in sospeso → POST /deals/{id}/order/confirm conferma (dopo conferma, commerciale crea commessa in Nexa Data)
 - **Rate limit:** ~60 richieste/minuto su Odoo Online
 - **Sicurezza:** API key (non password), webhook con secret validation
 - **Pattern:** Stesso pattern Salt Edge / FiscoAPI (constructor injection, async, httpx)

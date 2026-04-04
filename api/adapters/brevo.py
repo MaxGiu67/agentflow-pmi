@@ -68,7 +68,7 @@ class BrevoClient:
             "to": [{"email": to_email, "name": to_name}],
             "subject": subject,
             "htmlContent": content,
-            "tags": tags or [],
+            "tags": tags or ["agentflow"],
         }
 
         client = await self._get_client()

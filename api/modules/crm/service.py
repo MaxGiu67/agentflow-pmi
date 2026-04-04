@@ -1,7 +1,7 @@
 """Service CRM — logica di business per pipeline interna + ordini cliente.
 
 Migrato da Odoo (ADR-008) a DB interno PostgreSQL (ADR-009).
-NON gestisce: commesse, timesheet, billing (restano sul sistema NExadata).
+NON gestisce: commesse, timesheet, billing (restano sul sistema Nexa Data).
 """
 
 import logging
@@ -37,8 +37,11 @@ class CRMService:
     async def list_contacts(
         self, tenant_id: uuid.UUID,
         search: str = "", contact_type: str = "", limit: int = 100,
+        assigned_to: uuid.UUID | None = None,
     ) -> dict:
         query = select(CrmContact).where(CrmContact.tenant_id == tenant_id)
+        if assigned_to:
+            query = query.where(CrmContact.assigned_to == assigned_to)
         if search:
             query = query.where(or_(
                 CrmContact.name.ilike(f"%{search}%"),
@@ -139,9 +142,12 @@ class CRMService:
     async def list_deals(
         self, tenant_id: uuid.UUID,
         stage: str = "", deal_type: str = "", limit: int = 100,
+        assigned_to: uuid.UUID | None = None,
     ) -> dict:
         await self._ensure_default_stages(tenant_id)
         query = select(CrmDeal).where(CrmDeal.tenant_id == tenant_id)
+        if assigned_to:
+            query = query.where(CrmDeal.assigned_to == assigned_to)
         if deal_type:
             query = query.where(CrmDeal.deal_type == deal_type)
         # Stage filter by name requires subquery
@@ -330,7 +336,7 @@ class CRMService:
         return {
             "status": "confirmed",
             "deal_id": str(deal.id),
-            "next_step": "Creare la commessa nel sistema NExadata",
+            "next_step": "Creare la commessa nel sistema Nexa Data",
         }
 
     # ── Pipeline Summary ──────────────────────────────────

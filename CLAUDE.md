@@ -10,7 +10,7 @@
 - **Email Marketing**: Brevo (ex Sendinblue) — invio, open/click tracking, sequenze automatiche (ADR-009)
 - **Database**: PostgreSQL applicativo, 40+ tabelle, multi-tenant
 - **Deploy**: Railway (api + frontend), GitHub
-- **Clienti**: 4-5 clienti NExadata interessati ad AgentFlow PMI
+- **Clienti**: 4-5 clienti Nexa Data interessati ad AgentFlow PMI
 
 ## Architecture Decisions (ADR)
 - ADR-001: Python over Node.js

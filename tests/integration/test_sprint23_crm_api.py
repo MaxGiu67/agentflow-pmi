@@ -231,7 +231,7 @@ async def test_ac_89_1_crud_activity(db_session: AsyncSession, tenant: Tenant):
         "contact_id": contact["id"],
         "type": "call",
         "subject": "Chiamata introduttiva",
-        "description": "Presentazione servizi NExadata",
+        "description": "Presentazione servizi Nexa Data",
     })
     assert activity["type"] == "call"
     assert activity["subject"] == "Chiamata introduttiva"

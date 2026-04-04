@@ -24,19 +24,19 @@ Tre sistemi separati per tre responsabilita:
 | Contabilita (partita doppia, IVA, bilancio) | Engine interno PostgreSQL | 0 EUR |
 | CRM (pipeline, contatti, deal, ordini) | DB interno PostgreSQL | 0 EUR |
 | Email marketing (invio, tracking, bounce) | Brevo SaaS | 300 EUR/anno |
-| Timesheet, billing, commesse | NExadata proprietario | Esistente |
+| Timesheet, billing, commesse | Nexa Data proprietario | Esistente |
 
 **Flusso dati aggiornato:**
 - Commerciale gestisce deal nel CRM interno AgentFlow → pipeline Kanban
 - Email automatiche via Brevo con tracking (open, click, bounce)
 - Ordine ricevuto → registrato con tipo (PO, email, firma, portale)
-- Ordine confermato → commerciale crea commessa nel sistema NExadata
-- Timesheet, billing e commesse restano INTERAMENTE su NExadata (invariato)
+- Ordine confermato → commerciale crea commessa nel sistema Nexa Data
+- Timesheet, billing e commesse restano INTERAMENTE su Nexa Data (invariato)
 - Engine contabile interno gestisce partita doppia, bilancio, IVA (indipendente)
 
 **Odoo 18 resta come opzione:**
 - L'adapter odoo_crm.py resta nel codice
-- I clienti NExadata che preferiscono Odoo possono usarlo (bundle commerciale)
+- I clienti Nexa Data che preferiscono Odoo possono usarlo (bundle commerciale)
 - Partnership Odoo in valutazione (contatto: Achraf Kanice)
 
 ## Vantaggi

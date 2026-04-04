@@ -1237,3 +1237,46 @@ export function useConfrontaAnticipo(scadenzaId: string) {
     enabled: !!scadenzaId,
   })
 }
+
+// ── User Management ──
+
+export function useTeamUsers() {
+  return useQuery({
+    queryKey: ['team-users'],
+    queryFn: () => api.get('/users').then((r) => r.data),
+  })
+}
+
+export function useInviteUser() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { email: string; name: string; role: string }) =>
+      api.post('/users/invite', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['team-users'] }),
+  })
+}
+
+export function useUpdateUserRole() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: string }) =>
+      api.patch(`/users/${userId}/role`, { role }).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['team-users'] }),
+  })
+}
+
+export function useToggleUserActive() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (userId: string) =>
+      api.post(`/users/${userId}/toggle-active`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['team-users'] }),
+  })
+}
+
+export function useMyPermissions() {
+  return useQuery({
+    queryKey: ['my-permissions'],
+    queryFn: () => api.get('/users/me/permissions').then((r) => r.data),
+  })
+}

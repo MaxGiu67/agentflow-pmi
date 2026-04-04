@@ -2,14 +2,14 @@
 
 **Data:** 2026-04-03
 **Stato:** APPROVATA
-**Decisori:** Massimiliano Giurelli (NExadata)
+**Decisori:** Massimiliano Giurelli (Nexa Data)
 **Sostituisce:** ADR-008 (Odoo 18 come CRM) — Odoo resta opzione per bundle clienti, ma AgentFlow non ne dipende
 
 ---
 
 ## Contesto
 
-NExadata ha valutato 3 opzioni per il CRM commerciale:
+Nexa Data ha valutato 3 opzioni per il CRM commerciale:
 
 1. **Odoo 18 Online** — CRM esterno via JSON-RPC (ADR-008, implementato)
 2. **Keap** (ex Infusionsoft) — CRM + email automation
@@ -82,12 +82,12 @@ AgentFlow PMI (PostgreSQL)          Brevo (Email Infrastructure)
 BREVO_API_KEY=<api-key>
 BREVO_WEBHOOK_SECRET=<webhook-secret>
 BREVO_SENDER_EMAIL=commerciale@nexadata.it
-BREVO_SENDER_NAME=NExadata
+BREVO_SENDER_NAME=Nexa Data
 ```
 
 ### Odoo
 
-Odoo 18 resta come **opzione bundle per i clienti** NExadata che lo vogliono (partnership commerciale), ma AgentFlow PMI non dipende da Odoo per funzionare. L'adapter `odoo_crm.py` resta nel codice come integrazione opzionale.
+Odoo 18 resta come **opzione bundle per i clienti** Nexa Data che lo vogliono (partnership commerciale), ma AgentFlow PMI non dipende da Odoo per funzionare. L'adapter `odoo_crm.py` resta nel codice come integrazione opzionale.
 
 ## Conseguenze
 
