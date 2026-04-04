@@ -63,8 +63,7 @@ const navSections: NavSection[] = [
     items: [
       { to: '/crm', label: 'Pipeline CRM', icon: Briefcase },
       { to: '/crm/contatti', label: 'Contatti', icon: Users },
-      { to: '/email/builder', label: 'Crea Email AI', icon: Zap },
-      { to: '/email/templates', label: 'Template', icon: Mail },
+      { to: '/email/templates', label: 'Email Template', icon: Mail },
       { to: '/email/sequenze', label: 'Sequenze', icon: Zap },
       { to: '/email/analytics', label: 'Email Stats', icon: BarChart3 },
     ],

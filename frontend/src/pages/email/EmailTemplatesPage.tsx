@@ -5,7 +5,8 @@ import PageMeta from '../../components/ui/PageMeta'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
 import Badge from '../../components/ui/Badge'
-import { Mail, Plus, Eye, Edit, X } from 'lucide-react'
+import AIEmailEditor from '../../components/email/AIEmailEditor'
+import { Mail, Plus, Eye, Edit, X, Sparkles } from 'lucide-react'
 
 const CATEGORIES = ['welcome', 'followup', 'proposal', 'reminder', 'nurture']
 const CAT_LABELS: Record<string, string> = {
@@ -19,7 +20,7 @@ export default function EmailTemplatesPage() {
   const updateTpl = useUpdateEmailTemplate()
   const previewTpl = usePreviewTemplate()
 
-  const [showForm, setShowForm] = useState(false)
+  const [mode, setMode] = useState<'list' | 'manual' | 'ai'>('list')
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState({ name: '', subject: '', html_body: '', category: 'followup', variables: '' })
   const [preview, setPreview] = useState<{ subject: string; html_body: string } | null>(null)
@@ -34,12 +35,12 @@ export default function EmailTemplatesPage() {
     } else {
       await createTpl.mutateAsync({ name: form.name, subject: form.subject, html_body: form.html_body, category: form.category, variables: vars })
     }
-    setShowForm(false); setEditId(null); setForm({ name: '', subject: '', html_body: '', category: 'followup', variables: '' })
+    setMode('list'); setEditId(null); setForm({ name: '', subject: '', html_body: '', category: 'followup', variables: '' })
   }
 
   const handleEdit = (tpl: any) => {
     setForm({ name: tpl.name, subject: tpl.subject, html_body: tpl.html_body, category: tpl.category, variables: (tpl.variables || []).join(', ') })
-    setEditId(tpl.id); setShowForm(true)
+    setEditId(tpl.id); setMode('manual')
   }
 
   const handlePreview = async (tpl: any) => {
@@ -52,27 +53,50 @@ export default function EmailTemplatesPage() {
   return (
     <div className="space-y-4">
       <PageMeta title="Email Templates" />
-      <PageHeader title="Email Templates" subtitle="Gestisci i template per le comunicazioni"
-        actions={<button onClick={() => { setShowForm(true); setEditId(null); setForm({ name: '', subject: '', html_body: '', category: 'followup', variables: '' }) }}
-          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-          <Plus className="h-4 w-4" /> Nuovo template
-        </button>}
+      <PageHeader title="Email Templates" subtitle="Crea e gestisci i template per le comunicazioni"
+        actions={
+          mode === 'list' ? (
+            <div className="flex gap-2">
+              <button onClick={() => { setMode('ai'); setEditId(null) }}
+                className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700">
+                <Sparkles className="h-4 w-4" /> Crea con AI
+              </button>
+              <button onClick={() => { setMode('manual'); setEditId(null); setForm({ name: '', subject: '', html_body: '', category: 'followup', variables: '' }) }}
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                <Plus className="h-4 w-4" /> Manuale
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => { setMode('list'); setEditId(null); setPreview(null) }}
+              className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
+              <X className="h-4 w-4" /> Torna alla lista
+            </button>
+          )
+        }
       />
 
-      {/* Category filter */}
-      <div className="flex flex-wrap gap-2">
-        <button onClick={() => setCatFilter('')} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${!catFilter ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}>Tutti</button>
-        {CATEGORIES.map((c) => (
-          <button key={c} onClick={() => setCatFilter(c)} className={`rounded-lg px-3 py-1.5 text-xs font-medium capitalize ${catFilter === c ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
-            {CAT_LABELS[c] || c}
-          </button>
-        ))}
-      </div>
+      {/* ─── AI Builder Mode ─── */}
+      {mode === 'ai' && (
+        <div className="rounded-2xl border border-purple-200 bg-purple-50/20 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-600">
+              <Sparkles className="h-4 w-4 text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Crea template con AI</p>
+              <p className="text-xs text-gray-500">Descrivi l'email e l'AI la genera. Poi personalizzala e salva.</p>
+            </div>
+          </div>
+          <AIEmailEditor
+            onClose={() => setMode('list')}
+          />
+        </div>
+      )}
 
-      {/* Form */}
-      {showForm && (
-        <div className="rounded-xl border border-blue-200 bg-blue-50/30 p-4 space-y-3">
-          <h3 className="font-medium text-gray-900">{editId ? 'Modifica template' : 'Nuovo template'}</h3>
+      {/* ─── Manual Form Mode ─── */}
+      {mode === 'manual' && (
+        <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-3">
+          <h3 className="font-medium text-gray-900">{editId ? 'Modifica template' : 'Nuovo template manuale'}</h3>
           <div className="grid gap-3 sm:grid-cols-2">
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nome template *" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
             <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
@@ -80,58 +104,74 @@ export default function EmailTemplatesPage() {
             </select>
           </div>
           <input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} placeholder="Oggetto (con variabili {{nome}})" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-          <textarea value={form.html_body} onChange={(e) => setForm({ ...form, html_body: e.target.value })} placeholder="Corpo HTML (con variabili {{nome}}, {{azienda}}...)" rows={6} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono text-xs" />
+          <textarea value={form.html_body} onChange={(e) => setForm({ ...form, html_body: e.target.value })} placeholder="Corpo HTML (con variabili {{nome}}, {{azienda}}...)" rows={8} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono text-xs" />
           <input value={form.variables} onChange={(e) => setForm({ ...form, variables: e.target.value })} placeholder="Variabili (separate da virgola): nome, azienda, deal_name" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           <div className="flex gap-2">
             <button onClick={handleSave} disabled={createTpl.isPending || updateTpl.isPending || !form.name}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+              className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50">
               {editId ? 'Salva modifiche' : 'Crea'}
             </button>
-            <button onClick={() => { setShowForm(false); setEditId(null) }} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600">Annulla</button>
+            <button onClick={() => { setMode('list'); setEditId(null) }} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600">Annulla</button>
           </div>
         </div>
       )}
 
-      {/* Preview modal */}
-      {preview && (
-        <div className="rounded-xl border border-purple-200 bg-purple-50/30 p-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="font-medium text-gray-900">Preview</h3>
-            <button onClick={() => setPreview(null)}><X className="h-4 w-4 text-gray-400" /></button>
+      {/* ─── List Mode ─── */}
+      {mode === 'list' && (
+        <>
+          {/* Category filter */}
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => setCatFilter('')} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${!catFilter ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'}`}>Tutti</button>
+            {CATEGORIES.map((c) => (
+              <button key={c} onClick={() => setCatFilter(c)} className={`rounded-lg px-3 py-1.5 text-xs font-medium capitalize ${catFilter === c ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                {CAT_LABELS[c] || c}
+              </button>
+            ))}
           </div>
-          <p className="text-sm font-medium text-gray-700">Oggetto: {preview.subject}</p>
-          <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm" dangerouslySetInnerHTML={{ __html: preview.html_body }} />
-        </div>
-      )}
 
-      {/* Template list */}
-      {isLoading ? <LoadingSpinner /> : !filtered?.length ? (
-        <EmptyState icon={<Mail className="h-12 w-12" />} title="Nessun template" description="Crea il primo template email." />
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((tpl: any) => (
-            <div key={tpl.id} className="rounded-xl border border-gray-200 bg-white p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between">
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-gray-900 truncate">{tpl.name}</p>
-                  <p className="mt-0.5 text-xs text-gray-400 truncate">{tpl.subject}</p>
-                </div>
-                <Badge variant="info">{CAT_LABELS[tpl.category] || tpl.category}</Badge>
+          {/* Preview */}
+          {preview && (
+            <div className="rounded-xl border border-purple-200 bg-purple-50/30 p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium text-gray-900">Preview</h3>
+                <button onClick={() => setPreview(null)}><X className="h-4 w-4 text-gray-400" /></button>
               </div>
-              {tpl.variables?.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {tpl.variables.map((v: string) => (
-                    <span key={v} className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-mono text-gray-500">{`{{${v}}}`}</span>
-                  ))}
-                </div>
-              )}
-              <div className="mt-3 flex gap-2">
-                <button onClick={() => handlePreview(tpl)} className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"><Eye className="h-3 w-3" /> Preview</button>
-                <button onClick={() => handleEdit(tpl)} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:underline"><Edit className="h-3 w-3" /> Modifica</button>
-              </div>
+              <p className="text-sm font-medium text-gray-700">Oggetto: {preview.subject}</p>
+              <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm" dangerouslySetInnerHTML={{ __html: preview.html_body }} />
             </div>
-          ))}
-        </div>
+          )}
+
+          {/* Template list */}
+          {isLoading ? <LoadingSpinner /> : !filtered?.length ? (
+            <EmptyState icon={<Mail className="h-12 w-12" />} title="Nessun template"
+              description="Crea il primo template con l'AI o manualmente." />
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((tpl: any) => (
+                <div key={tpl.id} className="rounded-xl border border-gray-200 bg-white p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-gray-900 truncate">{tpl.name}</p>
+                      <p className="mt-0.5 text-xs text-gray-400 truncate">{tpl.subject}</p>
+                    </div>
+                    <Badge variant="info">{CAT_LABELS[tpl.category] || tpl.category}</Badge>
+                  </div>
+                  {tpl.variables?.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {tpl.variables.map((v: string) => (
+                        <span key={v} className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-mono text-gray-500">{`{{${v}}}`}</span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="mt-3 flex gap-2">
+                    <button onClick={() => handlePreview(tpl)} className="inline-flex items-center gap-1 text-xs text-purple-600 hover:underline"><Eye className="h-3 w-3" /> Preview</button>
+                    <button onClick={() => handleEdit(tpl)} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:underline"><Edit className="h-3 w-3" /> Modifica</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   )
