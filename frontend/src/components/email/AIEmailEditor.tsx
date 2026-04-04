@@ -23,7 +23,7 @@ interface AIEmailEditorProps {
   editName?: string
 }
 
-export default function AIEmailEditor({ contactName, dealName, onSend, editTemplateId, editSubject, editHtmlBody, editCategory, editName }: AIEmailEditorProps) {
+export default function AIEmailEditor({ contactName, dealName, onSend, editTemplateId: _editTemplateId, editSubject, editHtmlBody, editCategory, editName }: AIEmailEditorProps) {
   const generate = useGenerateEmail()
   const refine = useRefineEmail()
   const saveTemplate = useCreateEmailTemplate()
