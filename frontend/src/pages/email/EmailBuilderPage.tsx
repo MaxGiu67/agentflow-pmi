@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useGenerateEmail, useRefineEmail, useCreateEmailTemplate } from '../../api/hooks'
 import PageMeta from '../../components/ui/PageMeta'
 import {
-  Sparkles, Send, Save, Undo2, Type, Palette,
-  MessageCircle, X, ChevronRight, Wand2, Eye, Code,
-  Bold, Italic, AlignLeft, AlignCenter, Link2,
+  Sparkles, Send, Save, Undo2,
+  X, ChevronRight, Wand2, Eye, Code,
 } from 'lucide-react'
 
 const SUGGESTIONS = [

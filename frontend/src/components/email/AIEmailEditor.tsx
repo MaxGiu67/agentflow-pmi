@@ -17,7 +17,7 @@ interface AIEmailEditorProps {
   onClose?: () => void
 }
 
-export default function AIEmailEditor({ contactName, dealName, onSend, onClose }: AIEmailEditorProps) {
+export default function AIEmailEditor({ contactName, dealName, onSend }: AIEmailEditorProps) {
   const [prompt, setPrompt] = useState('')
   const [tone, setTone] = useState('professionale')
   const [subject, setSubject] = useState('')
