@@ -16,18 +16,26 @@ logger = logging.getLogger(__name__)
 
 # Known setting keys with descriptions
 KNOWN_KEYS = {
-    # A-Cube / Fatturazione
-    "acube_company_id": "ID azienda in A-Cube per fatturazione SDI",
+    # A-Cube — fatturazione SDI + Open Banking (unico provider)
     "acube_api_key": "API Key A-Cube (se custom, altrimenti usa piattaforma)",
-    # Banca
-    "saltedge_customer_id": "Customer ID Salt Edge per Open Banking",
-    # Email
+    "acube_company_id": "ID azienda in A-Cube per fatturazione SDI",
+    "acube_connection_id": "Connection ID A-Cube per Open Banking (PSD2)",
+    # Email — Brevo
     "brevo_api_key": "API Key Brevo (se custom, altrimenti usa piattaforma)",
-    # LLM
+    # LLM — OpenAI
     "openai_api_key": "API Key OpenAI (se custom)",
-    # SPID
-    "spid_token": "Token SPID per cassetto fiscale (encrypted)",
 }
+
+# Provider attivi — Salt Edge e FiscoAPI disabilitati, A-Cube unico provider
+ACTIVE_PROVIDERS = {
+    "fatturazione": "acube",      # SDI invio/ricezione
+    "open_banking": "acube",      # Conti correnti PSD2
+    "email": "brevo",             # Email marketing + tracking
+    "llm": "openai",              # Chatbot + PDF extraction
+}
+
+# Provider disabilitati (codice resta, non usato)
+DISABLED_PROVIDERS = ["saltedge", "fiscoapi"]
 
 
 def _get_fernet() -> Fernet:

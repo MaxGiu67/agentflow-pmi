@@ -129,20 +129,30 @@ Nuovo Lead → Qualificato → Proposta Inviata → Ordine Ricevuto → Conferma
 - Sequenze: multi-step con condizioni (if_opened, if_not_opened, if_clicked)
 - Trigger automatici: deal_stage_changed, contact_created
 
+## Servizi Esterni
+
+| Servizio | Cosa fa | Status |
+|----------|---------|--------|
+| **A-Cube** | Fatturazione SDI + Open Banking PSD2 (unico provider) | Attivo |
+| **Brevo** | Email marketing + tracking (open/click/bounce) | Attivo |
+| **OpenAI** | Chatbot AI + PDF extraction | Attivo |
+| ~~Salt Edge~~ | ~~Open Banking~~ — rimosso, A-Cube gestisce | Disabilitato |
+| ~~FiscoAPI~~ | ~~Cassetto fiscale~~ — rimosso, A-Cube gestisce | Disabilitato |
+| Odoo 18 | CRM opzionale per bundle clienti | Opzionale |
+
 ## Config .env
 ```env
 # Core
-DATABASE_URL, JWT_SECRET_KEY, REDIS_URL
+DATABASE_URL, JWT_SECRET_KEY, REDIS_URL, AES_KEY
 
-# Email Marketing (Brevo)
-BREVO_API_KEY, BREVO_WEBHOOK_SECRET, BREVO_SENDER_EMAIL, BREVO_SENDER_NAME
+# A-Cube (unico provider: SDI + Open Banking)
+ACUBE_API_KEY, ACUBE_BASE_URL
 
-# Servizi esterni
-SALTEDGE_APP_ID, SALTEDGE_SECRET
+# Brevo (email marketing)
+BREVO_API_KEY, BREVO_SENDER_EMAIL, BREVO_SENDER_NAME
+
+# OpenAI (chatbot + extraction)
 OPENAI_API_KEY
-
-# Odoo (opzionale — per bundle clienti)
-ODOO_URL, ODOO_DB, ODOO_USER, ODOO_API_KEY
 ```
 
 ## MCP Server
