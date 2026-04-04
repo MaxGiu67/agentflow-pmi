@@ -82,7 +82,8 @@ const navSections: NavSection[] = [
     items: [
       { to: '/chat', label: 'Chat', icon: MessageSquare },
       { to: '/report', label: 'Report', icon: BarChart3 },
-      { to: '/impostazioni', label: 'Impostazioni', icon: Settings },
+      { to: '/impostazioni/utenti', label: 'Utenti', icon: Users },
+      { to: '/impostazioni/integrazioni', label: 'Integrazioni', icon: Settings },
     ],
   },
 ]
