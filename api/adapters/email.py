@@ -5,7 +5,7 @@ import os
 
 logger = logging.getLogger(__name__)
 
-SERVICE_SENDER_EMAIL = "noreply@irdia.tech"
+SERVICE_SENDER_EMAIL = "noreply@iridia.tech"
 SERVICE_SENDER_NAME = "AgentFlow"
 
 
