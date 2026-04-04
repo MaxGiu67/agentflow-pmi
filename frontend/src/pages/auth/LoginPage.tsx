@@ -17,11 +17,9 @@ export default function LoginPage() {
     try {
       await login(email, password)
       navigate('/dashboard')
-    } catch (err: unknown) {
-      const message =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-        'Errore durante il login'
-      setError(message)
+    } catch {
+      // Always vague — never reveal if email exists or password is wrong
+      setError('Email o password non corretti')
     } finally {
       setLoading(false)
     }
