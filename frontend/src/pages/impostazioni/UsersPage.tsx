@@ -4,7 +4,7 @@ import PageHeader from '../../components/ui/PageHeader'
 import PageMeta from '../../components/ui/PageMeta'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import Badge from '../../components/ui/Badge'
-import { Users, Plus, Shield, UserX, UserCheck, Copy } from 'lucide-react'
+import { Plus, UserX, UserCheck, Copy } from 'lucide-react'
 
 const ROLES = [
   { value: 'owner', label: 'Owner', color: 'error' as const },

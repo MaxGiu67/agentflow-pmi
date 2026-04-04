@@ -30,7 +30,6 @@ export default function ResponsiveTable<T>({
   }
 
   const highCols = columns.filter((c) => c.priority !== 'low')
-  const _lowCols = columns.filter((c) => c.priority === 'low')
 
   return (
     <>
