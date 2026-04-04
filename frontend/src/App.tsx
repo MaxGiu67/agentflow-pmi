@@ -62,6 +62,7 @@ const PayrollPage = lazy(() => import('./pages/payroll/PayrollPage'))
 const GestioneImportPage = lazy(() => import('./pages/payroll/GestioneImportPage'))
 const CrmPipelinePage = lazy(() => import('./pages/crm/CrmPipelinePage'))
 const CrmDealDetailPage = lazy(() => import('./pages/crm/CrmDealDetailPage'))
+const CrmNewDealPage = lazy(() => import('./pages/crm/CrmNewDealPage'))
 const CrmContactsPage = lazy(() => import('./pages/crm/CrmContactsPage'))
 const EmailTemplatesPage = lazy(() => import('./pages/email/EmailTemplatesPage'))
 const EmailAnalyticsPage = lazy(() => import('./pages/email/EmailAnalyticsPage'))
@@ -178,6 +179,7 @@ export default function App() {
 
               {/* CRM */}
               <Route path="/crm" element={<CrmPipelinePage />} />
+              <Route path="/crm/deals/nuovo" element={<CrmNewDealPage />} />
               <Route path="/crm/deals/:dealId" element={<CrmDealDetailPage />} />
               <Route path="/crm/contatti" element={<CrmContactsPage />} />
 
