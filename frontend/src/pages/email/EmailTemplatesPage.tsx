@@ -40,7 +40,7 @@ export default function EmailTemplatesPage() {
 
   const handleEdit = (tpl: any) => {
     setForm({ name: tpl.name, subject: tpl.subject, html_body: tpl.html_body, category: tpl.category, variables: (tpl.variables || []).join(', ') })
-    setEditId(tpl.id); setMode('manual')
+    setEditId(tpl.id); setMode('ai')
   }
 
   const handlePreview = async (tpl: any) => {
@@ -87,7 +87,13 @@ export default function EmailTemplatesPage() {
               <p className="text-xs text-gray-500">Descrivi l'email e l'AI la genera. Poi personalizzala e salva.</p>
             </div>
           </div>
-          <AIEmailEditor />
+          <AIEmailEditor
+            editTemplateId={editId || undefined}
+            editSubject={editId ? form.subject : undefined}
+            editHtmlBody={editId ? form.html_body : undefined}
+            editCategory={editId ? form.category : undefined}
+            editName={editId ? form.name : undefined}
+          />
         </div>
       )}
 

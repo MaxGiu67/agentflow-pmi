@@ -15,22 +15,28 @@ interface AIEmailEditorProps {
   contactName?: string
   dealName?: string
   onSend?: (subject: string, htmlBody: string) => void
+  // Edit existing template
+  editTemplateId?: string
+  editSubject?: string
+  editHtmlBody?: string
+  editCategory?: string
+  editName?: string
 }
 
-export default function AIEmailEditor({ contactName, dealName, onSend }: AIEmailEditorProps) {
+export default function AIEmailEditor({ contactName, dealName, onSend, editTemplateId, editSubject, editHtmlBody, editCategory, editName }: AIEmailEditorProps) {
   const generate = useGenerateEmail()
   const refine = useRefineEmail()
   const saveTemplate = useCreateEmailTemplate()
 
   const [prompt, setPrompt] = useState('')
   const [tone, setTone] = useState('professionale')
-  const [subject, setSubject] = useState('')
-  const [htmlBody, setHtmlBody] = useState('')
-  const [editorHtml, setEditorHtml] = useState('')
+  const [subject, setSubject] = useState(editSubject || '')
+  const [htmlBody, setHtmlBody] = useState(editHtmlBody || '')
+  const [editorHtml, setEditorHtml] = useState(editHtmlBody || '')
   const [variables, setVariables] = useState<string[]>([])
   const [showSave, setShowSave] = useState(false)
-  const [saveName, setSaveName] = useState('')
-  const [saveCategory, setSaveCategory] = useState('followup')
+  const [saveName, setSaveName] = useState(editName || '')
+  const [saveCategory, setSaveCategory] = useState(editCategory || 'followup')
   const [refinePrompt, setRefinePrompt] = useState('')
 
   const handleGenerate = async () => {
