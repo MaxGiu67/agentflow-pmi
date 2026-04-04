@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 
 interface Column<T> {
   key: string
@@ -30,7 +30,7 @@ export default function ResponsiveTable<T>({
   }
 
   const highCols = columns.filter((c) => c.priority !== 'low')
-  const lowCols = columns.filter((c) => c.priority === 'low')
+  const _lowCols = columns.filter((c) => c.priority === 'low')
 
   return (
     <>

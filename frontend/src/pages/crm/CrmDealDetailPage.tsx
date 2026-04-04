@@ -44,7 +44,7 @@ export default function CrmDealDetailPage() {
   }
 
   const handleConfirm = async () => {
-    await confirmOrder.mutateAsync(id)
+    await confirmOrder.mutateAsync(String(id))
   }
 
   return (

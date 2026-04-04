@@ -1,10 +1,9 @@
-import { lazy, Suspense } from 'react'
+import { lazy } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import ProtectedRoute from './components/ui/ProtectedRoute'
 import AppLayout from './components/layout/AppLayout'
-import LoadingSpinner from './components/ui/LoadingSpinner'
 import InstallPrompt from './components/pwa/InstallPrompt'
 import OfflineIndicator from './components/pwa/OfflineIndicator'
 

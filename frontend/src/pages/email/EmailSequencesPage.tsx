@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useEmailSequences, useCreateSequence, useEmailTemplates } from '../../api/hooks'
+import { useEmailSequences, useCreateSequence } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import PageMeta from '../../components/ui/PageMeta'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -49,7 +49,7 @@ export default function EmailSequencesPage() {
       )}
 
       {isLoading ? <LoadingSpinner /> : !sequences?.length ? (
-        <EmptyState icon={Zap} title="Nessuna sequenza" description="Crea la prima sequenza email automatica." />
+        <EmptyState icon={<Zap className="h-12 w-12" />} title="Nessuna sequenza" description="Crea la prima sequenza email automatica." />
       ) : (
         <div className="space-y-2">
           {sequences.map((seq: any) => (

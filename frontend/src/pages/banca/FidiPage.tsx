@@ -53,7 +53,7 @@ export default function FidiPage() {
       )}
 
       {isLoading ? <LoadingSpinner /> : !fidi?.length ? (
-        <EmptyState icon={Shield} title="Nessun fido" description="Configura il primo fido bancario per gli anticipi fatture." />
+        <EmptyState icon={<Shield className="h-12 w-12" />} title="Nessun fido" description="Configura il primo fido bancario per gli anticipi fatture." />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {fidi.map((f: any) => {

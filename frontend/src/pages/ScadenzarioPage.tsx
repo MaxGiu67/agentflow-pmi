@@ -202,7 +202,7 @@ export default function ScadenzarioPage() {
           )}
 
           {isLoading ? <LoadingSpinner /> : !currentData?.items?.length ? (
-            <EmptyState icon={CalendarClock} title="Nessuna scadenza" description="Non ci sono scadenze." />
+            <EmptyState icon={<CalendarClock className="h-12 w-12" />} title="Nessuna scadenza" description="Non ci sono scadenze." />
           ) : (
             <div className="space-y-2">
               {currentData.items.map((s: any) => (

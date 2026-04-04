@@ -106,7 +106,7 @@ export default function EmailTemplatesPage() {
 
       {/* Template list */}
       {isLoading ? <LoadingSpinner /> : !filtered?.length ? (
-        <EmptyState icon={Mail} title="Nessun template" description="Crea il primo template email." />
+        <EmptyState icon={<Mail className="h-12 w-12" />} title="Nessun template" description="Crea il primo template email." />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((tpl: any) => (

@@ -69,7 +69,7 @@ export default function IntegrazioniPage() {
 
   if (isLoading) return <LoadingSpinner />
 
-  const settingsMap = new Map((settings || []).map((s: any) => [s.key, s]))
+  const settingsMap = new Map<string, { key: string; description?: string; value_masked?: string; source?: string }>((settings || []).map((s: any) => [s.key, s]))
 
   return (
     <div className="space-y-6">

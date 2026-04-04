@@ -105,7 +105,7 @@ export default function CrmContactsPage() {
         <LoadingSpinner />
       ) : !data?.contacts?.length ? (
         <EmptyState
-          icon={Users}
+          icon={<Users className="h-12 w-12" />}
           title="Nessun contatto"
           description="Non ci sono contatti in Odoo CRM. Crea il primo contatto aziendale."
         />

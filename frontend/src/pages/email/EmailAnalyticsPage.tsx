@@ -1,5 +1,4 @@
 import { useEmailAnalytics } from '../../api/hooks'
-import { formatCurrency } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
 import PageMeta from '../../components/ui/PageMeta'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'

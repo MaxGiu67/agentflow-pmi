@@ -1,4 +1,5 @@
-import { useState, useRef, useOptimistic, DragEvent } from 'react'
+import { useState, useRef, useOptimistic } from 'react'
+import type { DragEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   useCrmPipeline, useCrmDeals, useCrmStages, useCrmAnalytics, useUpdateCrmDeal,
@@ -7,7 +8,7 @@ import { formatCurrency } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
-import { Briefcase, Plus, Eye, LayoutGrid, List, Filter, TrendingUp } from 'lucide-react'
+import { Briefcase, Plus, Eye, LayoutGrid, List } from 'lucide-react'
 
 const DEAL_TYPE_SHORT: Record<string, string> = {
   'T&M': 'T&M',
@@ -22,7 +23,7 @@ export default function CrmPipelinePage() {
   const [typeFilter, setTypeFilter] = useState('')
   const dragDealId = useRef<string | null>(null)
 
-  const { data: pipeline } = useCrmPipeline()
+  const { data: _pipeline } = useCrmPipeline()
   const { data: deals, isLoading } = useCrmDeals('', typeFilter)
   const { data: stages } = useCrmStages()
   const { data: analytics } = useCrmAnalytics()
@@ -255,7 +256,7 @@ export default function CrmPipelinePage() {
       ) : (
         /* ============ TABLE VIEW ============ */
         !deals?.deals?.length ? (
-          <EmptyState icon={Briefcase} title="Nessun deal" description="La pipeline e vuota." />
+          <EmptyState icon={<Briefcase className="h-12 w-12" />} title="Nessun deal" description="La pipeline e vuota." />
         ) : (
           <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
             <table className="min-w-full divide-y divide-gray-200">
