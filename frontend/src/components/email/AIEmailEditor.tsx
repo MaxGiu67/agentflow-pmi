@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback } from 'react'
-import EmailEditor from 'react-email-editor'
-import { useGenerateEmail, useCreateEmailTemplate } from '../../api/hooks'
+import { useState } from 'react'
+import { useGenerateEmail, useRefineEmail, useCreateEmailTemplate } from '../../api/hooks'
+import GrapesEditor from './GrapesEditor'
 import { Sparkles, RefreshCw, Save, Send } from 'lucide-react'
 
 const TONES = [
@@ -18,22 +18,20 @@ interface AIEmailEditorProps {
 }
 
 export default function AIEmailEditor({ contactName, dealName, onSend }: AIEmailEditorProps) {
-  const emailEditorRef = useRef<any>(null)
   const generate = useGenerateEmail()
+  const refine = useRefineEmail()
   const saveTemplate = useCreateEmailTemplate()
 
   const [prompt, setPrompt] = useState('')
   const [tone, setTone] = useState('professionale')
   const [subject, setSubject] = useState('')
-  const [editorReady, setEditorReady] = useState(false)
-  const [hasContent, setHasContent] = useState(false)
+  const [htmlBody, setHtmlBody] = useState('')
+  const [editorHtml, setEditorHtml] = useState('')
+  const [variables, setVariables] = useState<string[]>([])
   const [showSave, setShowSave] = useState(false)
   const [saveName, setSaveName] = useState('')
   const [saveCategory, setSaveCategory] = useState('followup')
-
-  const onReady = useCallback(() => {
-    setEditorReady(true)
-  }, [])
+  const [refinePrompt, setRefinePrompt] = useState('')
 
   const handleGenerate = async () => {
     const result = await generate.mutateAsync({
@@ -43,149 +41,126 @@ export default function AIEmailEditor({ contactName, dealName, onSend }: AIEmail
       deal_name: dealName || '',
     })
     setSubject(result.subject)
-
-    // Load HTML into Unlayer editor
-    if (emailEditorRef.current?.editor) {
-      emailEditorRef.current.editor.loadDesign({
-        html: result.html_body,
-        classic: true,
-      })
-      setHasContent(true)
-    }
+    setHtmlBody(result.html_body)
+    setEditorHtml(result.html_body)
+    setVariables(result.variables_detected || [])
   }
 
-  const exportHtml = (): Promise<string> => {
-    return new Promise((resolve) => {
-      if (emailEditorRef.current?.editor) {
-        emailEditorRef.current.editor.exportHtml((data: any) => {
-          resolve(data.html)
-        })
-      } else {
-        resolve('')
-      }
+  const handleRefine = async () => {
+    if (!refinePrompt) return
+    const currentHtml = editorHtml || htmlBody
+    const result = await refine.mutateAsync({
+      html_body: currentHtml,
+      instruction: refinePrompt,
     })
+    setSubject(result.subject)
+    setHtmlBody(result.html_body)
+    setEditorHtml(result.html_body)
+    setVariables(result.variables_detected || [])
+    setRefinePrompt('')
   }
 
-  const handleSaveTemplate = async () => {
+  const handleSave = async () => {
     if (!saveName) return
-    const html = await exportHtml()
+    const finalHtml = editorHtml || htmlBody
     await saveTemplate.mutateAsync({
       name: saveName,
       subject,
-      html_body: html,
+      html_body: finalHtml,
       category: saveCategory,
-      variables: VARIABLES.filter(v => html.includes(`{{${v}}}`)),
+      variables: VARIABLES.filter(v => finalHtml.includes(`{{${v}}}`)),
     })
     setShowSave(false)
     setSaveName('')
   }
 
-  const handleSend = async () => {
-    if (!onSend) return
-    const html = await exportHtml()
-    onSend(subject, html)
+  const insertVariable = (varKey: string) => {
+    navigator.clipboard.writeText(`{{${varKey}}}`)
   }
 
-  const insertVariable = (varKey: string) => {
-    if (emailEditorRef.current?.editor) {
-      // Copy to clipboard — user pastes into editor
-      navigator.clipboard.writeText(`{{${varKey}}}`)
-    }
-  }
+  const hasResult = !!htmlBody
 
   return (
     <div className="space-y-4">
       {/* ── AI Generation Bar ── */}
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-purple-200 bg-purple-50/30 p-4">
+      <div className="flex flex-wrap items-end gap-3">
         <div className="flex-1 min-w-64">
-          <label className="mb-1 block text-xs font-medium text-gray-600">Descrivi l'email</label>
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="es. Crea email per presentare i servizi di consulenza SAP a un nuovo prospect..."
-            rows={2}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none resize-none"
-          />
+          <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Descrivi l'email: es. Crea email per presentare i servizi di consulenza SAP..."
+            rows={2} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none resize-none" />
         </div>
         <div className="flex items-end gap-2">
           <select value={tone} onChange={(e) => setTone(e.target.value)}
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm h-10">
             {TONES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
-          <button
-            onClick={handleGenerate}
-            disabled={generate.isPending || prompt.length < 10 || !editorReady}
-            className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 h-10 shrink-0"
-          >
-            {generate.isPending ? (
-              <><RefreshCw className="h-4 w-4 animate-spin" /> Genero...</>
-            ) : (
-              <><Sparkles className="h-4 w-4" /> {hasContent ? 'Rigenera' : 'Genera con AI'}</>
-            )}
+          <button onClick={handleGenerate} disabled={generate.isPending || prompt.length < 10}
+            className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 h-10 shrink-0">
+            {generate.isPending ? <><RefreshCw className="h-4 w-4 animate-spin" /> Genero...</> : <><Sparkles className="h-4 w-4" /> {hasResult ? 'Rigenera' : 'Genera con AI'}</>}
           </button>
         </div>
       </div>
 
-      {/* ── Subject + Variables + Actions Bar ── */}
-      {hasContent && (
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 flex-1 min-w-48">
-            <span className="text-xs font-medium text-gray-400 shrink-0">Oggetto:</span>
-            <input
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium focus:border-purple-500 focus:outline-none"
-            />
-          </div>
-
-          {/* Variables */}
-          <div className="flex gap-1">
-            {VARIABLES.map((v) => (
-              <button key={v} onClick={() => insertVariable(v)} title={`Copia {{${v}}} negli appunti`}
-                className="rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-mono text-gray-500 hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700">
-                {`{{${v}}}`}
+      {hasResult && (
+        <>
+          {/* ── Subject + Variables + Actions ── */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 flex-1 min-w-48">
+              <span className="text-xs font-medium text-gray-400 shrink-0">Oggetto:</span>
+              <input value={subject} onChange={(e) => setSubject(e.target.value)}
+                className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium focus:border-purple-500 focus:outline-none" />
+            </div>
+            <div className="flex gap-1">
+              {VARIABLES.map((v) => (
+                <button key={v} onClick={() => insertVariable(v)} title={`Copia {{${v}}} — incolla nell'editor`}
+                  className={`rounded-md border px-2 py-0.5 text-[10px] font-mono transition-colors ${
+                    variables.includes(v) ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-purple-200'
+                  }`}>
+                  {`{{${v}}}`}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setShowSave(true)}
+                className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
+                <Save className="h-3 w-3" /> Salva
               </button>
-            ))}
+              {onSend && (
+                <button onClick={() => onSend(subject, editorHtml || htmlBody)}
+                  className="inline-flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-purple-700">
+                  <Send className="h-3 w-3" /> Invia
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Actions */}
+          {/* ── Visual Editor (GrapesJS) ── */}
+          <GrapesEditor
+            initialHtml={htmlBody}
+            onHtmlChange={setEditorHtml}
+            height={550}
+          />
+
+          {/* ── Refine via AI Chat ── */}
           <div className="flex gap-2">
-            <button onClick={() => setShowSave(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
-              <Save className="h-3 w-3" /> Salva template
+            <input value={refinePrompt} onChange={(e) => setRefinePrompt(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleRefine()}
+              placeholder="Chiedi una modifica all'AI: es. Aggiungi una sezione con i tempi di consegna..."
+              className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none" />
+            <button onClick={handleRefine} disabled={refine.isPending || !refinePrompt}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50">
+              {refine.isPending ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              Modifica con AI
             </button>
-            {onSend && (
-              <button onClick={handleSend}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-purple-700">
-                <Send className="h-3 w-3" /> Invia
-              </button>
-            )}
           </div>
-        </div>
-      )}
 
-      {/* ── Unlayer Editor ── */}
-      <div className="rounded-xl border border-gray-200 overflow-hidden" style={{ height: 600 }}>
-        <EmailEditor
-          ref={emailEditorRef}
-          onReady={onReady}
-          options={{
-            locale: 'it-IT',
-            appearance: {
-              theme: 'light',
-              panels: {
-                tools: {
-                  dock: 'left',
-                },
-              },
-            },
-            mergeTags: Object.fromEntries(
-              VARIABLES.map(v => [v, { name: v.charAt(0).toUpperCase() + v.slice(1), value: `{{${v}}}` }])
-            ),
-          }}
-          style={{ minHeight: 600 }}
-        />
-      </div>
+          {/* ── Reset ── */}
+          <button onClick={() => { setHtmlBody(''); setEditorHtml(''); setSubject(''); setVariables([]) }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
+            <RefreshCw className="h-3.5 w-3.5" /> Ricomincia
+          </button>
+        </>
+      )}
 
       {/* ── Save Modal ── */}
       {showSave && (
@@ -204,7 +179,7 @@ export default function AIEmailEditor({ contactName, dealName, onSend }: AIEmail
                 <option value="nurture">Nurture</option>
               </select>
               <div className="flex gap-2">
-                <button onClick={handleSaveTemplate} disabled={!saveName || saveTemplate.isPending}
+                <button onClick={handleSave} disabled={!saveName || saveTemplate.isPending}
                   className="flex-1 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">Salva</button>
                 <button onClick={() => setShowSave(false)}
                   className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600">Annulla</button>
