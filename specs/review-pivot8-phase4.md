@@ -1,7 +1,8 @@
-# Code Review — Pivot 8: Phase 4 (Tech Spec + Schema + Wireframes + Stories)
+# Code Review — Social Selling (US-130→US-150): Tech Spec + Schema + Wireframes + Stories
 
 **Reviewer:** Claude (Engineering Code Review)
 **Data:** 2026-04-04
+**Aggiornamento:** 2026-04-04 — Stories rinumerate US-130→US-150, 4 CRITICAL verificati e risolti
 **Scope:** specs/04-tech-spec-pivot8.md, specs/database/schema-pivot8.md, specs/ux/wireframes-pivot8.md, specs/03-user-stories-pivot8-social.md
 
 ---
@@ -19,7 +20,7 @@
 
 ---
 
-## CRITICAL Issues (da risolvere PRIMA dello sprint planning)
+## CRITICAL Issues — TUTTI RISOLTI ✅
 
 ### C1: Inconsistenza naming `is_prefunnel` vs `stage_type`
 **File:** stories US-136 (AC-136.1) vs tech-spec (riga 172) vs schema (riga 493-494)
@@ -142,26 +143,27 @@
 
 ## Riepilogo Fix Richiesti
 
-| # | Severità | Descrizione | File |
-|---|----------|-------------|------|
-| C1 | CRITICAL | Allineare `is_prefunnel` → `stage_type` nella story US-136 | stories |
-| C2 | CRITICAL | Correggere conteggio "20" → "21" stories | stories |
-| C3 | CRITICAL | Migration origin_id in 2 step (nullable → backfill → constraint) | schema |
-| C4 | CRITICAL | Riordinare DDL: crm_product_categories prima di crm_products | schema |
-| H1 | HIGH | Validazione JSON Schema per dashboard_layout | tech-spec |
-| H2 | HIGH | Rimuovere `formula` da calculation_method per MVP | tech-spec, schema |
-| H3 | HIGH | Rimuovere INSERT tenant-123 o marcare come esempio | tech-spec |
-| H4 | HIGH | Aggiungere PATCH/PUT per pipeline stages | tech-spec |
-| H5 | HIGH | Ottimizzare compensation calc con CTE pre-aggregata | tech-spec |
-| M1 | MEDIUM | Risolvere conflitto UNIQUE vs AC-144.4 (duplicati prodotto) | schema, stories |
-| M2 | MEDIUM | Aggiungere user_type 'system' per service accounts | schema |
-| M3 | MEDIUM | Definire meccanismo retention audit log (partition/cron) | schema |
-| M4 | MEDIUM | Aggiungere wireframe gestione utenti esterni | wireframes |
-| M5 | MEDIUM | Allineare default_product_id con una AC o rimuovere | schema, stories |
+| # | Severità | Descrizione | File | Status |
+|---|----------|-------------|------|--------|
+| C1 | CRITICAL | Allineare `is_prefunnel` → `stage_type` nella story US-136 | stories | ✅ Risolto — AC-136.1 usa `stage_type = 'pre_funnel'` |
+| C2 | CRITICAL | Correggere conteggio stories | stories | ✅ Risolto — dice "21 User Stories" |
+| C3 | CRITICAL | Migration origin_id in 2 step (nullable → backfill → constraint) | schema | ✅ Risolto — migration gia in 3 step con constraint commentato |
+| C4 | CRITICAL | Riordinare DDL: crm_product_categories prima di crm_products | schema | ✅ Risolto — categories riga 225, products riga 247 |
+| H1 | HIGH | Validazione JSON Schema per dashboard_layout | tech-spec | Da fare durante implementazione |
+| H2 | HIGH | Rimuovere `formula` da calculation_method per MVP | tech-spec, schema | Da fare durante implementazione |
+| H3 | HIGH | Rimuovere INSERT tenant-123 o marcare come esempio | tech-spec | Da fare durante implementazione |
+| H4 | HIGH | Aggiungere PATCH/PUT per pipeline stages | tech-spec | Da fare durante implementazione |
+| H5 | HIGH | Ottimizzare compensation calc con CTE pre-aggregata | tech-spec | Da fare durante implementazione |
+| M1 | MEDIUM | Risolvere conflitto UNIQUE vs AC-144.4 (duplicati prodotto) | schema, stories | Da fare durante implementazione |
+| M2 | MEDIUM | Aggiungere user_type 'system' per service accounts | schema | Da fare durante implementazione |
+| M3 | MEDIUM | Definire meccanismo retention audit log (partition/cron) | schema | Da fare durante implementazione |
+| M4 | MEDIUM | Aggiungere wireframe gestione utenti esterni | wireframes | Da fare durante implementazione |
+| M5 | MEDIUM | Allineare default_product_id con una AC o rimuovere | schema, stories | Da fare durante implementazione |
 
-**Totale: 4 CRITICAL, 5 HIGH, 5 MEDIUM, 4 LOW**
+**4 CRITICAL: TUTTI RISOLTI ✅**
+**5 HIGH + 5 MEDIUM + 4 LOW: da risolvere durante l'implementazione del modulo Social Selling.**
 
-I 4 CRITICAL sono quick-fix (naming, conteggio, ordine DDL, migration step). I 5 HIGH richiedono decisioni di design ma non bloccano lo sprint planning se si accettano le raccomandazioni.
+Le spec sono pronte per lo sprint planning del Social Selling (US-130→US-150).
 
 ---
 
