@@ -1288,6 +1288,15 @@ export function useUpdateUserRole() {
   })
 }
 
+export function useUpdateUserCrmRole() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ userId, crm_role_id }: { userId: string; crm_role_id: string | null }) =>
+      api.patch(`/users/${userId}/crm-role`, { crm_role_id }).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['team-users'] }),
+  })
+}
+
 export function useToggleUserActive() {
   const qc = useQueryClient()
   return useMutation({

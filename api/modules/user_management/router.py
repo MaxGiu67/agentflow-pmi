@@ -39,6 +39,10 @@ class RoleUpdateRequest(BaseModel):
     role: str
 
 
+class CrmRoleUpdateRequest(BaseModel):
+    crm_role_id: str | None = None
+
+
 class SenderUpdateRequest(BaseModel):
     sender_email: str = ""
     sender_name: str = ""
@@ -97,6 +101,20 @@ async def toggle_active(
 ):
     """AC-109.4: Activate/deactivate user."""
     result = await svc.toggle_active(user_id, user)
+    if "error" in result:
+        raise HTTPException(403 if "permessi" in result["error"] else 400, result["error"])
+    return result
+
+
+@router.patch("/{user_id}/crm-role")
+async def update_crm_role(
+    user_id: uuid.UUID,
+    body: CrmRoleUpdateRequest,
+    user: User = Depends(get_current_user),
+    svc: UserManagementService = Depends(get_service),
+):
+    """Update user's CRM role assignment."""
+    result = await svc.update_crm_role(user_id, body.crm_role_id, user)
     if "error" in result:
         raise HTTPException(403 if "permessi" in result["error"] else 400, result["error"])
     return result

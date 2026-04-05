@@ -126,6 +126,23 @@ class UserManagementService:
 
         return {"id": str(user.id), "old_role": old_role, "new_role": new_role}
 
+    async def update_crm_role(
+        self, user_id: uuid.UUID, crm_role_id: str | None, updater: User,
+    ) -> dict:
+        """Update user's CRM role assignment."""
+        if updater.role not in MANAGEMENT_ROLES:
+            return {"error": "Non hai i permessi"}
+
+        result = await self.db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if not user:
+            return {"error": "Utente non trovato"}
+
+        user.crm_role_id = uuid.UUID(crm_role_id) if crm_role_id else None
+        await self.db.flush()
+
+        return {"id": str(user.id), "crm_role_id": crm_role_id}
+
     async def toggle_active(
         self, user_id: uuid.UUID, updater: User,
     ) -> dict:

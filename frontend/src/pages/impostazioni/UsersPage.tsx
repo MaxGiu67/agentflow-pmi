@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useTeamUsers, useInviteUser, useUpdateUserRole, useToggleUserActive, useMyPermissions, useOrigins, useProducts, useRoles } from '../../api/hooks'
+import { useTeamUsers, useInviteUser, useUpdateUserRole, useUpdateUserCrmRole, useToggleUserActive, useMyPermissions, useOrigins, useProducts, useRoles } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import PageMeta from '../../components/ui/PageMeta'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -21,6 +21,7 @@ export default function UsersPage() {
   const { data: crmRoles } = useRoles()
   const inviteUser = useInviteUser()
   const updateRole = useUpdateUserRole()
+  const updateCrmRole = useUpdateUserCrmRole()
   const toggleActive = useToggleUserActive()
 
   const [showInvite, setShowInvite] = useState(false)
@@ -183,8 +184,18 @@ export default function UsersPage() {
                         value={u.role}
                         onChange={(e) => updateRole.mutate({ userId: u.id, role: e.target.value })}
                         className="rounded border border-gray-200 px-2 py-1 text-xs"
+                        title="Ruolo sistema"
                       >
                         {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                      </select>
+                      <select
+                        value={u.crm_role_id || ''}
+                        onChange={(e) => updateCrmRole.mutate({ userId: u.id, crm_role_id: e.target.value || null })}
+                        className="rounded border border-gray-200 px-2 py-1 text-xs max-w-[140px]"
+                        title="Ruolo CRM"
+                      >
+                        <option value="">-- Ruolo CRM --</option>
+                        {crmRoles?.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
                       </select>
                       <button
                         onClick={() => toggleActive.mutate(u.id)}
