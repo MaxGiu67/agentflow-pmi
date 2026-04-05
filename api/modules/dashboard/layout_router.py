@@ -40,8 +40,9 @@ async def _get_or_create_layout(
         )
     )
     layout = result.scalar_one_or_none()
+    role_widgets = get_widgets_for_role(user.role)
+
     if layout is None:
-        role_widgets = get_widgets_for_role(user.role)
         layout = DashboardLayout(
             tenant_id=user.tenant_id,
             user_id=user.id,
@@ -51,6 +52,15 @@ async def _get_or_create_layout(
         )
         db.add(layout)
         await db.flush()
+    else:
+        # Auto-reset if saved widgets don't match role
+        # Compare first widget ID to detect mismatch
+        saved_ids = {w.get("id") for w in (layout.widgets or [])}
+        role_ids = {w.get("id") for w in role_widgets}
+        if saved_ids and role_ids and not saved_ids.intersection(role_ids):
+            layout.widgets = role_widgets
+            await db.flush()
+
     return layout
 
 
