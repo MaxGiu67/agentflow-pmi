@@ -5,9 +5,9 @@
 # ══════════════════════════════════════════════════════
 
 ADMIN_WIDGETS: list[dict] = [
-    # Row 1: Revenue, Costs, EBITDA
+    # ── Row 1: Big 3 KPI ──
     {
-        "id": "w1",
+        "id": "a1",
         "type": "stat_card",
         "title": "Ricavi Totali",
         "data_source": "yearly_stats",
@@ -21,20 +21,20 @@ ADMIN_WIDGETS: list[dict] = [
         "layout": {"x": 0, "y": 0, "w": 4, "h": 2},
     },
     {
-        "id": "w2",
+        "id": "a2",
         "type": "stat_card",
         "title": "Costi Totali",
         "data_source": "yearly_stats",
         "data_path": "costi_totali",
         "config": {
             "format": "currency",
-            "color": "orange",
-            "subtitle": "fornitori + personale + spese",
+            "color": "red",
+            "subtitle": "fornitori + personale + spese + rate",
         },
         "layout": {"x": 4, "y": 0, "w": 4, "h": 2},
     },
     {
-        "id": "w3",
+        "id": "a3",
         "type": "stat_card",
         "title": "Margine (EBITDA)",
         "data_source": "yearly_stats",
@@ -42,12 +42,69 @@ ADMIN_WIDGETS: list[dict] = [
         "config": {
             "format": "currency",
             "color": "blue",
+            "subtitle": "ricavi - costi",
         },
         "layout": {"x": 8, "y": 0, "w": 4, "h": 2},
     },
-    # Row 2: Cost breakdown
+    # ── Row 2: Ricavi breakdown ──
     {
-        "id": "w_pers",
+        "id": "a4",
+        "type": "stat_card",
+        "title": "Fatture Emesse",
+        "data_source": "yearly_stats",
+        "data_path": "fatture_attive.imponibile",
+        "config": {
+            "format": "currency",
+            "color": "green",
+            "subtitle_path": "fatture_attive.count",
+            "subtitle_suffix": " fatture attive",
+        },
+        "layout": {"x": 0, "y": 2, "w": 4, "h": 2},
+    },
+    {
+        "id": "a5",
+        "type": "stat_card",
+        "title": "Corrispettivi",
+        "data_source": "yearly_stats",
+        "data_path": "corrispettivi.totale",
+        "config": {
+            "format": "currency",
+            "color": "emerald",
+            "subtitle_path": "corrispettivi.count",
+            "subtitle_suffix": " scontrini",
+        },
+        "layout": {"x": 4, "y": 2, "w": 4, "h": 2},
+    },
+    {
+        "id": "a6",
+        "type": "stat_card",
+        "title": "IVA Netta",
+        "data_source": "yearly_stats",
+        "data_path": "iva_netta.saldo",
+        "config": {
+            "format": "currency",
+            "color": "amber",
+            "subtitle": "debito - credito = da versare",
+        },
+        "layout": {"x": 8, "y": 2, "w": 4, "h": 2},
+    },
+    # ── Row 3: Costi breakdown ──
+    {
+        "id": "a7",
+        "type": "stat_card",
+        "title": "Fornitori (Fatt. Passive)",
+        "data_source": "yearly_stats",
+        "data_path": "fatture_passive.imponibile",
+        "config": {
+            "format": "currency",
+            "color": "orange",
+            "subtitle_path": "fatture_passive.count",
+            "subtitle_suffix": " fatture ricevute",
+        },
+        "layout": {"x": 0, "y": 4, "w": 3, "h": 2},
+    },
+    {
+        "id": "a8",
         "type": "stat_card",
         "title": "Costo Personale",
         "data_source": "yearly_stats",
@@ -58,24 +115,10 @@ ADMIN_WIDGETS: list[dict] = [
             "subtitle_path": "costo_personale.count",
             "subtitle_suffix": " cedolini",
         },
-        "layout": {"x": 0, "y": 2, "w": 3, "h": 2},
+        "layout": {"x": 3, "y": 4, "w": 3, "h": 2},
     },
     {
-        "id": "w_forn",
-        "type": "stat_card",
-        "title": "Fornitori",
-        "data_source": "yearly_stats",
-        "data_path": "fatture_passive.totale",
-        "config": {
-            "format": "currency",
-            "color": "orange",
-            "subtitle_path": "fatture_passive.count",
-            "subtitle_suffix": " fatture",
-        },
-        "layout": {"x": 3, "y": 2, "w": 3, "h": 2},
-    },
-    {
-        "id": "w_spese",
+        "id": "a9",
         "type": "stat_card",
         "title": "Note Spese",
         "data_source": "yearly_stats",
@@ -86,12 +129,12 @@ ADMIN_WIDGETS: list[dict] = [
             "subtitle_path": "note_spese.count",
             "subtitle_suffix": " voci",
         },
-        "layout": {"x": 6, "y": 2, "w": 3, "h": 2},
+        "layout": {"x": 6, "y": 4, "w": 3, "h": 2},
     },
     {
-        "id": "w_fin",
+        "id": "a10",
         "type": "stat_card",
-        "title": "Finanziamenti",
+        "title": "Rate Finanziamenti",
         "data_source": "yearly_stats",
         "data_path": "finanziamenti.totale_annuo",
         "config": {
@@ -100,54 +143,54 @@ ADMIN_WIDGETS: list[dict] = [
             "subtitle_path": "finanziamenti.count",
             "subtitle_suffix": " prestiti",
         },
-        "layout": {"x": 9, "y": 2, "w": 3, "h": 2},
+        "layout": {"x": 9, "y": 4, "w": 3, "h": 2},
     },
-    # Row 3: Monthly chart
+    # ── Row 4: Monthly chart ricavi vs costi ──
     {
-        "id": "w5",
+        "id": "a11",
         "type": "bar_chart",
-        "title": "Fatturato Mensile",
+        "title": "Fatturato Mensile (Ricavi vs Costi)",
         "data_source": "yearly_stats",
         "data_path": "fatture_per_mese",
         "config": {
             "x_key": "mese",
             "y_keys": [
-                {"key": "attive_totale", "color": "#22c55e", "name": "Emesse"},
-                {"key": "passive_totale", "color": "#f97316", "name": "Ricevute"},
+                {"key": "attive_totale", "color": "#22c55e", "name": "Ricavi (emesse)"},
+                {"key": "passive_totale", "color": "#ef4444", "name": "Costi (ricevute)"},
             ],
         },
-        "layout": {"x": 0, "y": 4, "w": 12, "h": 4},
+        "layout": {"x": 0, "y": 6, "w": 12, "h": 4},
     },
-    # Row 4: Top clients & suppliers
+    # ── Row 5: Top clienti & fornitori ──
     {
-        "id": "w6",
+        "id": "a12",
         "type": "table",
-        "title": "Top 10 Clienti",
+        "title": "Migliori Clienti (per fatturato)",
         "data_source": "yearly_stats",
         "data_path": "top_clienti",
         "config": {
             "columns": [
                 {"key": "nome", "label": "Cliente"},
-                {"key": "count", "label": "Fatt."},
+                {"key": "count", "label": "N. Fatt."},
                 {"key": "totale", "label": "Totale", "format": "currency"},
             ],
         },
-        "layout": {"x": 0, "y": 8, "w": 6, "h": 4},
+        "layout": {"x": 0, "y": 10, "w": 6, "h": 4},
     },
     {
-        "id": "w7",
+        "id": "a13",
         "type": "table",
-        "title": "Top 10 Fornitori",
+        "title": "Principali Fornitori (per costo)",
         "data_source": "yearly_stats",
         "data_path": "top_fornitori",
         "config": {
             "columns": [
                 {"key": "nome", "label": "Fornitore"},
-                {"key": "count", "label": "Fatt."},
+                {"key": "count", "label": "N. Fatt."},
                 {"key": "totale", "label": "Totale", "format": "currency"},
             ],
         },
-        "layout": {"x": 6, "y": 8, "w": 6, "h": 4},
+        "layout": {"x": 6, "y": 10, "w": 6, "h": 4},
     },
 ]
 
