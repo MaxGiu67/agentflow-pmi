@@ -36,9 +36,9 @@ const ACTIVITY_ICONS: Record<string, typeof Phone> = {
 export default function CrmDealDetailPage() {
   const { dealId } = useParams()
   const navigate = useNavigate()
-  const id = dealId || '0'
+  const id = dealId || ''
 
-  const { data: deal, isLoading } = useCrmDeal(parseInt(id, 10))
+  const { data: deal, isLoading } = useCrmDeal(id)
   const registerOrder = useRegisterOrder()
   const confirmOrder = useConfirmOrder()
   const { data: emailHistory } = useEmailSends(deal?.client_id || undefined)
@@ -72,7 +72,7 @@ export default function CrmDealDetailPage() {
 
   const handleRegisterOrder = async () => {
     await registerOrder.mutateAsync({
-      dealId: parseInt(id, 10),
+      dealId: id,
       order_type: orderType, order_reference: orderRef, order_notes: orderNotes,
     })
     setShowOrderForm(false)

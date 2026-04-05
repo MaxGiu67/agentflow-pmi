@@ -972,11 +972,11 @@ export function useCrmDeals(stage?: string, dealType?: string) {
   })
 }
 
-export function useCrmDeal(dealId: number) {
+export function useCrmDeal(dealId: string) {
   return useQuery({
     queryKey: ['crm-deal', dealId],
     queryFn: () => api.get(`/crm/deals/${dealId}`).then((r) => r.data),
-    enabled: dealId > 0,
+    enabled: !!dealId && dealId !== '0',
   })
 }
 
@@ -1023,7 +1023,7 @@ export function useCreateCrmContact() {
 export function useRegisterOrder() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ dealId, ...data }: { dealId: number } & Record<string, unknown>) =>
+    mutationFn: ({ dealId, ...data }: { dealId: string } & Record<string, unknown>) =>
       api.post(`/crm/deals/${dealId}/order`, data).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['crm-deals'] })
