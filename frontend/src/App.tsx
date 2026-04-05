@@ -73,6 +73,15 @@ const UsersPage = lazy(() => import('./pages/impostazioni/UsersPage'))
 const IntegrazioniPage = lazy(() => import('./pages/impostazioni/IntegrazioniPage'))
 const ChatTestPage = lazy(() => import('./pages/ChatTestPage'))
 
+// Social Selling pages
+const OriginsPage = lazy(() => import('./pages/social/OriginsPage'))
+const ActivityTypesPage = lazy(() => import('./pages/social/ActivityTypesPage'))
+const ProductsPage = lazy(() => import('./pages/social/ProductsPage'))
+const RolesPage = lazy(() => import('./pages/social/RolesPage'))
+const AuditLogPage = lazy(() => import('./pages/social/AuditLogPage'))
+const ScorecardPage = lazy(() => import('./pages/social/ScorecardPage'))
+const CompensationPage = lazy(() => import('./pages/social/CompensationPage'))
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -189,6 +198,15 @@ export default function App() {
               <Route path="/email/analytics" element={<EmailAnalyticsPage />} />
               <Route path="/email/sequenze" element={<EmailSequencesPage />} />
               <Route path="/email/builder" element={<EmailBuilderPage />} />
+
+              {/* Social Selling */}
+              <Route path="/impostazioni/origini" element={<OriginsPage />} />
+              <Route path="/impostazioni/tipi-attivita" element={<ActivityTypesPage />} />
+              <Route path="/impostazioni/prodotti" element={<ProductsPage />} />
+              <Route path="/impostazioni/ruoli" element={<RolesPage />} />
+              <Route path="/impostazioni/audit" element={<AuditLogPage />} />
+              <Route path="/crm/scorecard" element={<ScorecardPage />} />
+              <Route path="/crm/compensi" element={<CompensationPage />} />
 
               {/* Test */}
               <Route path="/test/chatbot" element={<ChatTestPage />} />

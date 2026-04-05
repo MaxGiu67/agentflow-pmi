@@ -20,6 +20,13 @@ import {
   Mail,
   Zap,
   Shield,
+  Globe,
+  Activity,
+  Package,
+  ShieldCheck,
+  FileSearch,
+  Trophy,
+  DollarSign,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useMyPermissions } from '../../api/hooks'
@@ -78,6 +85,8 @@ const navSections: NavSection[] = [
       { to: '/email/templates', label: 'Email Template', icon: Mail, roles: ['owner', 'admin', 'commerciale'] },
       { to: '/email/sequenze', label: 'Sequenze', icon: Zap, roles: ['owner', 'admin', 'commerciale'] },
       { to: '/email/analytics', label: 'Email Stats', icon: BarChart3, roles: ['owner', 'admin', 'commerciale'] },
+      { to: '/crm/scorecard', label: 'Scorecard', icon: Trophy, roles: ['owner', 'admin', 'commerciale'] },
+      { to: '/crm/compensi', label: 'Compensi', icon: DollarSign, roles: ['owner', 'admin'] },
     ],
   },
   {
@@ -95,6 +104,11 @@ const navSections: NavSection[] = [
       { to: '/chat', label: 'Chat', icon: MessageSquare },
       { to: '/report', label: 'Report', icon: BarChart3, roles: ['owner', 'admin', 'viewer'] },
       { to: '/impostazioni/utenti', label: 'Utenti', icon: Users, roles: ['owner', 'admin'] },
+      { to: '/impostazioni/ruoli', label: 'Ruoli', icon: ShieldCheck, roles: ['owner', 'admin'] },
+      { to: '/impostazioni/origini', label: 'Origini', icon: Globe, roles: ['owner', 'admin'] },
+      { to: '/impostazioni/tipi-attivita', label: 'Tipi Attivita', icon: Activity, roles: ['owner', 'admin'] },
+      { to: '/impostazioni/prodotti', label: 'Prodotti', icon: Package, roles: ['owner', 'admin'] },
+      { to: '/impostazioni/audit', label: 'Audit Log', icon: FileSearch, roles: ['owner', 'admin'] },
       { to: '/impostazioni/integrazioni', label: 'Integrazioni', icon: Settings, roles: ['owner', 'admin'] },
     ],
   },
