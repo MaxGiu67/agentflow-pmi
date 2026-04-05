@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useCrmContacts, useCreateCrmDeal, useCreateCrmContact } from '../../api/hooks'
+import { useCrmContacts, useCreateCrmDeal, useCreateCrmContact, useCrmStages, useActivityTypes, useCreateCrmActivity } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import PageMeta from '../../components/ui/PageMeta'
 import { ArrowLeft, Plus, Search } from 'lucide-react'
@@ -17,6 +17,9 @@ export default function CrmNewDealPage() {
   const { data: contactsData } = useCrmContacts('')
   const createDeal = useCreateCrmDeal()
   const createContact = useCreateCrmContact()
+  const { data: stages } = useCrmStages()
+  const { data: activityTypes } = useActivityTypes(true)
+  const createActivity = useCreateCrmActivity()
 
   const [step, setStep] = useState(1)
   const [contactSearch, setContactSearch] = useState('')
@@ -32,6 +35,10 @@ export default function CrmNewDealPage() {
   const [estimatedDays, setEstimatedDays] = useState('')
   const [technology, setTechnology] = useState('')
 
+  const [stageId, setStageId] = useState('')
+  const [actSubject, setActSubject] = useState('')
+  const [actType, setActType] = useState('call')
+  const [actTypeId, setActTypeId] = useState('')
   const [error, setError] = useState('')
 
   // Auto-calc revenue for T&M
@@ -68,7 +75,21 @@ export default function CrmNewDealPage() {
         daily_rate: parseFloat(dailyRate) || 0,
         estimated_days: parseFloat(estimatedDays) || 0,
         technology,
+        stage_id: stageId || undefined,
       })
+
+      // Create initial activity if provided
+      if (actSubject.trim()) {
+        await createActivity.mutateAsync({
+          deal_id: deal.id,
+          contact_id: selectedContactId || undefined,
+          type: actType,
+          activity_type_id: actTypeId || undefined,
+          subject: actSubject,
+          status: 'completed',
+        })
+      }
+
       navigate(`/crm/deals/${deal.id}`)
     } catch {
       setError('Errore nella creazione. Riprova.')
@@ -236,6 +257,48 @@ export default function CrmNewDealPage() {
                 placeholder="es. Java, SAP, .NET, React..."
                 className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
             </div>
+
+            {/* Stage selector */}
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Fase pipeline</label>
+              <select value={stageId} onChange={(e) => setStageId(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm">
+                <option value="">Nuovo Lead (default)</option>
+                {stages?.map((s: any) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.probability}%){s.stage_type === 'pre_funnel' ? ' — pre-funnel' : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-400">Scegli "Prospect" se e un contatto freddo, "Nuovo Lead" se ha gia mostrato interesse</p>
+            </div>
+          </div>
+
+          {/* Initial activity (optional) */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
+            <div>
+              <h3 className="font-semibold text-gray-900">Prima attivita (opzionale)</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Come hai conosciuto questo contatto? Registra la prima interazione.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <select value={actType} onChange={(e) => setActType(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm">
+                <option value="call">Chiamata</option>
+                <option value="meeting">Incontro</option>
+                <option value="email">Email</option>
+                <option value="note">Nota</option>
+              </select>
+              <select value={actTypeId} onChange={(e) => setActTypeId(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm">
+                <option value="">-- Tipo specifico --</option>
+                {activityTypes?.map((t: any) => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+            <input value={actSubject} onChange={(e) => setActSubject(e.target.value)}
+              placeholder="es. Incontro a SMAU Milano — interesse per gestionale"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
           </div>
 
           <div className="flex gap-3">
