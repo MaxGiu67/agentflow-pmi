@@ -1,41 +1,62 @@
-import { useState } from 'react'
-import { useScorecard, useTeamUsers } from '../../api/hooks'
+import { useState, useEffect } from 'react'
+import { useScorecard, useTeamUsers, useMyPermissions } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { formatCurrency } from '../../lib/utils'
 import { TrendingUp, Target, Award, Activity, Users } from 'lucide-react'
 
 export default function ScorecardPage() {
+  const { data: perms } = useMyPermissions()
   const { data: users } = useTeamUsers()
+  const isAdmin = perms?.role === 'owner' || perms?.role === 'admin'
+
+  // For commerciale: auto-select self. For admin: show dropdown.
   const [selectedUser, setSelectedUser] = useState('')
+
+  // Auto-select self for commerciale
+  useEffect(() => {
+    if (!isAdmin && perms?.user_id) {
+      setSelectedUser(perms.user_id)
+    }
+  }, [isAdmin, perms?.user_id])
+
   const today = new Date()
   const monthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
   const monthEnd = today.toISOString().split('T')[0]
 
   const { data: scorecard, isLoading } = useScorecard(selectedUser, monthStart, monthEnd)
-
   const kpis = scorecard?.kpis
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Scorecard Collaboratori" subtitle="KPI di performance per ogni membro del team commerciale" />
+      <PageHeader
+        title={isAdmin ? 'Scorecard Collaboratori' : 'La mia Scorecard'}
+        subtitle={isAdmin ? 'KPI di performance per ogni membro del team' : 'I tuoi KPI di vendita questo mese'}
+      />
 
-      <div className="flex items-center gap-3">
-        <Users className="h-4 w-4 text-gray-400" />
-        <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm min-w-[250px]">
-          <option value="">-- Seleziona collaboratore --</option>
-          {users?.map((u: any) => (
-            <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
-          ))}
-        </select>
-      </div>
+      {/* Admin: show user selector. Commerciale: auto-loaded, no selector */}
+      {isAdmin && (
+        <div className="flex items-center gap-3">
+          <Users className="h-4 w-4 text-gray-400" />
+          <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm min-w-[250px]">
+            <option value="">-- Seleziona collaboratore --</option>
+            {users?.map((u: any) => (
+              <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {!selectedUser ? (
-        <div className="rounded-xl border-2 border-dashed border-gray-200 p-12 text-center text-gray-400">
-          <Users className="mx-auto h-12 w-12 mb-3" />
-          <p>Seleziona un collaboratore per visualizzare la scorecard</p>
-        </div>
+        isAdmin ? (
+          <div className="rounded-xl border-2 border-dashed border-gray-200 p-12 text-center text-gray-400">
+            <Users className="mx-auto h-12 w-12 mb-3" />
+            <p>Seleziona un collaboratore per visualizzare la scorecard</p>
+          </div>
+        ) : (
+          <LoadingSpinner />
+        )
       ) : isLoading ? <LoadingSpinner /> : !kpis ? (
         <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-gray-400">
           Nessun dato disponibile per questo periodo

@@ -141,6 +141,8 @@ async def my_permissions(
 
     return {
         "role": role,
+        "user_id": str(user.id),
+        "email": user.email,
         "can_manage_users": role in ("owner", "admin"),
         "can_see_all_deals": svc.can_see_all(user),
         "is_active": getattr(user, "active", True),
