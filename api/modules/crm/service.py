@@ -344,7 +344,9 @@ class CRMService:
 
     # ── Pipeline Summary ──────────────────────────────────
 
-    async def get_pipeline_summary(self, tenant_id: uuid.UUID) -> dict:
+    async def get_pipeline_summary(
+        self, tenant_id: uuid.UUID, assigned_to: uuid.UUID | None = None,
+    ) -> dict:
         await self._ensure_default_stages(tenant_id)
         stages = await self.get_stages(tenant_id)
 
@@ -353,15 +355,16 @@ class CRMService:
         total_value = 0.0
 
         for stage in stages:
-            result = await self.db.execute(
-                select(
-                    func.count(CrmDeal.id).label("count"),
-                    func.coalesce(func.sum(CrmDeal.expected_revenue), 0.0).label("value"),
-                ).where(
-                    CrmDeal.tenant_id == tenant_id,
-                    CrmDeal.stage_id == uuid.UUID(stage["id"]),
-                )
+            q = select(
+                func.count(CrmDeal.id).label("count"),
+                func.coalesce(func.sum(CrmDeal.expected_revenue), 0.0).label("value"),
+            ).where(
+                CrmDeal.tenant_id == tenant_id,
+                CrmDeal.stage_id == uuid.UUID(stage["id"]),
             )
+            if assigned_to:
+                q = q.where(CrmDeal.assigned_to == assigned_to)
+            result = await self.db.execute(q)
             row = result.one()
             count = row.count or 0
             value = round(float(row.value), 2)
@@ -461,17 +464,20 @@ class CRMService:
 
     # ── Analytics (US-91) ────────────────────────────────
 
-    async def get_pipeline_analytics(self, tenant_id: uuid.UUID) -> dict:
+    async def get_pipeline_analytics(
+        self, tenant_id: uuid.UUID, assigned_to: uuid.UUID | None = None,
+    ) -> dict:
         """AC-91.1 to AC-91.5: Pipeline analytics."""
         await self._ensure_default_stages(tenant_id)
         stages = await self.get_stages(tenant_id)
 
         # AC-91.2: Weighted pipeline value
-        weighted_result = await self.db.execute(
-            select(
-                func.coalesce(func.sum(CrmDeal.expected_revenue * CrmDeal.probability / 100), 0.0)
-            ).where(CrmDeal.tenant_id == tenant_id)
-        )
+        wq = select(
+            func.coalesce(func.sum(CrmDeal.expected_revenue * CrmDeal.probability / 100), 0.0)
+        ).where(CrmDeal.tenant_id == tenant_id)
+        if assigned_to:
+            wq = wq.where(CrmDeal.assigned_to == assigned_to)
+        weighted_result = await self.db.execute(wq)
         weighted_value = round(float(weighted_result.scalar() or 0), 2)
 
         # AC-91.5: Won/Lost counts
@@ -480,40 +486,44 @@ class CRMService:
 
         won_count = 0
         if won_stages:
-            r = await self.db.execute(
-                select(func.count(CrmDeal.id)).where(
-                    CrmDeal.tenant_id == tenant_id,
-                    CrmDeal.stage_id == uuid.UUID(won_stages[0]["id"]),
-                )
+            wq2 = select(func.count(CrmDeal.id)).where(
+                CrmDeal.tenant_id == tenant_id,
+                CrmDeal.stage_id == uuid.UUID(won_stages[0]["id"]),
             )
+            if assigned_to:
+                wq2 = wq2.where(CrmDeal.assigned_to == assigned_to)
+            r = await self.db.execute(wq2)
             won_count = r.scalar() or 0
 
         lost_count = 0
         if lost_stages:
-            r = await self.db.execute(
-                select(func.count(CrmDeal.id)).where(
-                    CrmDeal.tenant_id == tenant_id,
-                    CrmDeal.stage_id == uuid.UUID(lost_stages[0]["id"]),
-                )
+            lq = select(func.count(CrmDeal.id)).where(
+                CrmDeal.tenant_id == tenant_id,
+                CrmDeal.stage_id == uuid.UUID(lost_stages[0]["id"]),
             )
+            if assigned_to:
+                lq = lq.where(CrmDeal.assigned_to == assigned_to)
+            r = await self.db.execute(lq)
             lost_count = r.scalar() or 0
 
         total_closed = won_count + lost_count
         won_lost_ratio = round(won_count / total_closed * 100, 1) if total_closed > 0 else 0.0
 
         # AC-91.3: Conversion rate (deals per stage / total deals)
-        total_deals = await self.db.scalar(
-            select(func.count(CrmDeal.id)).where(CrmDeal.tenant_id == tenant_id)
-        ) or 0
+        tq = select(func.count(CrmDeal.id)).where(CrmDeal.tenant_id == tenant_id)
+        if assigned_to:
+            tq = tq.where(CrmDeal.assigned_to == assigned_to)
+        total_deals = await self.db.scalar(tq) or 0
 
         conversion_by_stage = []
         for stage in stages:
-            stage_count = await self.db.scalar(
-                select(func.count(CrmDeal.id)).where(
-                    CrmDeal.tenant_id == tenant_id,
-                    CrmDeal.stage_id == uuid.UUID(stage["id"]),
-                )
-            ) or 0
+            sq = select(func.count(CrmDeal.id)).where(
+                CrmDeal.tenant_id == tenant_id,
+                CrmDeal.stage_id == uuid.UUID(stage["id"]),
+            )
+            if assigned_to:
+                sq = sq.where(CrmDeal.assigned_to == assigned_to)
+            stage_count = await self.db.scalar(sq) or 0
             rate = round(stage_count / total_deals * 100, 1) if total_deals > 0 else 0.0
             conversion_by_stage.append({
                 "stage": stage["name"],

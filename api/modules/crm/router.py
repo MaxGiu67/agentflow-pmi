@@ -211,7 +211,8 @@ async def pipeline_summary(
     svc: CRMService = Depends(get_service),
 ):
     tid = _require_tenant(user)
-    return await svc.get_pipeline_summary(tid)
+    assigned = user.id if user.role == "commerciale" else None
+    return await svc.get_pipeline_summary(tid, assigned_to=assigned)
 
 
 @router.get("/pipeline/analytics")
@@ -221,7 +222,8 @@ async def pipeline_analytics(
 ):
     """US-91: Pipeline analytics — weighted value, conversion, won/lost."""
     tid = _require_tenant(user)
-    return await svc.get_pipeline_analytics(tid)
+    assigned = user.id if user.role == "commerciale" else None
+    return await svc.get_pipeline_analytics(tid, assigned_to=assigned)
 
 
 @router.get("/pipeline/stages")
