@@ -238,6 +238,25 @@ class CRMService:
             if stage:
                 deal.probability = stage.probability_default
 
+                # Auto-log activity when deal moves between stages
+                old_stage_name = ""
+                if old_stage_id:
+                    old_result = await self.db.execute(
+                        select(CrmPipelineStage.name).where(CrmPipelineStage.id == old_stage_id)
+                    )
+                    old_stage_name = old_result.scalar() or ""
+
+                activity = CrmActivity(
+                    tenant_id=tenant_id,
+                    deal_id=deal.id,
+                    contact_id=deal.contact_id,
+                    type="note",
+                    subject=f"Deal spostato: {old_stage_name} → {stage.name}",
+                    description=f"Probabilita aggiornata a {stage.probability_default}%",
+                    status="completed",
+                )
+                self.db.add(activity)
+
         await self.db.flush()
         return await self._deal_to_dict(deal, tenant_id)
 

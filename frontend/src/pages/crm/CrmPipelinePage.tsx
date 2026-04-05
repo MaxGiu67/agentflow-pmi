@@ -3,6 +3,7 @@ import type { DragEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   useCrmPipeline, useCrmDeals, useCrmStages, useCrmAnalytics, useUpdateCrmDeal,
+  useActivityTypes, useCreateCrmActivity,
 } from '../../api/hooks'
 import { formatCurrency } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
@@ -28,6 +29,12 @@ export default function CrmPipelinePage() {
   const { data: stages } = useCrmStages()
   const { data: analytics } = useCrmAnalytics()
   const updateDeal = useUpdateCrmDeal()
+  const { data: activityTypes } = useActivityTypes(true)
+  const createActivity = useCreateCrmActivity()
+
+  // Stage move dialog
+  const [moveDialog, setMoveDialog] = useState<{ dealId: string; dealName: string; contactId?: string; fromStage: string; toStageId: string; toStageName: string } | null>(null)
+  const [moveForm, setMoveForm] = useState({ type: 'call', activity_type_id: '', subject: '', description: '' })
 
   // React 19 useOptimistic for instant drag feedback
   const [optimisticMoves, setOptimisticMove] = useOptimistic(
@@ -78,15 +85,51 @@ export default function CrmPipelinePage() {
     const dealId = dragDealId.current
     if (!dealId) return
 
-    // Find deal's current stage
     const deal = deals?.deals?.find((d: any) => d.id === dealId)
     if (!deal || deal.stage_id === targetStageId) return
 
-    // React 19: optimistic update — card moves instantly
-    setOptimisticMove({ dealId, stageId: targetStageId })
+    const toStage = stages?.find((s: any) => s.id === targetStageId)
 
-    // AC-90.4: PATCH stage via API (rollback handled by React Query)
-    updateDeal.mutate({ dealId, stage_id: targetStageId })
+    // Open dialog to log activity for this stage move
+    setMoveDialog({
+      dealId,
+      dealName: deal.name,
+      contactId: deal.contact_id,
+      fromStage: deal.stage || '',
+      toStageId: targetStageId,
+      toStageName: toStage?.name || '',
+    })
+    setMoveForm({
+      type: 'call',
+      activity_type_id: '',
+      subject: `Spostamento: ${deal.stage || '?'} → ${toStage?.name || '?'}`,
+      description: '',
+    })
+  }
+
+  const handleConfirmMove = async () => {
+    if (!moveDialog) return
+
+    // Optimistic move
+    setOptimisticMove({ dealId: moveDialog.dealId, stageId: moveDialog.toStageId })
+
+    // Move the deal
+    await updateDeal.mutateAsync({ dealId: moveDialog.dealId, stage_id: moveDialog.toStageId })
+
+    // Log the activity (if subject provided)
+    if (moveForm.subject.trim()) {
+      await createActivity.mutateAsync({
+        deal_id: moveDialog.dealId,
+        contact_id: moveDialog.contactId || undefined,
+        type: moveForm.type,
+        activity_type_id: moveForm.activity_type_id || undefined,
+        subject: moveForm.subject,
+        description: moveForm.description || undefined,
+        status: 'completed',
+      })
+    }
+
+    setMoveDialog(null)
   }
 
   return (
@@ -298,6 +341,54 @@ export default function CrmPipelinePage() {
             </table>
           </div>
         )
+      )}
+      {/* ── Stage Move Dialog ── */}
+      {moveDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Registra attivita</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                <strong>{moveDialog.dealName}</strong>: {moveDialog.fromStage} → <span className="text-blue-600">{moveDialog.toStageName}</span>
+              </p>
+              <p className="text-xs text-gray-400 mt-1">Cosa ha motivato questo cambio di fase?</p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <select value={moveForm.type} onChange={(e) => setMoveForm({ ...moveForm, type: e.target.value })}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                  <option value="call">Chiamata</option>
+                  <option value="meeting">Incontro</option>
+                  <option value="email">Email ricevuta</option>
+                  <option value="note">Nota interna</option>
+                  <option value="task">Task completato</option>
+                </select>
+                <select value={moveForm.activity_type_id} onChange={(e) => setMoveForm({ ...moveForm, activity_type_id: e.target.value })}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                  <option value="">-- Tipo specifico --</option>
+                  {activityTypes?.map((t: any) => (
+                    <option key={t.id} value={t.id}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+              <input type="text" value={moveForm.subject} onChange={(e) => setMoveForm({ ...moveForm, subject: e.target.value })}
+                placeholder="Oggetto (es. Chiamata qualifica — budget 80k)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+              <textarea value={moveForm.description} onChange={(e) => setMoveForm({ ...moveForm, description: e.target.value })}
+                placeholder="Dettagli (BANT: Budget, Authority, Need, Timeline...)" rows={3}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setMoveDialog(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Annulla</button>
+              <button onClick={handleConfirmMove}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+                Sposta e Registra
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

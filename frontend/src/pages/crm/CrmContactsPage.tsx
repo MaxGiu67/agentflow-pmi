@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useCrmContacts, useCreateCrmContact } from '../../api/hooks'
+import { useCrmContacts, useCreateCrmContact, useOrigins } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
@@ -14,6 +14,7 @@ export default function CrmContactsPage() {
 
   const { data, isLoading } = useCrmContacts(search)
   const createContact = useCreateCrmContact()
+  const { data: origins } = useOrigins(true)
 
   const handleCreate = async () => {
     if (!form.name.trim()) return
@@ -78,6 +79,11 @@ export default function CrmContactsPage() {
               placeholder="Sito web" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
             <input type="text" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
               placeholder="Note" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            <select value={(form as any).source || ''} onChange={(e) => setForm({ ...form, source: e.target.value } as any)}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+              <option value="">-- Origine (opzionale) --</option>
+              {origins?.map((o: any) => <option key={o.id} value={o.label}>{o.label}</option>)}
+            </select>
           </div>
           <div className="flex gap-2">
             <button

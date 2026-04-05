@@ -1313,6 +1313,32 @@ export function useMyPermissions() {
   })
 }
 
+// ── CRM Activities ──
+export function useCrmActivities(contactId?: string, dealId?: string) {
+  return useQuery({
+    queryKey: ['crm-activities', contactId, dealId],
+    queryFn: () => {
+      const params = new URLSearchParams()
+      if (contactId) params.set('contact_id', contactId)
+      if (dealId) params.set('deal_id', dealId)
+      return api.get(`/crm/activities?${params}`).then((r) => r.data)
+    },
+    enabled: !!(contactId || dealId),
+  })
+}
+
+export function useCreateCrmActivity() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) =>
+      api.post('/crm/activities', data).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm-activities'] })
+      qc.invalidateQueries({ queryKey: ['crm-stats'] })
+    },
+  })
+}
+
 // ── Social Selling: Origins ──
 export function useOrigins(activeOnly = false) {
   return useQuery({
