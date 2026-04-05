@@ -81,6 +81,7 @@ const RolesPage = lazy(() => import('./pages/social/RolesPage'))
 const AuditLogPage = lazy(() => import('./pages/social/AuditLogPage'))
 const ScorecardPage = lazy(() => import('./pages/social/ScorecardPage'))
 const CompensationPage = lazy(() => import('./pages/social/CompensationPage'))
+const PipelineSettingsPage = lazy(() => import('./pages/social/PipelineSettingsPage'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -200,6 +201,7 @@ export default function App() {
               <Route path="/email/builder" element={<EmailBuilderPage />} />
 
               {/* Social Selling */}
+              <Route path="/impostazioni/pipeline" element={<PipelineSettingsPage />} />
               <Route path="/impostazioni/origini" element={<OriginsPage />} />
               <Route path="/impostazioni/tipi-attivita" element={<ActivityTypesPage />} />
               <Route path="/impostazioni/prodotti" element={<ProductsPage />} />
