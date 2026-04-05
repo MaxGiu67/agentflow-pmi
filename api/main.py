@@ -91,6 +91,8 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE crm_contacts ADD COLUMN IF NOT EXISTS origin_id UUID",
             "ALTER TABLE crm_contacts ADD COLUMN IF NOT EXISTS contact_name VARCHAR(255)",
             "ALTER TABLE crm_contacts ADD COLUMN IF NOT EXISTS contact_role VARCHAR(100)",
+            "ALTER TABLE crm_contacts ADD COLUMN IF NOT EXISTS company_id UUID",
+            "ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS company_id UUID",
             # Pivot 8: Pipeline pre-funnel + activity types
             "ALTER TABLE crm_pipeline_stages ADD COLUMN IF NOT EXISTS stage_type VARCHAR(50) DEFAULT 'pipeline'",
             "ALTER TABLE crm_pipeline_stages ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",

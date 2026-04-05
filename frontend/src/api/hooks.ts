@@ -1313,6 +1313,31 @@ export function useMyPermissions() {
   })
 }
 
+// ── CRM Companies ──
+export function useCrmCompanies(search = '') {
+  return useQuery({
+    queryKey: ['crm-companies', search],
+    queryFn: () => api.get(`/crm/companies?search=${search}`).then((r) => r.data),
+  })
+}
+
+export function useCreateCrmCompany() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) =>
+      api.post('/crm/companies', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-companies'] }),
+  })
+}
+
+export function useCrmCompany(companyId: string) {
+  return useQuery({
+    queryKey: ['crm-company', companyId],
+    queryFn: () => api.get(`/crm/companies/${companyId}`).then((r) => r.data),
+    enabled: !!companyId,
+  })
+}
+
 // ── CRM Activities ──
 export function useCrmActivities(contactId?: string, dealId?: string) {
   return useQuery({

@@ -29,6 +29,7 @@ from api.db.models import (
     Scadenza,
     BankFacility,
     InvoiceAdvance,
+    CrmCompany,
     CrmContact,
     CrmPipelineStage,
     CrmDeal,

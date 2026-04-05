@@ -889,17 +889,41 @@ class InvoiceAdvance(Base):
 # ============================================================
 
 
+class CrmCompany(Base):
+    """Company/account — the organization that buys."""
+    __tablename__ = "crm_companies"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    type: Mapped[str] = mapped_column(String(20), default="lead")  # lead, prospect, cliente, ex_cliente
+    piva: Mapped[str | None] = mapped_column(String(11), nullable=True)
+    codice_fiscale: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    website: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    province: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    sector: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    source: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    origin_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    assigned_to: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class CrmContact(Base):
-    """CRM contact (azienda cliente/lead/prospect) — US-87."""
+    """Contact person (referente) — linked to a company."""
     __tablename__ = "crm_contacts"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)  # company name
-    contact_name: Mapped[str | None] = mapped_column(String(255), nullable=True)  # person name (referente)
-    contact_role: Mapped[str | None] = mapped_column(String(100), nullable=True)  # role in company (CEO, CTO, buyer)
+    company_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # FK CrmCompany
+    name: Mapped[str] = mapped_column(String(255), nullable=False)  # person full name
+    contact_name: Mapped[str | None] = mapped_column(String(255), nullable=True)  # legacy compat
+    contact_role: Mapped[str | None] = mapped_column(String(100), nullable=True)  # CEO, CTO, Buyer
     type: Mapped[str] = mapped_column(String(20), default="lead")  # lead, prospect, cliente, ex_cliente
-    piva: Mapped[str | None] = mapped_column(String(11), nullable=True)
+    piva: Mapped[str | None] = mapped_column(String(11), nullable=True)  # legacy — now on company
     codice_fiscale: Mapped[str | None] = mapped_column(String(16), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
@@ -908,8 +932,8 @@ class CrmContact(Base):
     city: Mapped[str | None] = mapped_column(String(100), nullable=True)
     province: Mapped[str | None] = mapped_column(String(2), nullable=True)
     sector: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    source: Mapped[str | None] = mapped_column(String(50), nullable=True)  # legacy — web, referral, evento, cold
-    origin_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # FK CrmContactOrigin (US-132)
+    source: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    origin_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     assigned_to: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     email_opt_in: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -941,7 +965,8 @@ class CrmDeal(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
-    contact_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    company_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # FK CrmCompany — who buys
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # FK CrmContact — main referente
     stage_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     name: Mapped[str] = mapped_column(String(300), nullable=False)
     deal_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # T&M, fixed, spot, hardware

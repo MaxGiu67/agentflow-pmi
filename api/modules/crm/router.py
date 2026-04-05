@@ -39,6 +39,57 @@ def _require_tenant(user: User) -> uuid.UUID:
     return user.tenant_id
 
 
+# ── Aziende (Company) ──────────────────────────────────
+
+
+@router.get("/companies")
+async def list_companies(
+    search: str = Query(""),
+    limit: int = Query(100, ge=1, le=500),
+    user: User = Depends(get_current_user),
+    svc: CRMService = Depends(get_service),
+):
+    tid = _require_tenant(user)
+    return await svc.list_companies(tid, search=search, limit=limit)
+
+
+@router.post("/companies", status_code=201)
+async def create_company(
+    body: dict,
+    user: User = Depends(get_current_user),
+    svc: CRMService = Depends(get_service),
+):
+    tid = _require_tenant(user)
+    return await svc.create_company(tid, body, user.id)
+
+
+@router.get("/companies/{company_id}")
+async def get_company(
+    company_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    svc: CRMService = Depends(get_service),
+):
+    tid = _require_tenant(user)
+    result = await svc.get_company(company_id, tid)
+    if not result:
+        raise HTTPException(404, "Azienda non trovata")
+    return result
+
+
+@router.patch("/companies/{company_id}")
+async def update_company(
+    company_id: uuid.UUID,
+    body: dict,
+    user: User = Depends(get_current_user),
+    svc: CRMService = Depends(get_service),
+):
+    tid = _require_tenant(user)
+    result = await svc.update_company(company_id, tid, body)
+    if not result:
+        raise HTTPException(404, "Azienda non trovata")
+    return result
+
+
 # ── Contatti ────────────────────────────────────────────
 
 

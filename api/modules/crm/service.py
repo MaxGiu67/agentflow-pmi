@@ -11,7 +11,7 @@ from datetime import datetime, date
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.db.models import CrmContact, CrmDeal, CrmPipelineStage, CrmActivity
+from api.db.models import CrmCompany, CrmContact, CrmDeal, CrmPipelineStage, CrmActivity
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,88 @@ DEFAULT_STAGES = [
 
 class CRMService:
     """Business logic for internal CRM module."""
+
+    # ── Companies ──────────────────────────────────────
+
+    async def list_companies(
+        self, tenant_id: uuid.UUID, search: str = "", limit: int = 100,
+    ) -> dict:
+        query = select(CrmCompany).where(CrmCompany.tenant_id == tenant_id)
+        if search:
+            query = query.where(or_(
+                CrmCompany.name.ilike(f"%{search}%"),
+                CrmCompany.piva.ilike(f"%{search}%"),
+            ))
+        query = query.order_by(CrmCompany.name).limit(limit)
+        result = await self.db.execute(query)
+        companies = result.scalars().all()
+        return {
+            "companies": [self._company_to_dict(c) for c in companies],
+            "total": len(companies),
+        }
+
+    async def create_company(self, tenant_id: uuid.UUID, data: dict, user_id: uuid.UUID | None = None) -> dict:
+        company = CrmCompany(
+            tenant_id=tenant_id,
+            name=data["name"],
+            type=data.get("type", "lead"),
+            piva=data.get("piva") or data.get("vat"),
+            codice_fiscale=data.get("codice_fiscale"),
+            website=data.get("website"),
+            address=data.get("address"),
+            city=data.get("city"),
+            province=data.get("province"),
+            sector=data.get("sector"),
+            source=data.get("source"),
+            notes=data.get("notes"),
+            assigned_to=user_id,
+        )
+        self.db.add(company)
+        await self.db.flush()
+        return self._company_to_dict(company)
+
+    async def get_company(self, company_id: uuid.UUID, tenant_id: uuid.UUID) -> dict | None:
+        result = await self.db.execute(
+            select(CrmCompany).where(CrmCompany.id == company_id, CrmCompany.tenant_id == tenant_id)
+        )
+        company = result.scalar_one_or_none()
+        if not company:
+            return None
+        # Include contacts
+        contacts_result = await self.db.execute(
+            select(CrmContact).where(CrmContact.company_id == company_id).order_by(CrmContact.name)
+        )
+        contacts = [self._contact_to_dict(c) for c in contacts_result.scalars().all()]
+        d = self._company_to_dict(company)
+        d["contacts"] = contacts
+        return d
+
+    async def update_company(self, company_id: uuid.UUID, tenant_id: uuid.UUID, data: dict) -> dict | None:
+        result = await self.db.execute(
+            select(CrmCompany).where(CrmCompany.id == company_id, CrmCompany.tenant_id == tenant_id)
+        )
+        company = result.scalar_one_or_none()
+        if not company:
+            return None
+        for key, val in data.items():
+            if val is not None and hasattr(company, key):
+                setattr(company, key, val)
+        await self.db.flush()
+        return self._company_to_dict(company)
+
+    def _company_to_dict(self, c: CrmCompany) -> dict:
+        return {
+            "id": str(c.id),
+            "name": c.name,
+            "type": c.type,
+            "vat": c.piva or "",
+            "city": c.city or "",
+            "sector": c.sector or "",
+            "website": c.website or "",
+            "source": c.source or "",
+            "origin_id": str(c.origin_id) if getattr(c, "origin_id", None) else None,
+            "assigned_to": str(c.assigned_to) if c.assigned_to else None,
+        }
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -63,9 +145,16 @@ class CRMService:
         }
 
     async def create_contact(self, tenant_id: uuid.UUID, data: dict) -> dict:
+        company_id = None
+        if data.get("company_id"):
+            company_id = uuid.UUID(data["company_id"]) if isinstance(data["company_id"], str) else data["company_id"]
+
         contact = CrmContact(
             tenant_id=tenant_id,
+            company_id=company_id,
             name=data["name"],
+            contact_name=data.get("contact_name"),
+            contact_role=data.get("contact_role"),
             type=data.get("type", "lead"),
             piva=data.get("vat") or data.get("piva"),
             codice_fiscale=data.get("codice_fiscale"),
@@ -564,6 +653,7 @@ class CRMService:
     def _contact_to_dict(self, c: CrmContact) -> dict:
         return {
             "id": str(c.id),
+            "company_id": str(c.company_id) if getattr(c, "company_id", None) else None,
             "name": c.name,
             "contact_name": getattr(c, "contact_name", None) or "",
             "contact_role": getattr(c, "contact_role", None) or "",
