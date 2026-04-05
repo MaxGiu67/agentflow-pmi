@@ -9,7 +9,7 @@ import SendEmailModal from '../../components/email/SendEmailModal'
 export default function CrmContactsPage() {
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ name: '', email: '', phone: '', vat: '' })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', vat: '', sector: '', city: '', type: 'lead', website: '', notes: '' })
   const [emailTarget, setEmailTarget] = useState<{ email: string; name: string; id: string } | null>(null)
 
   const { data, isLoading } = useCrmContacts(search)
@@ -18,7 +18,7 @@ export default function CrmContactsPage() {
   const handleCreate = async () => {
     if (!form.name.trim()) return
     await createContact.mutateAsync(form)
-    setForm({ name: '', email: '', phone: '', vat: '' })
+    setForm({ name: '', email: '', phone: '', vat: '', sector: '', city: '', type: 'lead', website: '', notes: '' })
     setShowForm(false)
   }
 
@@ -26,7 +26,7 @@ export default function CrmContactsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Contatti CRM"
-        subtitle="Aziende clienti in Odoo"
+        subtitle="Gestione contatti e aziende"
         actions={
           <button
             onClick={() => setShowForm(true)}
@@ -54,35 +54,30 @@ export default function CrmContactsPage() {
       {showForm && (
         <div className="rounded-xl border border-blue-200 bg-blue-50/30 p-6 space-y-3">
           <h3 className="font-medium text-gray-900">Nuovo contatto aziendale</h3>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Ragione sociale *"
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-            <input
-              type="text"
-              value={form.vat}
-              onChange={(e) => setForm({ ...form, vat: e.target.value })}
-              placeholder="P.IVA"
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              placeholder="Email"
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-            <input
-              type="tel"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              placeholder="Telefono"
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Ragione sociale *" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            <input type="text" value={form.vat} onChange={(e) => setForm({ ...form, vat: e.target.value })}
+              placeholder="P.IVA" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+              <option value="lead">Lead</option>
+              <option value="prospect">Prospect</option>
+              <option value="cliente">Cliente</option>
+              <option value="ex_cliente">Ex Cliente</option>
+            </select>
+            <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="Email" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            <input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              placeholder="Telefono" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            <input type="text" value={form.sector} onChange={(e) => setForm({ ...form, sector: e.target.value })}
+              placeholder="Settore (es. Manifatturiero, IT, Servizi)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            <input type="text" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })}
+              placeholder="Citta" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            <input type="url" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })}
+              placeholder="Sito web" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            <input type="text" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              placeholder="Note" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           </div>
           <div className="flex gap-2">
             <button
