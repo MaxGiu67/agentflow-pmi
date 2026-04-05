@@ -33,14 +33,30 @@ class UserManagementService:
 
     async def invite_user(
         self, tenant_id: uuid.UUID, email: str, name: str, role: str, inviter: User,
+        user_type: str = "internal",
+        access_expires_at: str | None = None,
+        default_origin_id: str | None = None,
+        default_product_id: str | None = None,
+        crm_role_id: str | None = None,
     ) -> dict:
-        """AC-109.2: Invite new user with temporary password."""
+        """AC-109.2 + US-139: Invite new user (internal or external) with temporary password."""
         if inviter.role not in MANAGEMENT_ROLES:
             return {"error": "Non hai i permessi per invitare utenti"}
         if role not in VALID_ROLES:
             return {"error": f"Ruolo '{role}' non valido. Usa: {', '.join(VALID_ROLES)}"}
         if role == "owner" and inviter.role != "owner":
             return {"error": "Solo l'owner puo creare altri owner"}
+
+        # AC-139.3: Validate access_expires_at for external users
+        parsed_expiry = None
+        if user_type == "external" and access_expires_at:
+            from datetime import datetime, UTC
+            try:
+                parsed_expiry = datetime.fromisoformat(access_expires_at.replace("Z", "+00:00"))
+                if parsed_expiry < datetime.now(UTC):
+                    return {"error": "Data scadenza deve essere nel futuro"}
+            except ValueError:
+                return {"error": "Formato data scadenza non valido (usa ISO 8601)"}
 
         # Check if email exists
         existing = await self.db.execute(
@@ -61,17 +77,24 @@ class UserManagementService:
             role=role,
             email_verified=True,  # invited users are pre-verified
             active=True,
+            user_type=user_type,
+            access_expires_at=parsed_expiry,
+            default_origin_id=uuid.UUID(default_origin_id) if default_origin_id else None,
+            default_product_id=uuid.UUID(default_product_id) if default_product_id else None,
+            crm_role_id=uuid.UUID(crm_role_id) if crm_role_id else None,
         )
         self.db.add(user)
         await self.db.flush()
 
-        logger.info("User invited: %s (%s) by %s", email, role, inviter.email)
+        logger.info("User invited: %s (%s/%s) by %s", email, role, user_type, inviter.email)
 
         return {
             "id": str(user.id),
             "email": email,
             "name": name,
             "role": role,
+            "user_type": user_type,
+            "access_expires_at": access_expires_at,
             "temp_password": temp_password,
             "message": f"Utente {name} invitato con ruolo {role}. Password temporanea generata.",
         }
@@ -163,12 +186,18 @@ class UserManagementService:
     # ── Serializer ────────────────────────────────────────
 
     def _user_to_dict(self, u: User) -> dict:
+        expires = getattr(u, "access_expires_at", None)
         return {
             "id": str(u.id),
             "email": u.email,
             "name": u.name or "",
             "role": u.role,
             "active": getattr(u, "active", True),
+            "user_type": getattr(u, "user_type", "internal") or "internal",
+            "access_expires_at": expires.isoformat() if expires else None,
+            "default_origin_id": str(u.default_origin_id) if getattr(u, "default_origin_id", None) else None,
+            "default_product_id": str(u.default_product_id) if getattr(u, "default_product_id", None) else None,
+            "crm_role_id": str(u.crm_role_id) if getattr(u, "crm_role_id", None) else None,
             "sender_email": getattr(u, "sender_email", None) or "",
             "sender_name": getattr(u, "sender_name", None) or "",
             "created_at": u.created_at.isoformat() if u.created_at else "",

@@ -28,6 +28,11 @@ class InviteRequest(BaseModel):
     email: str
     name: str
     role: str = "commerciale"
+    user_type: str = "internal"
+    access_expires_at: str | None = None
+    default_origin_id: str | None = None
+    default_product_id: str | None = None
+    crm_role_id: str | None = None
 
 
 class RoleUpdateRequest(BaseModel):
@@ -57,7 +62,14 @@ async def invite_user(
 ):
     """AC-109.2: Invite new user."""
     tid = _require_tenant(user)
-    result = await svc.invite_user(tid, body.email, body.name, body.role, user)
+    result = await svc.invite_user(
+        tid, body.email, body.name, body.role, user,
+        user_type=body.user_type,
+        access_expires_at=body.access_expires_at,
+        default_origin_id=body.default_origin_id,
+        default_product_id=body.default_product_id,
+        crm_role_id=body.crm_role_id,
+    )
     if "error" in result:
         raise HTTPException(403 if "permessi" in result["error"] else 400, result["error"])
     return result

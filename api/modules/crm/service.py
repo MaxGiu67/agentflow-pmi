@@ -38,10 +38,13 @@ class CRMService:
         self, tenant_id: uuid.UUID,
         search: str = "", contact_type: str = "", limit: int = 100,
         assigned_to: uuid.UUID | None = None,
+        origin_id: uuid.UUID | None = None,
     ) -> dict:
         query = select(CrmContact).where(CrmContact.tenant_id == tenant_id)
         if assigned_to:
             query = query.where(CrmContact.assigned_to == assigned_to)
+        if origin_id:
+            query = query.where(CrmContact.origin_id == origin_id)
         if search:
             query = query.where(or_(
                 CrmContact.name.ilike(f"%{search}%"),

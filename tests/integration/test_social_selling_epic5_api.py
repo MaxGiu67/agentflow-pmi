@@ -159,7 +159,7 @@ class TestUS147Scorecard:
         sales_user: User, won_deals: list,
     ):
         resp = await client.get(
-            f"/api/v1/social/scorecard/{sales_user.id}",
+            f"/api/v1/social/scorecard/{sales_user.id}?start_date=2020-01-01&end_date=2030-12-31",
             headers=admin_headers,
         )
         assert resp.status_code == 200

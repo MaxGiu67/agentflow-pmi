@@ -53,7 +53,9 @@ async def list_contacts(
     tid = _require_tenant(user)
     # AC-110.2: commerciale sees only own contacts
     assigned = user.id if user.role == "commerciale" else None
-    return await svc.list_contacts(tid, search=search, contact_type=type, limit=limit, assigned_to=assigned)
+    # US-140 AC-140.2: external user sees only contacts matching their default origin
+    origin_filter = getattr(user, "default_origin_id", None) if getattr(user, "user_type", "internal") == "external" else None
+    return await svc.list_contacts(tid, search=search, contact_type=type, limit=limit, assigned_to=assigned, origin_id=origin_filter)
 
 
 @router.post("/contacts", status_code=201)

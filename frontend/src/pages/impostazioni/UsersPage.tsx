@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { useTeamUsers, useInviteUser, useUpdateUserRole, useToggleUserActive, useMyPermissions } from '../../api/hooks'
+import { useTeamUsers, useInviteUser, useUpdateUserRole, useToggleUserActive, useMyPermissions, useOrigins, useProducts, useRoles } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import PageMeta from '../../components/ui/PageMeta'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import Badge from '../../components/ui/Badge'
-import { Plus, UserX, UserCheck, Copy } from 'lucide-react'
+import { Plus, UserX, UserCheck, Copy, ExternalLink, Clock } from 'lucide-react'
 
 const ROLES = [
   { value: 'owner', label: 'Owner', color: 'error' as const },
@@ -16,20 +16,34 @@ const ROLES = [
 export default function UsersPage() {
   const { data: users, isLoading } = useTeamUsers()
   const { data: perms } = useMyPermissions()
+  const { data: origins } = useOrigins(true)
+  const { data: products } = useProducts(true)
+  const { data: crmRoles } = useRoles()
   const inviteUser = useInviteUser()
   const updateRole = useUpdateUserRole()
   const toggleActive = useToggleUserActive()
 
   const [showInvite, setShowInvite] = useState(false)
-  const [form, setForm] = useState({ email: '', name: '', role: 'commerciale' })
+  const [form, setForm] = useState({
+    email: '', name: '', role: 'commerciale',
+    user_type: 'internal', access_expires_at: '',
+    default_origin_id: '', default_product_id: '', crm_role_id: '',
+  })
   const [inviteResult, setInviteResult] = useState<any>(null)
 
   const canManage = perms?.can_manage_users
 
   const handleInvite = async () => {
-    const result = await inviteUser.mutateAsync(form)
+    const payload: any = { email: form.email, name: form.name, role: form.role, user_type: form.user_type }
+    if (form.user_type === 'external') {
+      if (form.access_expires_at) payload.access_expires_at = form.access_expires_at + 'T23:59:59Z'
+      if (form.default_origin_id) payload.default_origin_id = form.default_origin_id
+      if (form.default_product_id) payload.default_product_id = form.default_product_id
+      if (form.crm_role_id) payload.crm_role_id = form.crm_role_id
+    }
+    const result = await inviteUser.mutateAsync(payload)
     setInviteResult(result)
-    setForm({ email: '', name: '', role: 'commerciale' })
+    setForm({ email: '', name: '', role: 'commerciale', user_type: 'internal', access_expires_at: '', default_origin_id: '', default_product_id: '', crm_role_id: '' })
   }
 
   return (
@@ -57,6 +71,60 @@ export default function UsersPage() {
               {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
           </div>
+
+          {/* User type toggle */}
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="radio" name="user_type" value="internal" checked={form.user_type === 'internal'}
+                onChange={() => setForm({ ...form, user_type: 'internal' })} />
+              Interno
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="radio" name="user_type" value="external" checked={form.user_type === 'external'}
+                onChange={() => setForm({ ...form, user_type: 'external' })} />
+              Esterno (freelancer/partner)
+            </label>
+          </div>
+
+          {/* External user fields */}
+          {form.user_type === 'external' && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 space-y-3">
+              <p className="text-xs font-medium text-amber-700">Configurazione utente esterno</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Scadenza accesso *</label>
+                  <input type="date" value={form.access_expires_at}
+                    onChange={(e) => setForm({ ...form, access_expires_at: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Ruolo CRM</label>
+                  <select value={form.crm_role_id} onChange={(e) => setForm({ ...form, crm_role_id: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                    <option value="">-- Nessun ruolo CRM --</option>
+                    {crmRoles?.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Canale default (origine)</label>
+                  <select value={form.default_origin_id} onChange={(e) => setForm({ ...form, default_origin_id: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                    <option value="">-- Nessun canale --</option>
+                    {origins?.map((o: any) => <option key={o.id} value={o.id}>{o.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Prodotto default</label>
+                  <select value={form.default_product_id} onChange={(e) => setForm({ ...form, default_product_id: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                    <option value="">-- Nessun prodotto --</option>
+                    {products?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <button onClick={handleInvite} disabled={inviteUser.isPending || !form.email || !form.name}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">Invita</button>
@@ -84,20 +152,27 @@ export default function UsersPage() {
         <div className="space-y-2">
           {users?.map((u: any) => {
             const roleInfo = ROLES.find((r) => r.value === u.role) || ROLES[3]
+            const isExternal = u.user_type === 'external'
+            const isExpired = u.access_expires_at && new Date(u.access_expires_at) < new Date()
             return (
               <div key={u.id} className={`rounded-xl border bg-white p-4 ${u.active === false ? 'border-gray-300 opacity-60' : 'border-gray-200'}`}>
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 text-purple-600 text-sm font-bold shrink-0">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold shrink-0 ${isExternal ? 'bg-amber-100 text-amber-600' : 'bg-purple-100 text-purple-600'}`}>
                       {(u.name || u.email).charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-medium text-gray-900 truncate">{u.name || u.email}</p>
                         <Badge variant={roleInfo.color}>{roleInfo.label}</Badge>
+                        {isExternal && <Badge variant="warning"><ExternalLink className="mr-1 inline h-3 w-3" />Esterno</Badge>}
                         {u.active === false && <Badge variant="error">Disattivato</Badge>}
+                        {isExpired && <Badge variant="error"><Clock className="mr-1 inline h-3 w-3" />Scaduto</Badge>}
                       </div>
                       <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                      {u.access_expires_at && (
+                        <p className="text-[10px] text-amber-500">Accesso fino al {u.access_expires_at.split('T')[0]}</p>
+                      )}
                       {u.sender_email && <p className="text-[10px] text-gray-300">Sender: {u.sender_email}</p>}
                     </div>
                   </div>

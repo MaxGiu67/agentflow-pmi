@@ -1266,7 +1266,7 @@ export function useTeamUsers() {
 export function useInviteUser() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: { email: string; name: string; role: string }) =>
+    mutationFn: (data: Record<string, unknown>) =>
       api.post('/users/invite', data).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['team-users'] }),
   })

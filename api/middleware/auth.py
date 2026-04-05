@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, UTC
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -35,6 +36,24 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Utente non trovato",
+        )
+
+    # Gap 5.2: Check if user account is active
+    if getattr(user, "active", True) is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account disattivato. Contatta l'administrator.",
+        )
+
+    # Gap 5.2: Check access expiry for external users
+    expires = getattr(user, "access_expires_at", None)
+    if expires and expires < datetime.now(UTC):
+        # Auto-deactivate expired user
+        user.active = False
+        await db.flush()
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accesso scaduto. Contatta l'administrator.",
         )
 
     return user
