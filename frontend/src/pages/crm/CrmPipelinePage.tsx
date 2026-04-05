@@ -35,6 +35,7 @@ export default function CrmPipelinePage() {
   // Stage move dialog
   const [moveDialog, setMoveDialog] = useState<{ dealId: string; dealName: string; contactId?: string; fromStage: string; toStageId: string; toStageName: string } | null>(null)
   const [moveForm, setMoveForm] = useState({ type: 'call', activity_type_id: '', subject: '', description: '' })
+  const [showMoveActivity, setShowMoveActivity] = useState(false)
 
   // React 19 useOptimistic for instant drag feedback
   const [optimisticMoves, setOptimisticMove] = useOptimistic(
@@ -130,6 +131,7 @@ export default function CrmPipelinePage() {
     }
 
     setMoveDialog(null)
+    setShowMoveActivity(false)
   }
 
   return (
@@ -342,51 +344,65 @@ export default function CrmPipelinePage() {
           </div>
         )
       )}
-      {/* ── Stage Move Dialog ── */}
+      {/* ── Stage Move Dialog (Hybrid: optional activity) ── */}
       {moveDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Registra attivita</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Cambio fase</h3>
               <p className="text-sm text-gray-500 mt-1">
-                <strong>{moveDialog.dealName}</strong>: {moveDialog.fromStage} → <span className="text-blue-600">{moveDialog.toStageName}</span>
+                <strong>{moveDialog.dealName}</strong>: {moveDialog.fromStage} → <span className="text-blue-600 font-medium">{moveDialog.toStageName}</span>
               </p>
-              <p className="text-xs text-gray-400 mt-1">Cosa ha motivato questo cambio di fase?</p>
             </div>
 
-            <div className="space-y-3">
-              <div className="grid gap-2 sm:grid-cols-2">
-                <select value={moveForm.type} onChange={(e) => setMoveForm({ ...moveForm, type: e.target.value })}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                  <option value="call">Chiamata</option>
-                  <option value="meeting">Incontro</option>
-                  <option value="email">Email ricevuta</option>
-                  <option value="note">Nota interna</option>
-                  <option value="task">Task completato</option>
-                </select>
-                <select value={moveForm.activity_type_id} onChange={(e) => setMoveForm({ ...moveForm, activity_type_id: e.target.value })}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                  <option value="">-- Tipo specifico --</option>
-                  {activityTypes?.map((t: any) => (
-                    <option key={t.id} value={t.id}>{t.label}</option>
-                  ))}
-                </select>
-              </div>
-              <input type="text" value={moveForm.subject} onChange={(e) => setMoveForm({ ...moveForm, subject: e.target.value })}
-                placeholder="Oggetto (es. Chiamata qualifica — budget 80k)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-              <textarea value={moveForm.description} onChange={(e) => setMoveForm({ ...moveForm, description: e.target.value })}
-                placeholder="Dettagli (BANT: Budget, Authority, Need, Timeline...)" rows={3}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-            </div>
+            {/* Quick move — no activity needed */}
+            <button onClick={() => { handleConfirmMove(); }}
+              className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700">
+              Sposta senza registrare attivita
+            </button>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setMoveDialog(null)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Annulla</button>
-              <button onClick={handleConfirmMove}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-                Sposta e Registra
+            {/* Optional: expand to log activity */}
+            {!showMoveActivity ? (
+              <button onClick={() => setShowMoveActivity(true)}
+                className="w-full text-center text-xs text-gray-400 hover:text-blue-600 py-1">
+                + Registra anche un'attivita collegata
               </button>
-            </div>
+            ) : (
+              <div className="space-y-3 border-t border-gray-100 pt-3">
+                <p className="text-xs font-medium text-gray-500">Attivita collegata (opzionale)</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <select value={moveForm.type} onChange={(e) => setMoveForm({ ...moveForm, type: e.target.value })}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                    <option value="call">Chiamata</option>
+                    <option value="meeting">Incontro</option>
+                    <option value="email">Email ricevuta</option>
+                    <option value="note">Nota interna</option>
+                    <option value="task">Task completato</option>
+                  </select>
+                  <select value={moveForm.activity_type_id} onChange={(e) => setMoveForm({ ...moveForm, activity_type_id: e.target.value })}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                    <option value="">-- Tipo specifico --</option>
+                    {activityTypes?.map((t: any) => (
+                      <option key={t.id} value={t.id}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <input type="text" value={moveForm.subject} onChange={(e) => setMoveForm({ ...moveForm, subject: e.target.value })}
+                  placeholder="Oggetto (es. Chiamata qualifica — budget 80k)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <textarea value={moveForm.description} onChange={(e) => setMoveForm({ ...moveForm, description: e.target.value })}
+                  placeholder="Dettagli (BANT, note...)" rows={2}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <button onClick={handleConfirmMove}
+                  className="w-full rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
+                  Sposta e Registra Attivita
+                </button>
+              </div>
+            )}
+
+            <button onClick={() => { setMoveDialog(null); setShowMoveActivity(false) }}
+              className="w-full text-center text-xs text-gray-400 hover:text-gray-600 py-1">
+              Annulla
+            </button>
           </div>
         </div>
       )}
