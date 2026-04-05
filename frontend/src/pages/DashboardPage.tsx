@@ -20,6 +20,8 @@ import {
   useResetDashboardLayout,
   useYearlyStats,
   useSyncCassetto,
+  useCrmStats,
+  useMyPermissions,
 } from '../api/hooks'
 import WidgetRenderer from '../components/dashboard/WidgetRenderer'
 import type { WidgetDef } from '../components/dashboard/WidgetRenderer'
@@ -58,7 +60,10 @@ export default function DashboardPage() {
 
   // Stats data
   const { data: yearlyData, isLoading: yearlyLoading, error: yearlyError } = useYearlyStats(selectedYear)
+  const { data: crmData, isLoading: crmLoading } = useCrmStats()
+  const { data: perms } = useMyPermissions()
   const syncCassetto = useSyncCassetto()
+  const isCommerciale = perms?.role === 'commerciale'
 
   // Debounce save
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -108,7 +113,7 @@ export default function DashboardPage() {
     resetLayout.mutate()
   }, [resetLayout])
 
-  const isLoading = layoutLoading || yearlyLoading
+  const isLoading = layoutLoading || yearlyLoading || (isCommerciale && crmLoading)
 
   if (isLoading) return <LoadingSpinner className="mt-20" size="lg" />
 
@@ -129,12 +134,12 @@ export default function DashboardPage() {
   return (
     <div ref={containerRef} className="mx-auto w-full max-w-6xl px-4">
       <PageHeader
-        title={`Dashboard ${selectedYear}`}
-        subtitle="Panoramica annuale fatturazione"
+        title={isCommerciale ? 'La mia Dashboard' : `Dashboard ${selectedYear}`}
+        subtitle={isCommerciale ? 'Pipeline, deal e attivita commerciali' : 'Panoramica annuale fatturazione'}
         actions={
           <div className="flex items-center gap-3">
-            {/* Year navigation */}
-            <div className="flex items-center gap-1 rounded-lg border border-gray-300 px-1 py-1">
+            {/* Year navigation — admin only */}
+            {!isCommerciale && <div className="flex items-center gap-1 rounded-lg border border-gray-300 px-1 py-1">
               <button
                 onClick={() => setSelectedYear((y) => y - 1)}
                 disabled={!canGoBack}
@@ -164,7 +169,7 @@ export default function DashboardPage() {
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
-            </div>
+            </div>}
 
             <button
               onClick={handleReset}
@@ -184,14 +189,14 @@ export default function DashboardPage() {
               Apri Chat
             </button>
 
-            <button
+            {!isCommerciale && <button
               onClick={() => syncCassetto.mutate({})}
               disabled={syncCassetto.isPending}
               className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${syncCassetto.isPending ? 'animate-spin' : ''}`} />
               Sincronizza
-            </button>
+            </button>}
           </div>
         }
       />
@@ -217,7 +222,7 @@ export default function DashboardPage() {
               </div>
               <WidgetRenderer
                 widget={widget}
-                data={(yearlyData as Record<string, unknown>) ?? null}
+                data={{ ...(yearlyData as Record<string, unknown> ?? {}), ...(crmData as Record<string, unknown> ?? {}) }}
               />
             </div>
           ))}

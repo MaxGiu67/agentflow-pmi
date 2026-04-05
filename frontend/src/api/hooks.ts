@@ -2,6 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from './client'
 
 // ── Dashboard ──
+export function useCrmStats() {
+  return useQuery({
+    queryKey: ['crm-stats'],
+    queryFn: () => api.get('/dashboard/crm-stats').then((r) => r.data),
+  })
+}
+
 export function useDashboard() {
   return useQuery({
     queryKey: ['dashboard'],

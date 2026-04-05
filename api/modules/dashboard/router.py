@@ -37,6 +37,15 @@ async def get_yearly_stats(
     return YearlyStats(**result)
 
 
+@router.get("/dashboard/crm-stats")
+async def get_crm_stats(
+    user: User = Depends(get_current_user),
+    service: DashboardService = Depends(get_dashboard_service),
+):
+    """CRM stats for commerciale dashboard: pipeline, deals, activities."""
+    return await service.get_crm_stats(user)
+
+
 @router.get("/agents/status", response_model=list[AgentStatus])
 async def agents_status(
     user: User = Depends(get_current_user),

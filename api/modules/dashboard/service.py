@@ -6,7 +6,7 @@ import uuid
 from sqlalchemy import select, and_, func, text, extract
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.db.models import AgentEvent, Invoice, User
+from api.db.models import AgentEvent, Invoice, User, CrmDeal, CrmActivity, CrmContact, CrmPipelineStage
 
 logger = logging.getLogger(__name__)
 
@@ -534,4 +534,153 @@ class DashboardService:
                 for m in range(1, 13)
             ],
             "available_years": [],
+        }
+
+    # ── CRM Stats (commerciale dashboard) ─────────────
+
+    async def get_crm_stats(self, user: User) -> dict:
+        """CRM KPIs for commerciale dashboard."""
+        from datetime import datetime, date
+        tid = user.tenant_id
+        uid = user.id
+        if not tid:
+            return self._empty_crm_stats()
+
+        # Filter: commerciale sees only own, admin sees all
+        is_own = user.role == "commerciale"
+
+        today = date.today()
+        month_start = today.replace(day=1)
+
+        # Pipeline value (non-won, non-lost deals)
+        pipeline_q = select(
+            func.count(CrmDeal.id),
+            func.coalesce(func.sum(CrmDeal.expected_revenue), 0.0),
+        ).where(
+            CrmDeal.tenant_id == tid,
+            CrmDeal.probability < 100,
+            CrmDeal.probability > 0,
+        )
+        if is_own:
+            pipeline_q = pipeline_q.where(CrmDeal.assigned_to == uid)
+        pipeline_row = (await self.db.execute(pipeline_q)).one()
+
+        # Won deals
+        won_q = select(
+            func.count(CrmDeal.id),
+            func.coalesce(func.sum(CrmDeal.expected_revenue), 0.0),
+        ).where(CrmDeal.tenant_id == tid, CrmDeal.probability == 100)
+        if is_own:
+            won_q = won_q.where(CrmDeal.assigned_to == uid)
+        won_row = (await self.db.execute(won_q)).one()
+
+        # Total deals (for win rate)
+        total_deals = await self.db.scalar(
+            select(func.count(CrmDeal.id)).where(CrmDeal.tenant_id == tid)
+            .where(CrmDeal.assigned_to == uid if is_own else True)
+        ) or 0
+
+        # Activities this month
+        act_q = select(func.count(CrmActivity.id)).where(
+            CrmActivity.tenant_id == tid,
+            CrmActivity.created_at >= month_start,
+        )
+        if is_own:
+            act_q = act_q.where(CrmActivity.user_id == uid)
+        activities_month = await self.db.scalar(act_q) or 0
+
+        # New contacts this month
+        cont_q = select(func.count(CrmContact.id)).where(
+            CrmContact.tenant_id == tid,
+            CrmContact.created_at >= month_start,
+        )
+        if is_own:
+            cont_q = cont_q.where(CrmContact.assigned_to == uid)
+        new_contacts = await self.db.scalar(cont_q) or 0
+
+        # Proposals sent (deals in stage with probability 50-80)
+        proposals = await self.db.scalar(
+            select(func.count(CrmDeal.id)).where(
+                CrmDeal.tenant_id == tid,
+                CrmDeal.probability >= 50,
+                CrmDeal.probability < 100,
+            ).where(CrmDeal.assigned_to == uid if is_own else True)
+        ) or 0
+
+        # Pipeline by stage
+        stages_result = await self.db.execute(
+            select(CrmPipelineStage).where(
+                CrmPipelineStage.tenant_id == tid,
+            ).order_by(CrmPipelineStage.sequence)
+        )
+        stages = stages_result.scalars().all()
+        pipeline_by_stage = []
+        for stage in stages:
+            stage_q = select(
+                func.count(CrmDeal.id),
+                func.coalesce(func.sum(CrmDeal.expected_revenue), 0.0),
+            ).where(CrmDeal.tenant_id == tid, CrmDeal.stage_id == stage.id)
+            if is_own:
+                stage_q = stage_q.where(CrmDeal.assigned_to == uid)
+            row = (await self.db.execute(stage_q)).one()
+            if row[0] > 0:
+                pipeline_by_stage.append({
+                    "stage": stage.name,
+                    "count": row[0],
+                    "value": float(row[1]),
+                })
+
+        # Top deals
+        top_q = select(CrmDeal).where(
+            CrmDeal.tenant_id == tid,
+            CrmDeal.probability < 100,
+            CrmDeal.probability > 0,
+        ).order_by(CrmDeal.expected_revenue.desc()).limit(10)
+        if is_own:
+            top_q = top_q.where(CrmDeal.assigned_to == uid)
+        top_result = await self.db.execute(top_q)
+        top_deals = []
+        for d in top_result.scalars().all():
+            # Get stage name
+            stage_name = ""
+            if d.stage_id:
+                sr = await self.db.execute(
+                    select(CrmPipelineStage.name).where(CrmPipelineStage.id == d.stage_id)
+                )
+                stage_name = sr.scalar() or ""
+            # Get contact name
+            client_name = ""
+            if d.contact_id:
+                cr = await self.db.execute(
+                    select(CrmContact.name).where(CrmContact.id == d.contact_id)
+                )
+                client_name = cr.scalar() or ""
+            top_deals.append({
+                "name": d.name,
+                "client": client_name,
+                "stage": stage_name,
+                "value": d.expected_revenue,
+            })
+
+        win_rate = (won_row[0] / total_deals * 100) if total_deals > 0 else 0
+
+        return {
+            "pipeline_value": float(pipeline_row[1]),
+            "pipeline_count": pipeline_row[0],
+            "revenue_won": float(won_row[1]),
+            "deals_won": won_row[0],
+            "win_rate": round(win_rate, 1),
+            "activities_month": activities_month,
+            "new_contacts_month": new_contacts,
+            "proposals_sent": proposals,
+            "pipeline_by_stage": pipeline_by_stage,
+            "top_deals": top_deals,
+        }
+
+    def _empty_crm_stats(self) -> dict:
+        return {
+            "pipeline_value": 0, "pipeline_count": 0,
+            "revenue_won": 0, "deals_won": 0, "win_rate": 0,
+            "activities_month": 0, "new_contacts_month": 0, "proposals_sent": 0,
+            "pipeline_by_stage": [], "top_deals": [],
         }

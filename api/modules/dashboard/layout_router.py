@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.db.models import DashboardLayout, User
 from api.db.session import get_db
 from api.middleware.auth import get_current_user
-from api.modules.dashboard.default_widgets import DEFAULT_WIDGETS
+from api.modules.dashboard.default_widgets import DEFAULT_WIDGETS, get_widgets_for_role
 
 router = APIRouter(tags=["dashboard-layout"])
 
@@ -41,12 +41,13 @@ async def _get_or_create_layout(
     )
     layout = result.scalar_one_or_none()
     if layout is None:
+        role_widgets = get_widgets_for_role(user.role)
         layout = DashboardLayout(
             tenant_id=user.tenant_id,
             user_id=user.id,
             name="default",
             year=datetime.now().year,
-            widgets=DEFAULT_WIDGETS,
+            widgets=role_widgets,
         )
         db.add(layout)
         await db.flush()
@@ -92,9 +93,9 @@ async def reset_layout(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> LayoutResponse:
-    """Reset the user's dashboard to default widgets."""
+    """Reset the user's dashboard to default widgets for their role."""
     layout = await _get_or_create_layout(db, user)
-    layout.widgets = DEFAULT_WIDGETS
+    layout.widgets = get_widgets_for_role(user.role)
     await db.flush()
     return LayoutResponse(
         id=str(layout.id),
