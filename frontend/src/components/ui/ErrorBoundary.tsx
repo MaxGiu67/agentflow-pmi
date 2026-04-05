@@ -18,6 +18,24 @@ export default class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error }
   }
 
+  componentDidCatch(error: Error) {
+    // Auto-reload on dynamic import failure (stale chunks after deploy)
+    const msg = error.message || ''
+    if (
+      msg.includes('Failed to fetch dynamically imported module') ||
+      msg.includes('Loading chunk') ||
+      msg.includes('Loading CSS chunk')
+    ) {
+      // Prevent infinite reload loop
+      const key = 'chunk_reload_ts'
+      const last = Number(sessionStorage.getItem(key) || 0)
+      if (Date.now() - last > 10000) {
+        sessionStorage.setItem(key, String(Date.now()))
+        window.location.reload()
+      }
+    }
+  }
+
   handleRetry = () => {
     this.setState({ hasError: false, error: null })
   }
