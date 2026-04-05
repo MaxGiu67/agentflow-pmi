@@ -32,6 +32,7 @@ class PipelineService:
         sequence = data.get("sequence", 0)
 
         # AC-136.3: pre-funnel stages must have sequence < first pipeline stage
+        # Auto-reorder pipeline stages if no room
         if stage_type == "pre_funnel":
             first_pipeline = await self.db.execute(
                 select(CrmPipelineStage).where(
@@ -41,7 +42,17 @@ class PipelineService:
             )
             first = first_pipeline.scalars().first()
             if first and sequence >= first.sequence:
-                return {"error": "Stadi pre-funnel devono avere sequenza prima di 'Nuovo Lead'"}
+                # Auto-fix: shift all pipeline stages up to make room
+                all_pipeline = await self.db.execute(
+                    select(CrmPipelineStage).where(
+                        CrmPipelineStage.tenant_id == tenant_id,
+                        CrmPipelineStage.stage_type == "pipeline",
+                    ).order_by(CrmPipelineStage.sequence)
+                )
+                base = (sequence + 1) * 10
+                for i, s in enumerate(all_pipeline.scalars().all()):
+                    s.sequence = base + (i * 10)
+                await self.db.flush()
 
         stage = CrmPipelineStage(
             tenant_id=tenant_id,

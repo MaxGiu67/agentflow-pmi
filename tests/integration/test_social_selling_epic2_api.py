@@ -324,21 +324,23 @@ class TestUS136PipelineStages:
         assert stages[0]["stage_type"] == "pre_funnel"
 
     @pytest.mark.anyio
-    async def test_ac_136_3_pre_funnel_after_pipeline_rejected(
+    async def test_ac_136_3_pre_funnel_auto_reorder(
         self, client: AsyncClient, admin_headers: dict,
         pipeline_stage: CrmPipelineStage,
     ):
-        """AC-136.3: Pre-funnel with sequence >= pipeline is rejected."""
+        """AC-136.3: Pre-funnel with sequence >= pipeline auto-reorders pipeline stages."""
         resp = await client.post(
             "/api/v1/social/pipeline/stages",
             json={
-                "name": "Bad Pre-funnel",
+                "name": "Auto Pre-funnel",
                 "sequence": 15,
                 "stage_type": "pre_funnel",
             },
             headers=admin_headers,
         )
-        assert resp.status_code == 400
+        # Now auto-reorders instead of rejecting
+        assert resp.status_code == 201
+        assert resp.json()["stage_type"] == "pre_funnel"
 
     @pytest.mark.anyio
     async def test_ac_136_update_stage(
