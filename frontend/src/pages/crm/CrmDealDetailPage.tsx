@@ -62,7 +62,7 @@ export default function CrmDealDetailPage() {
   const [showAddProduct, setShowAddProduct] = useState(false)
   const [prodForm, setProdForm] = useState({ product_id: '', quantity: '1', price_override: '' })
   const [showActivityForm, setShowActivityForm] = useState(false)
-  const [actForm, setActForm] = useState({ type: 'call', activity_type_id: '', subject: '', description: '', status: 'completed' })
+  const [actForm, setActForm] = useState({ type: 'call', activity_type_id: '', subject: '', description: '', status: 'completed', scheduled_at: '' })
 
   if (isLoading) return <LoadingSpinner />
   if (!deal) return <div className="p-8 text-center text-gray-500">Deal non trovato</div>
@@ -100,8 +100,9 @@ export default function CrmDealDetailPage() {
       subject: actForm.subject,
       description: actForm.description || undefined,
       status: actForm.status,
+      scheduled_at: actForm.scheduled_at || undefined,
     })
-    setActForm({ type: 'call', activity_type_id: '', subject: '', description: '', status: 'completed' })
+    setActForm({ type: 'call', activity_type_id: '', subject: '', description: '', status: 'completed', scheduled_at: '' })
     setShowActivityForm(false)
   }
 
@@ -287,15 +288,20 @@ export default function CrmDealDetailPage() {
               placeholder="Oggetto attivita *" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
             <textarea value={actForm.description} onChange={(e) => setActForm({ ...actForm, description: e.target.value })}
               placeholder="Descrizione / note" rows={2} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <select value={actForm.status} onChange={(e) => setActForm({ ...actForm, status: e.target.value })}
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
                 <option value="completed">Completata</option>
                 <option value="planned">Pianificata</option>
               </select>
+              {actForm.status === 'planned' && (
+                <input type="datetime-local" value={actForm.scheduled_at}
+                  onChange={(e) => setActForm({ ...actForm, scheduled_at: e.target.value })}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+              )}
               <button onClick={handleCreateActivity} disabled={!actForm.subject.trim() || createActivity.isPending}
                 className="rounded-lg bg-green-600 px-3 py-2 text-xs font-medium text-white disabled:opacity-50">
-                {createActivity.isPending ? 'Salvataggio...' : 'Salva Attivita'}
+                {createActivity.isPending ? 'Salvataggio...' : actForm.status === 'planned' ? 'Pianifica' : 'Salva Attivita'}
               </button>
               <button onClick={() => setShowActivityForm(false)} className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600">Annulla</button>
             </div>
@@ -306,14 +312,31 @@ export default function CrmDealDetailPage() {
           <div className="space-y-2">
             {activities.map((a: any) => {
               const AIcon = ACTIVITY_ICONS[a.type] || Activity
+              const isPlanned = a.status === 'planned'
               return (
-                <div key={a.id} className="flex items-start gap-3 rounded-lg border border-gray-100 px-4 py-2.5">
-                  <AIcon className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
+                <div key={a.id} className={`flex items-start gap-3 rounded-lg border px-4 py-2.5 ${isPlanned ? 'border-amber-200 bg-amber-50/50' : 'border-gray-100'}`}>
+                  <AIcon className={`h-4 w-4 mt-0.5 shrink-0 ${isPlanned ? 'text-amber-500' : 'text-gray-400'}`} />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900">{a.subject}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-gray-900">{a.subject}</p>
+                      {isPlanned && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">Pianificata</span>}
+                    </div>
                     {a.description && <p className="text-xs text-gray-500 mt-0.5">{a.description}</p>}
-                    <p className="text-[10px] text-gray-400 mt-1">{a.type} - {a.status} - {a.created_at?.split('T')[0]}</p>
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      {a.type} - {a.status}
+                      {a.scheduled_at && ` - ${a.scheduled_at.split('T')[0]} ${a.scheduled_at.split('T')[1]?.slice(0, 5) || ''}`}
+                      {!a.scheduled_at && a.created_at && ` - ${a.created_at.split('T')[0]}`}
+                    </p>
                   </div>
+                  {isPlanned && (
+                    <button onClick={() => createActivity.mutateAsync({
+                      deal_id: deal.id, contact_id: deal.client_id || undefined,
+                      type: a.type, subject: `${a.subject} (completata)`, status: 'completed',
+                    })}
+                      className="shrink-0 rounded bg-green-50 px-2 py-1 text-[10px] font-medium text-green-700 hover:bg-green-100">
+                      Completa
+                    </button>
+                  )}
                 </div>
               )
             })}
