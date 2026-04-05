@@ -22,6 +22,7 @@ import {
   Shield,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { useMyPermissions } from '../../api/hooks'
 
 interface SidebarProps {
   open: boolean
@@ -32,6 +33,8 @@ interface NavItem {
   to: string
   label: string
   icon: LucideIcon
+  /** Roles that can see this item. Empty = everyone. */
+  roles?: string[]
 }
 
 interface NavSection {
@@ -39,56 +42,78 @@ interface NavSection {
   items: NavItem[]
 }
 
+/**
+ * Role visibility rules:
+ * - owner/admin: see everything
+ * - commerciale: CRM, email, chat, dashboard
+ * - viewer: dashboard, CRM (read), report, chat
+ *
+ * If `roles` is omitted or empty, item is visible to ALL roles.
+ * If `roles` is specified, only those roles see it.
+ */
 const navSections: NavSection[] = [
   {
     title: 'Principale',
     items: [
-      { to: '/setup', label: 'Setup', icon: Puzzle },
+      { to: '/setup', label: 'Setup', icon: Puzzle, roles: ['owner', 'admin'] },
       { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/budgets', label: 'Budget', icon: Target },
+      { to: '/budgets', label: 'Budget', icon: Target, roles: ['owner', 'admin'] },
     ],
   },
   {
     title: 'Operativo',
     items: [
-      { to: '/fatture', label: 'Fatture', icon: FileText },
-      { to: '/banca', label: 'Banca', icon: Landmark },
-      { to: '/personale', label: 'Personale', icon: Users },
-      { to: '/spese', label: 'Spese', icon: CreditCard },
-      { to: '/corrispettivi', label: 'Corrispettivi', icon: Receipt },
+      { to: '/fatture', label: 'Fatture', icon: FileText, roles: ['owner', 'admin'] },
+      { to: '/banca', label: 'Banca', icon: Landmark, roles: ['owner', 'admin'] },
+      { to: '/personale', label: 'Personale', icon: Users, roles: ['owner', 'admin'] },
+      { to: '/spese', label: 'Spese', icon: CreditCard, roles: ['owner', 'admin'] },
+      { to: '/corrispettivi', label: 'Corrispettivi', icon: Receipt, roles: ['owner', 'admin'] },
     ],
   },
   {
     title: 'Commerciale',
     items: [
-      { to: '/crm', label: 'Pipeline CRM', icon: Briefcase },
-      { to: '/crm/contatti', label: 'Contatti', icon: Users },
-      { to: '/email/templates', label: 'Email Template', icon: Mail },
-      { to: '/email/sequenze', label: 'Sequenze', icon: Zap },
-      { to: '/email/analytics', label: 'Email Stats', icon: BarChart3 },
+      { to: '/crm', label: 'Pipeline CRM', icon: Briefcase, roles: ['owner', 'admin', 'commerciale', 'viewer'] },
+      { to: '/crm/contatti', label: 'Contatti', icon: Users, roles: ['owner', 'admin', 'commerciale', 'viewer'] },
+      { to: '/email/templates', label: 'Email Template', icon: Mail, roles: ['owner', 'admin', 'commerciale'] },
+      { to: '/email/sequenze', label: 'Sequenze', icon: Zap, roles: ['owner', 'admin', 'commerciale'] },
+      { to: '/email/analytics', label: 'Email Stats', icon: BarChart3, roles: ['owner', 'admin', 'commerciale'] },
     ],
   },
   {
     title: 'Gestione',
     items: [
-      { to: '/import', label: 'Import', icon: Upload },
-      { to: '/scadenze', label: 'Scadenzario', icon: CalendarClock },
-      { to: '/banca/fidi', label: 'Fidi Bancari', icon: Shield },
-      { to: '/fisco', label: 'Fisco', icon: Calculator },
+      { to: '/import', label: 'Import', icon: Upload, roles: ['owner', 'admin'] },
+      { to: '/scadenze', label: 'Scadenzario', icon: CalendarClock, roles: ['owner', 'admin'] },
+      { to: '/banca/fidi', label: 'Fidi Bancari', icon: Shield, roles: ['owner', 'admin'] },
+      { to: '/fisco', label: 'Fisco', icon: Calculator, roles: ['owner', 'admin'] },
     ],
   },
   {
     title: 'Sistema',
     items: [
       { to: '/chat', label: 'Chat', icon: MessageSquare },
-      { to: '/report', label: 'Report', icon: BarChart3 },
-      { to: '/impostazioni/utenti', label: 'Utenti', icon: Users },
-      { to: '/impostazioni/integrazioni', label: 'Integrazioni', icon: Settings },
+      { to: '/report', label: 'Report', icon: BarChart3, roles: ['owner', 'admin', 'viewer'] },
+      { to: '/impostazioni/utenti', label: 'Utenti', icon: Users, roles: ['owner', 'admin'] },
+      { to: '/impostazioni/integrazioni', label: 'Integrazioni', icon: Settings, roles: ['owner', 'admin'] },
     ],
   },
 ]
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
+  const { data: perms } = useMyPermissions()
+  const userRole = perms?.role || 'viewer'
+
+  // Filter sections: keep only items visible to the current role
+  const filteredSections = navSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(
+        (item) => !item.roles || item.roles.length === 0 || item.roles.includes(userRole),
+      ),
+    }))
+    .filter((section) => section.items.length > 0)
+
   return (
     <>
       {/* Mobile overlay */}
@@ -120,7 +145,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-4">
-          {navSections.map((section) => (
+          {filteredSections.map((section) => (
             <div key={section.title} className="mb-4">
               <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                 {section.title}

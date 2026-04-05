@@ -192,14 +192,15 @@ Ultimo aggiornamento: 2026-04-03
 - `brainstorm/13-15-social-selling-*.md` — Brainstorming strutturato
 
 ## Prossimi Passi
-1. **User Stories Pivot 8** — generare stories per i 5 moduli
-2. **Tech Spec Pivot 8** — schema DB, endpoint API, componenti frontend
-3. **Sprint Planning** — organizzare stories in sprint
-4. **Frontend scadenzario** — riscrivere con nuovi endpoint
-5. **Frontend email** — template + invio dal CRM
-6. **Account Brevo** — creare, API key, webhook
-7. **Test E2E** Playwright
-8. **Deploy** su Railway
+1. ~~User Stories Pivot 8~~ ✅ 21 stories, 120 SP
+2. ~~Tech Spec Pivot 8~~ ✅ 32+ endpoint, 11 tabelle, 21 BR
+3. ~~Sprint Planning Pivot 8~~ ✅ 6 sprint (100-105), 12 settimane
+4. **Implementazione Sprint 100** — Origini + Activity Types + Migration DB
+5. **Frontend scadenzario** — riscrivere con nuovi endpoint
+6. **Frontend email** — template + invio dal CRM
+7. **Account Brevo** — creare, API key, webhook
+8. **Test E2E** Playwright
+9. **Deploy** su Railway
 
 ---
 _Ultimo aggiornamento: 2026-04-04 — Pivot 8 Social Selling_

@@ -884,6 +884,469 @@ Completare il quadro con contratti ricorrenti, finanziamenti, email commercialis
 
 ---
 
+---
+
+## Pivot 8: Social Selling Configurabile (Sprint 100-106) — v1.2
+
+**Stories source:** `specs/03-user-stories-pivot8-social.md` (US-100 → US-120)
+**Tech spec:** `specs/04-tech-spec-pivot8.md` (ADR-011, 32+ endpoint, 11 tabelle, 21 BR)
+**Schema DB:** `specs/database/schema-pivot8.md`
+**Wireframes:** `specs/ux/wireframes-pivot8.md` (11 wireframe)
+**Review:** `specs/review-pivot8-phase4.md` (16 fix applicati, 8/10 overall)
+
+**Architettura:** Core Engine + Configuration Layer (config-driven, multi-tenant)
+**Velocity target:** 20 SP/sprint | **Durata sprint:** 2 settimane
+**SP Totali Pivot 8:** 140 SP | **Sprint stimati:** 7 (6 feature + 1 buffer)
+
+---
+
+### Sprint 100: Fondamenta — Origini + Tipi Attività + Migration DB
+
+**Objective:** Creare le tabelle fondamentali (origini, activity types), migrare il campo `source` a FK, e configurare il seed automatico per nuovi tenant. Al termine, ogni contatto ha un'origine FK e ogni attività un tipo custom.
+
+| ID | Titolo | SP | Priority | Dependencies |
+|----|--------|:--:|----------|-------------|
+| US-100 | Admin definisce origine contact custom | 5 | Must | — |
+| US-101 | Admin modifica/disattiva origine | 3 | Must | US-100 |
+| US-102 | Migrare campo source → origin_id FK | 8 | Must | US-100, US-101 |
+| US-104 | Admin definisce tipo attività custom | 5 | Must | — |
+
+**SP Totale:** 21
+
+#### Task Breakdown
+
+**US-100: Admin definisce origine contact custom**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Modello SQLAlchemy `CrmContactOrigin` + Alembic migration | Backend | 3h |
+| Trigger `fn_seed_tenant_config()` per seed origini su nuovo tenant | Backend | 2h |
+| Endpoint GET/POST `/api/v1/crm/origins` + Pydantic schemas | Backend | 3h |
+| Pagina Settings > Origini (lista + form creazione) | Frontend | 4h |
+| Unit test: CRUD origini, unicità code per tenant, seed | Test | 2h |
+
+**US-101: Admin modifica/disattiva origine**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Endpoint PATCH `/api/v1/crm/origins/{id}` (codice read-only) | Backend | 2h |
+| Soft delete logic (is_active=false, contatti rimangono) | Backend | 1h |
+| UI: form modifica + badge disattivata + conteggio contatti | Frontend | 2h |
+| Test: codice immutabile, soft delete, 409 su hard delete con contatti | Test | 1h |
+
+**US-102: Migrare campo source → origin_id FK**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Alembic migration Step 1: ADD COLUMN origin_id nullable | Backend | 1h |
+| Script backfill: source string → crm_contact_origins + FK mapping | Backend | 4h |
+| Backfill contatti con source=NULL → origine "da_classificare" | Backend | 1h |
+| Alembic migration Step 2: ADD CONSTRAINT NOT NULL (post-backfill) | Backend | 1h |
+| Test: migration up/down, data preservation, null handling, rollback | Test | 3h |
+
+**US-104: Admin definisce tipo attività custom**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Modello SQLAlchemy `CrmActivityType` + migration | Backend | 2h |
+| Seed activity types in `fn_seed_tenant_config()` | Backend | 1h |
+| Endpoint GET/POST `/api/v1/crm/activity-types` | Backend | 2h |
+| Pagina Settings > Tipi Attività (lista + form + flag "conta ultimo contatto") | Frontend | 3h |
+| Test: CRUD, unicità, flag counts_as_last_contact logic | Test | 2h |
+
+#### Completion Criteria
+- [ ] Tabelle `crm_contact_origins` e `crm_activity_types` create con indici e constraint
+- [ ] Migration source→origin_id completata senza data loss (backfill 100%)
+- [ ] Trigger seed per nuovi tenant funzionante (origini + activity types)
+- [ ] UI Settings: CRUD origini e tipi attività visibili e funzionanti
+- [ ] 15+ test PASS su origini, migration, activity types
+
+#### Risks
+- **Migration data loss**: Mitigazione → rollback preserva campo `source` per 30 gg
+- **Seed trigger race condition**: Mitigazione → seed in transaction con tenant creation
+
+---
+
+### Sprint 101: RBAC Engine — Ruoli + Permessi + Utenti Esterni
+
+**Objective:** Implementare il motore RBAC granulare con matrice permessi, utenti esterni con scadenza accesso, e middleware di autorizzazione su tutti gli endpoint CRM. Al termine, l'accesso ai dati è controllato per ruolo e scope.
+
+| ID | Titolo | SP | Priority | Dependencies |
+|----|--------|:--:|----------|-------------|
+| US-108 | Admin definisce ruolo custom con matrice RBAC | 8 | Must | — |
+| US-109 | Admin crea utente esterno con scadenza | 8 | Must | US-108 |
+| US-103 | Assegnare origine obbligatoria al contact | 5 | Must | US-100, US-102 |
+
+**SP Totale:** 21
+
+#### Task Breakdown
+
+**US-108: Admin definisce ruolo custom con matrice RBAC**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Modelli `CrmRole` + `CrmRolePermission` + migration | Backend | 3h |
+| Seed ruoli sistema (Owner, Admin, Sales Rep, Manager, Viewer) | Backend | 2h |
+| Seed permission matrix per ruoli default | Backend | 2h |
+| Endpoint GET/POST/DELETE `/api/v1/crm/roles` | Backend | 3h |
+| Middleware RBAC: intercetta endpoint, verifica (role, entity, permission, scope) | Backend | 5h |
+| UI: pagina Ruoli + matrice permessi checkbox editabile | Frontend | 4h |
+| Test: permission evaluation, 403 su azione negata, ruoli sistema non modificabili | Test | 3h |
+
+**US-109: Admin crea utente esterno con scadenza**
+| Task | Owner | Stima |
+|------|-------|-------|
+| ALTER TABLE users: user_type, access_expires_at, crm_role_id, default_origin_id, default_product_id | Backend | 2h |
+| Backfill utenti esistenti (user_type=internal, crm_role_id=Admin) | Backend | 1h |
+| Endpoint POST users con tipo external + scadenza | Backend | 2h |
+| Login middleware: blocca se access_expires_at < now() | Backend | 2h |
+| Cron job nightly: disattiva utenti scaduti | Backend | 2h |
+| UI: form nuovo utente esterno (WF-11) + badge scadenza | Frontend | 3h |
+| Test: scadenza login, cron disattivazione, extend access | Test | 2h |
+
+**US-103: Assegnare origine obbligatoria al contact**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Aggiornare form contatto: dropdown origini attive (required) | Frontend | 2h |
+| Endpoint POST `/api/v1/crm/contacts/{id}/change-origin` (bulk) | Backend | 2h |
+| Validazione origin_id NOT NULL su create/update contact | Backend | 1h |
+| Test: required validation, bulk change, origine disattivata visibile ma non selezionabile | Test | 2h |
+
+#### Completion Criteria
+- [ ] Middleware RBAC funzionante su tutti gli endpoint `/api/v1/crm/*`
+- [ ] 5 ruoli sistema creati per ogni tenant, matrice permessi completa
+- [ ] Utenti esterni con scadenza: login bloccato dopo data, cron disattivazione
+- [ ] Origine obbligatoria su contatto: dropdown, bulk change, validazione
+- [ ] 20+ test PASS su RBAC, permessi, scadenza, origini
+
+#### Risks
+- **Middleware RBAC performance**: Mitigazione → cache permessi in Redis (TTL 5min)
+- **Cron job scadenze**: Mitigazione → fallback con check a login-time (doppia verifica)
+
+---
+
+### Sprint 102: Pre-funnel + Attività Custom + Audit Trail
+
+**Objective:** Completare il modulo attività con pre-funnel pipeline, logging custom, e audit trail immutabile. Al termine, la pipeline Kanban mostra stadi pre-funnel e ogni azione è tracciata.
+
+| ID | Titolo | SP | Priority | Dependencies |
+|----|--------|:--:|----------|-------------|
+| US-106 | Admin definisce stadi pre-funnel | 5 | Should | — |
+| US-105 | Admin modifica/disattiva tipo attività | 3 | Should | US-104 |
+| US-107 | User logga attività con tipo custom | 5 | Must | US-104 |
+| US-111 | Audit trail immutabile per azioni utenti | 8 | Must | US-108, US-109 |
+
+**SP Totale:** 21
+
+#### Task Breakdown
+
+**US-106: Admin definisce stadi pre-funnel**
+| Task | Owner | Stima |
+|------|-------|-------|
+| ALTER TABLE crm_pipeline_stages: ADD stage_type + constraint | Backend | 1h |
+| Endpoint POST/PATCH/PUT reorder per pipeline stages | Backend | 3h |
+| Validazione: pre_funnel sequence < first pipeline stage | Backend | 1h |
+| UI Pipeline Kanban: rendering colonne pre-funnel (colore diverso) | Frontend | 3h |
+| Test: creazione pre-funnel, validazione sequence, drag-and-drop | Test | 2h |
+
+**US-105: Admin modifica/disattiva tipo attività**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Endpoint PATCH activity-types (codice read-only) + soft delete | Backend | 1h |
+| UI: form modifica + badge disattivato + warning ultimo tipo | Frontend | 2h |
+| Test: codice immutabile, soft delete, 409 su hard delete | Test | 1h |
+
+**US-107: User logga attività con tipo custom**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Endpoint POST `/api/v1/crm/activities` con type_id FK | Backend | 2h |
+| Logic: se counts_as_last_contact=true → update contact.last_contact_at | Backend | 2h |
+| UI: form nuova attività con dropdown tipi custom + bulk log | Frontend | 3h |
+| Test: type-driven behavior, last_contact_at update, bulk, required fields | Test | 2h |
+
+**US-111: Audit trail immutabile**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Tabella `crm_audit_log` + trigger immutabilità (no UPDATE/DELETE) | Backend | 2h |
+| Service `AuditLogService.log()` chiamato da tutti i service CRM | Backend | 3h |
+| Logging: CRUD, login, logout, export, permission_denied con diff JSON | Backend | 2h |
+| UI: pagina Audit Log con filtri (utente, data, azione, entità) + export CSV | Frontend | 3h |
+| Test: immutabilità trigger, log permission_denied, export | Test | 2h |
+
+#### Completion Criteria
+- [ ] Pipeline Kanban estesa con stadi pre-funnel visivamente distinti
+- [ ] Attività custom loggabili con aggiornamento automatico last_contact_at
+- [ ] Audit log immutabile: trigger testato, UI con filtri, export CSV
+- [ ] 15+ test PASS su pre-funnel, attività custom, audit trail
+
+#### Risks
+- **Audit log volume**: Mitigazione → indici su (tenant_id, created_at DESC), retention strategy via partitioning
+- **Performance logging**: Mitigazione → audit log asincrono (background task)
+
+---
+
+### Sprint 103: Catalogo Prodotti + Deal-Product M2M
+
+**Objective:** Implementare il catalogo prodotti con categorie, pricing model, e associazione M2M deal-prodotto. Al termine, ogni deal ha prodotti associati con revenue calcolata automaticamente.
+
+| ID | Titolo | SP | Priority | Dependencies |
+|----|--------|:--:|----------|-------------|
+| US-112 | Admin definisce prodotto/servizio nel catalogo | 5 | Must | — |
+| US-113 | Admin modifica/disattiva prodotto | 3 | Should | US-112 |
+| US-114 | Associare 1+ prodotti a un deal | 5 | Must | US-112 |
+| US-110 | Assegnare canale/prodotto default a utente esterno | 5 | Should | US-109 |
+
+**SP Totale:** 18
+
+#### Task Breakdown
+
+**US-112: Admin definisce prodotto/servizio**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Modelli `CrmProduct` + `CrmProductCategory` + migration (categories PRIMA di products) | Backend | 3h |
+| Endpoint CRUD `/api/v1/crm/products` + `/api/v1/crm/product-categories` | Backend | 3h |
+| UI: pagina Catalogo Prodotti con filtri + form nuovo prodotto (pricing condizionale) | Frontend | 4h |
+| Test: CRUD, pricing models, category inline creation, codice univoco | Test | 2h |
+
+**US-113: Admin modifica/disattiva prodotto**
+| Task | Owner | Stima |
+|------|-------|-------|
+| PATCH endpoint + soft delete logic (storico immutabile deal) | Backend | 1h |
+| UI: form modifica + badge + pricing change non retroattivo | Frontend | 2h |
+| Test: soft delete, deal mantiene prezzo originale, 409 su hard delete | Test | 1h |
+
+**US-114: Associare 1+ prodotti a un deal**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Tabella pivot `crm_deal_products` + migration (no UNIQUE su deal+product) | Backend | 2h |
+| Endpoint POST/DELETE `/api/v1/crm/deals/{id}/products` | Backend | 2h |
+| Revenue calculation: line_total = (price_override ?? base_price) × quantity | Backend | 2h |
+| UI: sezione Prodotti nel deal detail con add/remove + subtotali | Frontend | 3h |
+| Test: revenue calc, multiple same product, almeno 1 prodotto required | Test | 2h |
+
+**US-110: Assegnare canale/prodotto default a utente esterno**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Logic default_origin_id → pre-compila form contatto + row-level filter | Backend | 2h |
+| Logic default_product_id → pre-seleziona prodotto su nuovo deal | Backend | 1h |
+| Row-level security: utente esterno vede SOLO contatti del suo canale | Backend | 3h |
+| UI: campi default nel profilo utente (read-only per external) | Frontend | 2h |
+| Test: data segregation, 403 su accesso cross-canale, pre-compilazione | Test | 2h |
+
+#### Completion Criteria
+- [ ] Catalogo prodotti funzionante con 3 pricing models
+- [ ] Deal detail mostra prodotti associati con revenue auto-calcolata
+- [ ] Utenti esterni con canale/prodotto default e row-level security
+- [ ] 15+ test PASS su prodotti, deal-product, row-level security
+
+#### Risks
+- **Row-level security bypass**: Mitigazione → test penetration su API dirette + middleware enforce
+- **Revenue calculation precision**: Mitigazione → NUMERIC(12,2) + test con edge case decimali
+
+---
+
+### Sprint 104: Analytics — Dashboard KPI + Scorecard + Filtri
+
+**Objective:** Costruire la dashboard KPI componibile con widget configurabili, scorecard per collaboratore, e filtri per prodotto sulla pipeline. Al termine, manager e admin hanno visibilità real-time su performance.
+
+| ID | Titolo | SP | Priority | Dependencies |
+|----|--------|:--:|----------|-------------|
+| US-116 | Admin crea dashboard KPI componibile | 8 | Should | US-112, US-114 |
+| US-117 | Scorecard collaboratore con metriche custom | 5 | Should | US-114 |
+| US-115 | Filtrare pipeline e deal per prodotto | 5 | Should | US-114 |
+
+**SP Totale:** 18
+
+#### Task Breakdown
+
+**US-116: Admin crea dashboard KPI componibile**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Tabella `crm_dashboard_widgets` + migration | Backend | 1h |
+| Endpoint CRUD `/api/v1/crm/dashboards` con validazione DashboardLayoutSchema | Backend | 3h |
+| Widget engine: revenue_mom, deal_count, win_rate, avg_deal_size, pipeline_by_stage | Backend | 5h |
+| UI: dashboard builder con grid layout + widget picker + filtri per widget | Frontend | 6h |
+| Cache Redis: pre-calcolo widget metrics (TTL 5min) | Backend | 2h |
+| Test: widget calculation, JSON schema validation, filtri periodo/prodotto/utente | Test | 3h |
+
+**US-117: Scorecard collaboratore**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Endpoint GET `/api/v1/crm/scorecard/{user_id}` con aggregazioni | Backend | 3h |
+| Metriche: deal_count, revenue_closed, win_rate, avg_days_to_close, last_contact | Backend | 2h |
+| UI: pagina Scorecard con KPI cards + trend vs periodo precedente | Frontend | 3h |
+| Test: aggregation correctness, empty data handling, filter by product | Test | 2h |
+
+**US-115: Filtrare pipeline e deal per prodotto**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Query filter: JOIN crm_deal_products su pipeline/deals con product_id | Backend | 2h |
+| URL state: filtro salvato in query params | Frontend | 1h |
+| UI: dropdown filtro prodotto su Pipeline Kanban e lista deal | Frontend | 2h |
+| Test: filtro OR multi-product, analytics coerenti con filtro, default "tutti" | Test | 1h |
+
+#### Completion Criteria
+- [ ] Dashboard KPI con almeno 6 widget preset funzionanti
+- [ ] Scorecard collaboratore con 5 metriche aggregate
+- [ ] Pipeline filtrabile per prodotto con URL state
+- [ ] Cache Redis per widget metrics
+- [ ] 15+ test PASS su dashboard, scorecard, filtri
+
+#### Risks
+- **Dashboard performance con molti deal**: Mitigazione → aggregazioni CTE + cache Redis
+- **Widget configuration complexity**: Mitigazione → preset widget con config semplice, builder avanzato in v2
+
+---
+
+### Sprint 105: Compensi — Regole + Calcolo + Export + Chiusura
+
+**Objective:** Implementare il motore compensi con regole configurabili, calcolo automatico mensile, ciclo approvazione e export. Al termine, le provvigioni sono calcolate e gestite end-to-end.
+
+| ID | Titolo | SP | Priority | Dependencies |
+|----|--------|:--:|----------|-------------|
+| US-118 | Admin configura modello compensi con regole | 8 | Could | US-117 |
+| US-119 | Calcolo e visualizzazione compensi mensili | 8 | Should | US-118 |
+| US-120 | Export e management ciclo pagamento | 5 | Should | US-119 |
+
+**SP Totale:** 21
+
+#### Task Breakdown
+
+**US-118: Admin configura modello compensi**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Tabella `crm_compensation_rules` + migration | Backend | 2h |
+| Endpoint CRUD `/api/v1/crm/compensation/rules` | Backend | 2h |
+| Engine: percent_revenue, fixed_amount, tiered (NO formula per MVP) | Backend | 4h |
+| Conditions evaluation: product_ids, origin_ids, user_ids, date range | Backend | 3h |
+| UI: pagina Modello Compensi + form regola + preview calcolo | Frontend | 4h |
+| Test: tiered calculation, conditions, priority ordering, conflict detection | Test | 3h |
+
+**US-119: Calcolo e visualizzazione compensi mensili**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Tabella `crm_compensation_entries` + migration | Backend | 1h |
+| Cron job: calcolo mensile con CTE pre-aggregata per user revenue | Backend | 4h |
+| Indice `idx_crm_deals_comp_calc` per performance | Backend | 0.5h |
+| Endpoint GET `/api/v1/crm/compensation/monthly` con filtri | Backend | 2h |
+| UI: pagina Compensi Mensili con tabella + breakdown dettaglio per deal | Frontend | 4h |
+| Notifica admin: "Compensi [mese] calcolati, attendono conferma" | Backend | 1h |
+| Test: calcolo corretto, status draft→confirmed, error su conflitto regole | Test | 3h |
+
+**US-120: Export e ciclo pagamento**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Endpoint POST `/api/v1/crm/compensation/confirm` (bulk) | Backend | 2h |
+| Endpoint POST `/api/v1/crm/compensation/mark-paid` (bulk) | Backend | 1h |
+| Export Excel: colonne con breakdown + hash SHA256 | Backend | 2h |
+| UI: bottoni Conferma / Segna Pagato / Esporta + dialog conferma | Frontend | 2h |
+| Audit log: registra conferma e pagamento | Backend | 1h |
+| Test: stato transition, export integrity, bulk action, utente esterno vede solo sua riga | Test | 2h |
+
+#### Completion Criteria
+- [ ] Regole compensi configurabili (3 metodi di calcolo)
+- [ ] Cron job calcolo mensile funzionante con CTE ottimizzata
+- [ ] Ciclo draft → confirmed → paid completo con audit trail
+- [ ] Export Excel con hash integrità
+- [ ] 15+ test PASS su regole, calcolo, export, ciclo pagamento
+
+#### Risks
+- **Calcolo compensi errato**: Mitigazione → status "draft" obbligatorio, admin verifica prima di conferma
+- **Regole in conflitto**: Mitigazione → status "error" con notifica, risoluzione manuale obbligatoria
+
+---
+
+### Sprint 106: Buffer — Integration Testing + Bug Fix + Stabilizzazione
+
+**Objective:** Nessuna nuova feature. Sprint dedicato a integration testing end-to-end tra tutti i 5 moduli, fix bug emersi dagli sprint 100-105, performance tuning, e preparazione deploy. Al termine, il Pivot 8 è stabile e pronto per produzione.
+
+| ID | Titolo | SP | Priority | Dependencies |
+|----|--------|:--:|----------|-------------|
+| BUF-01 | Integration test cross-modulo | 5 | Must | Sprint 100-105 |
+| BUF-02 | Bug fix backlog Sprint 100-105 | 5 | Must | Sprint 100-105 |
+| BUF-03 | Performance tuning + indici DB | 3 | Should | Sprint 100-105 |
+| BUF-04 | E2E test Playwright (happy path 5 moduli) | 5 | Should | BUF-01 |
+| BUF-05 | Runbook deploy + rollback migration | 2 | Must | Sprint 100 |
+
+**SP Totale:** 20
+
+#### Task Breakdown
+
+**BUF-01: Integration test cross-modulo**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Test flusso completo: crea origine → crea contatto con origine → crea deal con prodotto → logga attività → verifica dashboard KPI | Test | 4h |
+| Test RBAC end-to-end: utente esterno con canale default → verifica row-level filter su contatti, deal, pipeline, export | Test | 3h |
+| Test compensi end-to-end: crea regola → chiudi deal → calcola compensi → verifica importo → conferma → export | Test | 3h |
+| Test audit trail: verifica che ogni azione dei test precedenti è loggata con dettagli corretti | Test | 2h |
+| Test concurrent access: 2 admin modificano stessa origine/ruolo simultaneamente | Test | 2h |
+
+**BUF-02: Bug fix backlog Sprint 100-105**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Triage bug emersi durante Sprint 100-105 (classificare: critical/high/medium) | Backend | 1h |
+| Fix bug critical e high (stima 3-5 bug) | Backend | 4h |
+| Fix bug frontend (UI glitch, form validation edge case) | Frontend | 3h |
+| Regression test su bug fixati | Test | 2h |
+
+**BUF-03: Performance tuning + indici DB**
+| Task | Owner | Stima |
+|------|-------|-------|
+| EXPLAIN ANALYZE su query critiche: dashboard widget, compensation calc, audit log filter | Backend | 2h |
+| Aggiungere indici mancanti identificati da query plan | Backend | 1h |
+| Verifica cache Redis: TTL corretti, hit rate su permission check e widget | Backend | 1h |
+| Load test: 50 utenti concorrenti su dashboard + pipeline (k6 o locust) | Test | 2h |
+
+**BUF-04: E2E test Playwright (happy path 5 moduli)**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Setup Playwright per pagine Settings (Origini, Tipi Attività, Ruoli, Prodotti) | Test | 2h |
+| E2E: crea origine → verifica in dropdown contatto → crea contatto | Test | 2h |
+| E2E: crea utente esterno → login → verifica visibilità limitata | Test | 2h |
+| E2E: dashboard KPI → verifica widget rendering con dati reali | Test | 2h |
+| E2E: compensi → calcola → conferma → verifica status change | Test | 2h |
+
+**BUF-05: Runbook deploy + rollback migration**
+| Task | Owner | Stima |
+|------|-------|-------|
+| Scrivere runbook: ordine migration Alembic (11 tabelle + 4 ALTER) | Backend | 1h |
+| Scrivere runbook rollback: procedura step-by-step per down migration | Backend | 1h |
+| Documentare seed data: cosa succede per tenant esistenti vs nuovi | Backend | 0.5h |
+| Checklist pre-deploy: env vars, Redis config, cron job compensi | Backend | 0.5h |
+| Dry-run deploy su staging | Backend | 1h |
+
+#### Completion Criteria
+- [ ] Integration test cross-modulo: tutti i flussi end-to-end passano
+- [ ] 0 bug critical aperti, max 2 bug medium aperti (documentati)
+- [ ] Query critiche < 100ms (p95) verificate con EXPLAIN ANALYZE
+- [ ] E2E Playwright: 5+ test happy path passano su tutti i moduli
+- [ ] Runbook deploy pronto e validato su staging
+- [ ] Cache Redis hit rate > 80% su permission check
+
+#### Risks
+- **Bug critici scoperti tardi**: Mitigazione → se > 3 bug critical, estendere Sprint 106 di 1 settimana
+- **Performance non accettabile**: Mitigazione → degradazione graceful (disabilita widget pesanti, fallback a query senza cache)
+
+---
+
+## Riepilogo Sprint 100-106 (Pivot 8)
+
+| Sprint | Stories | SP | Focus |
+|--------|---------|-----|-------|
+| Sprint 100 | US-100, 101, 102, 104 | 21 | Fondamenta: Origini + Activity Types + Migration |
+| Sprint 101 | US-108, 109, 103 | 21 | RBAC Engine: Ruoli + Permessi + Utenti Esterni |
+| Sprint 102 | US-106, 105, 107, 111 | 21 | Pre-funnel + Attività Custom + Audit Trail |
+| Sprint 103 | US-112, 113, 114, 110 | 18 | Catalogo Prodotti + Deal-Product M2M |
+| Sprint 104 | US-116, 117, 115 | 18 | Dashboard KPI + Scorecard + Filtri Prodotto |
+| Sprint 105 | US-118, 119, 120 | 21 | Compensi: Regole + Calcolo + Export |
+| Sprint 106 | BUF-01→05 | 20 | Buffer: Integration Test + Bug Fix + Stabilizzazione |
+| **TOTALE** | **21 stories + 5 buffer** | **140** | **7 sprint × 2 settimane = 14 settimane** |
+
+**Timeline stimata:** 14 settimane (aprile → luglio 2026)
+
+**Milestone intermedie:**
+- Fine Sprint 101 (settimana 4): Core engine funzionante — origini, RBAC, migration completata
+- Fine Sprint 103 (settimana 8): Prodotti e row-level security — MVP utilizzabile internamente
+- Fine Sprint 105 (settimana 12): Analytics e compensi — feature-complete
+- Fine Sprint 106 (settimana 14): Stabilizzato, testato E2E, pronto per deploy produzione
+
+---
+
 ## Riepilogo Completo
 
 | Blocco | Sprint | Stories | SP | Test |
@@ -892,9 +1355,10 @@ Completare il quadro con contratti ricorrenti, finanziamenti, email commercialis
 | Pivot 5 (v0.5-v0.7) | 11-16 | 29 | 146 | ~90 |
 | Pivot 6 (v0.8) | 17-22 | 17 | 72 | 75 |
 | Pivot 7 (v0.9) | 23-27 | 13 | 63 | 67 |
-| **TOTALE** | **27** | **~99** | **~505** | **~601** |
+| **Pivot 8 (v1.1)** | **100-106** | **21 + 5 buf** | **140** | **TBD** |
+| **TOTALE** | **34** | **~125** | **~645** | **~601+** |
 
 ---
-_Sprint Plan aggiornato: 2026-04-03 — Pivot 6+7 completati_
+_Sprint Plan aggiornato: 2026-04-04 — Pivot 8 Social Selling pianificato (Sprint 100-106, incluso buffer)_
 _Sprint Plan aggiornato post Pivot 5 — 2026-03-29_
 _Sprint Plan generato — 2026-03-22_

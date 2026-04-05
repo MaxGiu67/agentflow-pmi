@@ -54,6 +54,7 @@ from api.modules.email_marketing.router import router as email_marketing_router
 from api.modules.user_management.router import router as user_management_router
 from api.modules.tenant_settings.router import router as tenant_settings_router
 from api.modules.metering.router import router as metering_router
+from api.modules.social_selling.router import router as social_selling_router
 
 from contextlib import asynccontextmanager
 
@@ -86,6 +87,18 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS email_quota_monthly INTEGER DEFAULT 5000",
             "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS email_sent_month INTEGER DEFAULT 0",
             "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS email_month_reset VARCHAR(7)",
+            # Pivot 8: Social Selling — origin_id on contacts
+            "ALTER TABLE crm_contacts ADD COLUMN IF NOT EXISTS origin_id UUID",
+            # Pivot 8: Pipeline pre-funnel + activity types
+            "ALTER TABLE crm_pipeline_stages ADD COLUMN IF NOT EXISTS stage_type VARCHAR(50) DEFAULT 'pipeline'",
+            "ALTER TABLE crm_pipeline_stages ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
+            "ALTER TABLE crm_activities ADD COLUMN IF NOT EXISTS activity_type_id UUID",
+            # Pivot 8: US-138→US-141 — Roles, external users, audit
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS user_type VARCHAR(50) DEFAULT 'internal'",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS access_expires_at TIMESTAMP",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS crm_role_id UUID",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS default_origin_id UUID",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS default_product_id UUID",
         ]:
             try:
                 await conn.execute(text(stmt))
@@ -173,3 +186,4 @@ app.include_router(email_marketing_router)
 app.include_router(user_management_router)
 app.include_router(tenant_settings_router)
 app.include_router(metering_router)
+app.include_router(social_selling_router)

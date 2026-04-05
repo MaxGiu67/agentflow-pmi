@@ -397,12 +397,17 @@ class CRMService:
         return [self._activity_to_dict(a) for a in result.scalars().all()]
 
     async def create_activity(self, tenant_id: uuid.UUID, data: dict) -> dict:
+        activity_type_id = None
+        if data.get("activity_type_id"):
+            activity_type_id = uuid.UUID(data["activity_type_id"]) if isinstance(data["activity_type_id"], str) else data["activity_type_id"]
+
         activity = CrmActivity(
             tenant_id=tenant_id,
             deal_id=uuid.UUID(data["deal_id"]) if data.get("deal_id") else None,
             contact_id=uuid.UUID(data["contact_id"]) if data.get("contact_id") else None,
             user_id=uuid.UUID(data["user_id"]) if data.get("user_id") else None,
             type=data["type"],
+            activity_type_id=activity_type_id,
             subject=data["subject"],
             description=data.get("description"),
             scheduled_at=data.get("scheduled_at"),
@@ -410,6 +415,23 @@ class CRMService:
         )
         self.db.add(activity)
         await self.db.flush()
+
+        # US-137 AC-137.2: If activity type has counts_as_last_contact, update contact
+        if activity_type_id and activity.contact_id:
+            from api.db.models import CrmActivityType
+            at_result = await self.db.execute(
+                select(CrmActivityType).where(CrmActivityType.id == activity_type_id)
+            )
+            at = at_result.scalar_one_or_none()
+            if at and at.counts_as_last_contact:
+                contact_result = await self.db.execute(
+                    select(CrmContact).where(CrmContact.id == activity.contact_id)
+                )
+                contact = contact_result.scalar_one_or_none()
+                if contact:
+                    contact.last_contact_at = datetime.utcnow()
+                    await self.db.flush()
+
         return self._activity_to_dict(activity)
 
     async def complete_activity(self, activity_id: uuid.UUID) -> dict | None:

@@ -1,19 +1,34 @@
 import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, FileText, Briefcase, MessageSquare, Menu } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { useMyPermissions } from '../../api/hooks'
 
 interface BottomNavProps {
   onMenuOpen: () => void
 }
 
-const tabs = [
+interface BottomTab {
+  to: string
+  label: string
+  icon: typeof LayoutDashboard
+  roles?: string[]
+}
+
+const allTabs: BottomTab[] = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/fatture', label: 'Fatture', icon: FileText },
-  { to: '/crm', label: 'CRM', icon: Briefcase },
+  { to: '/fatture', label: 'Fatture', icon: FileText, roles: ['owner', 'admin'] },
+  { to: '/crm', label: 'CRM', icon: Briefcase, roles: ['owner', 'admin', 'commerciale', 'viewer'] },
   { to: '/chat', label: 'Chat', icon: MessageSquare },
 ]
 
 export default function BottomNav({ onMenuOpen }: BottomNavProps) {
+  const { data: perms } = useMyPermissions()
+  const userRole = perms?.role || 'viewer'
+
+  const tabs = allTabs.filter(
+    (tab) => !tab.roles || tab.roles.length === 0 || tab.roles.includes(userRole),
+  )
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white/95 backdrop-blur-md lg:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}

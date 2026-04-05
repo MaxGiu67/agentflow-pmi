@@ -106,10 +106,31 @@ async def my_permissions(
     user: User = Depends(get_current_user),
     svc: UserManagementService = Depends(get_service),
 ):
-    """Get current user's permissions."""
+    """Get current user's permissions and visible nav sections."""
+    role = user.role
+
+    # Sections visible per role
+    # owner/admin: everything
+    # commerciale: only sales + chat + dashboard
+    # viewer: read-only areas (no settings, no write-heavy)
+    visible_sections: list[str] = []
+
+    if role in ("owner", "admin"):
+        visible_sections = [
+            "principale", "operativo", "commerciale",
+            "gestione", "sistema",
+        ]
+    elif role == "commerciale":
+        visible_sections = ["principale_light", "commerciale", "sistema_light"]
+    elif role == "viewer":
+        visible_sections = ["principale_light", "commerciale_readonly", "sistema_light"]
+    else:
+        visible_sections = ["principale_light", "sistema_light"]
+
     return {
-        "role": user.role,
-        "can_manage_users": user.role in ("owner", "admin"),
+        "role": role,
+        "can_manage_users": role in ("owner", "admin"),
         "can_see_all_deals": svc.can_see_all(user),
         "is_active": getattr(user, "active", True),
+        "visible_sections": visible_sections,
     }

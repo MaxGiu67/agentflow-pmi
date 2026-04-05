@@ -10,8 +10,16 @@
 
 ## 2026-04-04 — Pivot 8: Social Selling Configurabile
 
+- **Fase 5**: Sprint Planning — 6 sprint (100-105), 120 SP, 12 settimane stimate
+  - Sprint 100: Fondamenta (Origini + Activity Types + Migration) — 21 SP
+  - Sprint 101: RBAC Engine (Ruoli + Permessi + Utenti Esterni) — 21 SP
+  - Sprint 102: Pre-funnel + Attività Custom + Audit Trail — 21 SP
+  - Sprint 103: Catalogo Prodotti + Deal-Product M2M — 18 SP
+  - Sprint 104: Dashboard KPI + Scorecard + Filtri — 18 SP
+  - Sprint 105: Compensi (Regole + Calcolo + Export) — 21 SP
+- **Review Phase 4**: 16 fix applicati (4 CRITICAL + 5 HIGH + 5 MEDIUM + 2 LOW), overall 8/10
 - **Fase 1**: Vision aggiornata con Pivot 8
-- **Fase 3**: User Stories generate — 20 stories (US-100 → US-120), 120 SP totali, 5 Epic
+- **Fase 3**: User Stories generate — 21 stories (US-100 → US-120), 120 SP totali, 5 Epic
 - **Azione**: Aggiunto modulo Social Selling con architettura Core Engine + Configuration Layer
 - **5 moduli**: Origini configurabili, Attività e pre-funnel, Ruoli RBAC per esterni, Catalogo prodotti, Analytics e compensi
 - **Fase 4**: Tech Spec generata — 32 endpoint, 11 nuove tabelle, 21 business rules, 10 wireframe

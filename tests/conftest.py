@@ -41,6 +41,17 @@ from api.db.models import (
     EmailSequenceEnrollment,
     TenantSetting,
     TenantUsage,
+    CrmContactOrigin,
+    CrmActivityType,
+    CrmRole,
+    CrmRolePermission,
+    CrmAuditLog,
+    CrmProductCategory,
+    CrmProduct,
+    CrmDealProduct,
+    CrmDashboardWidget,
+    CrmCompensationRule,
+    CrmCompensationEntry,
 )
 from api.db.session import get_db
 from api.main import app

@@ -4,8 +4,8 @@ DO NOT EDIT MANUALLY. Regenerate with:
     python3 mcp-server/generate_mcp.py
 
 Generated from:
-- 59 SQLAlchemy models (59 tables)
-- 226 FastAPI endpoints across 44 modules
+- 72 SQLAlchemy models (72 tables)
+- 277 FastAPI endpoints across 48 modules
 """
 
 import json
@@ -28,7 +28,7 @@ API_TOKEN = os.environ.get("API_TOKEN", "")
 mcp = FastMCP("AgentFlow DB")
 
 # ── Auto-generated metadata ─────────────────────────
-TABLES = ["tenants", "users", "invoices", "agent_events", "categorization_feedback", "journal_entries", "journal_lines", "onboarding_states", "fiscal_rules", "chart_accounts", "notification_configs", "notification_logs", "email_connections", "active_invoices", "bank_accounts", "bank_transactions", "bank_statement_imports", "corrispettivi", "import_prompt_templates", "import_exceptions", "completeness_scores", "vat_settlements", "fiscal_deadlines", "withholding_taxes", "reconciliations", "stamp_duties", "expenses", "expense_policies", "assets", "accruals", "certificazioni_uniche", "digital_preservations", "payments", "normative_alerts", "f24_documents", "budgets", "budget_meta", "scadenze", "bank_facilities", "invoice_advances", "crm_contacts", "crm_pipeline_stages", "crm_deals", "crm_activities", "email_templates", "email_campaigns", "email_sends", "email_events", "email_sequence_steps", "email_sequence_enrollments", "dashboard_layouts", "conversations", "messages", "agent_configs", "conversation_memories", "payroll_costs", "f24_versamenti", "recurring_contracts", "loans"]
+TABLES = ["tenants", "tenant_usage", "tenant_settings", "users", "invoices", "agent_events", "categorization_feedback", "journal_entries", "journal_lines", "onboarding_states", "fiscal_rules", "chart_accounts", "notification_configs", "notification_logs", "email_connections", "active_invoices", "bank_accounts", "bank_transactions", "bank_statement_imports", "corrispettivi", "import_prompt_templates", "import_exceptions", "completeness_scores", "vat_settlements", "fiscal_deadlines", "withholding_taxes", "reconciliations", "stamp_duties", "expenses", "expense_policies", "assets", "accruals", "certificazioni_uniche", "digital_preservations", "payments", "normative_alerts", "f24_documents", "budgets", "budget_meta", "scadenze", "bank_facilities", "invoice_advances", "crm_contacts", "crm_pipeline_stages", "crm_deals", "crm_activities", "crm_contact_origins", "crm_activity_types", "crm_roles", "crm_role_permissions", "crm_audit_log", "crm_product_categories", "crm_products", "crm_deal_products", "crm_dashboard_widgets", "crm_compensation_rules", "crm_compensation_entries", "email_templates", "email_campaigns", "email_sends", "email_events", "email_sequence_steps", "email_sequence_enrollments", "dashboard_layouts", "conversations", "messages", "agent_configs", "conversation_memories", "payroll_costs", "f24_versamenti", "recurring_contracts", "loans"]
 
 ENDPOINTS = [
     {"module": "accounting", "method": "GET", "path": "/api/v1/accounting/chart", "description": "Get existing chart of accounts for the tenant."},
@@ -159,6 +159,8 @@ ENDPOINTS = [
     {"module": "email_marketing", "method": "GET", "path": "/api/v1/api/v1/email/stats", "description": "US-96: Full email analytics — breakdown by template, top contacts, bounced."},
     {"module": "email_marketing", "method": "GET", "path": "/api/v1/api/v1/email/analytics", "description": "US-96: Full email analytics — breakdown by template, top contacts, bounced."},
     {"module": "email_marketing", "method": "POST", "path": "/api/v1/api/v1/email/webhook", "description": "Brevo webhook endpoint for email events (open, click, bounce, etc.)."},
+    {"module": "email_marketing", "method": "POST", "path": "/api/v1/api/v1/email/generate", "description": "Generate professional HTML email from natural language prompt."},
+    {"module": "email_marketing", "method": "POST", "path": "/api/v1/api/v1/email/refine", "description": "Refine existing email HTML with AI instruction."},
     {"module": "email_marketing", "method": "POST", "path": "/api/v1/api/v1/email/sequences", "description": "US-97: Create email sequence."},
     {"module": "email_marketing", "method": "POST", "path": "/api/v1/api/v1/email/sequences/{campaign_id}/steps", "description": ""},
     {"module": "email_marketing", "method": "GET", "path": "/api/v1/api/v1/email/sequences/{campaign_id}/steps", "description": ""},
@@ -201,6 +203,9 @@ ENDPOINTS = [
     {"module": "loans", "method": "GET", "path": "/api/v1/loans", "description": "List all loans."},
     {"module": "loans", "method": "PUT", "path": "/api/v1/loans/{loan_id}", "description": "Update a loan (US-58)."},
     {"module": "loans", "method": "DELETE", "path": "/api/v1/loans/{loan_id}", "description": "Delete a loan (US-58)."},
+    {"module": "metering", "method": "GET", "path": "/api/v1/api/v1/metering/my-usage", "description": "Get usage for current tenant."},
+    {"module": "metering", "method": "GET", "path": "/api/v1/api/v1/metering/llm-quota", "description": "Check LLM quota for current tenant."},
+    {"module": "metering", "method": "GET", "path": "/api/v1/api/v1/admin/metering", "description": "AC-115.3: Super-admin only — usage for all tenants."},
     {"module": "normativo", "method": "GET", "path": "/api/v1/normativo/alerts", "description": "List all normative alerts."},
     {"module": "normativo", "method": "POST", "path": "/api/v1/normativo/check", "description": "Force check RSS feed for normative updates."},
     {"module": "notifications", "method": "POST", "path": "/api/v1/notifications/config", "description": "Create or update a notification channel configuration."},
@@ -248,6 +253,41 @@ ENDPOINTS = [
     {"module": "scadenzario", "method": "POST", "path": "/api/v1/api/v1/anticipi/{anticipo_id}/incassa", "description": "US-81: Close advance after client payment."},
     {"module": "scadenzario", "method": "POST", "path": "/api/v1/api/v1/anticipi/{anticipo_id}/insoluto", "description": "US-82: Handle advance on unpaid invoice."},
     {"module": "sdi", "method": "POST", "path": "/api/v1/sdi/webhooks/sdi", "description": "Receive invoice from A-Cube SDI webhook."},
+    {"module": "social_selling", "method": "GET", "path": "/api/v1/api/v1/social/origins", "description": "US-130: List contact origins for tenant."},
+    {"module": "social_selling", "method": "POST", "path": "/api/v1/api/v1/social/origins", "description": "US-130: Create custom contact origin."},
+    {"module": "social_selling", "method": "PATCH", "path": "/api/v1/api/v1/social/origins/{origin_id}", "description": "US-131: Update origin (code immutable)."},
+    {"module": "social_selling", "method": "DELETE", "path": "/api/v1/api/v1/social/origins/{origin_id}", "description": "US-131: Delete origin (blocked if contacts assigned)."},
+    {"module": "social_selling", "method": "POST", "path": "/api/v1/api/v1/social/origins/migrate", "description": "US-132: Migrate legacy source field to origin_id."},
+    {"module": "social_selling", "method": "POST", "path": "/api/v1/api/v1/social/contacts/{contact_id}/origin", "description": "US-133: Assign origin to contact."},
+    {"module": "social_selling", "method": "GET", "path": "/api/v1/api/v1/social/activity-types", "description": "US-134: List activity types for tenant."},
+    {"module": "social_selling", "method": "POST", "path": "/api/v1/api/v1/social/activity-types", "description": "US-134: Create custom activity type."},
+    {"module": "social_selling", "method": "PATCH", "path": "/api/v1/api/v1/social/activity-types/{type_id}", "description": "US-135: Update activity type (code immutable)."},
+    {"module": "social_selling", "method": "DELETE", "path": "/api/v1/api/v1/social/activity-types/{type_id}", "description": "US-135.3: Hard delete not allowed — return 409."},
+    {"module": "social_selling", "method": "GET", "path": "/api/v1/api/v1/social/pipeline/stages", "description": "US-136: List all pipeline stages (pre-funnel + pipeline)."},
+    {"module": "social_selling", "method": "POST", "path": "/api/v1/api/v1/social/pipeline/stages", "description": "US-136: Create pipeline or pre-funnel stage."},
+    {"module": "social_selling", "method": "PATCH", "path": "/api/v1/api/v1/social/pipeline/stages/{stage_id}", "description": "US-136/H4: Update pipeline stage."},
+    {"module": "social_selling", "method": "PUT", "path": "/api/v1/api/v1/social/pipeline/stages/reorder", "description": "US-136: Reorder stages (drag-and-drop)."},
+    {"module": "social_selling", "method": "GET", "path": "/api/v1/api/v1/social/roles", "description": "US-138: List RBAC roles."},
+    {"module": "social_selling", "method": "POST", "path": "/api/v1/api/v1/social/roles", "description": "US-138: Create custom role."},
+    {"module": "social_selling", "method": "DELETE", "path": "/api/v1/api/v1/social/roles/{role_id}", "description": "US-138/L4: Delete custom role."},
+    {"module": "social_selling", "method": "GET", "path": "/api/v1/api/v1/social/audit-log", "description": "US-141: List audit trail."},
+    {"module": "social_selling", "method": "GET", "path": "/api/v1/api/v1/social/audit-log/export", "description": "US-141.4: Export audit log as CSV with SHA256 hash."},
+    {"module": "social_selling", "method": "GET", "path": "/api/v1/api/v1/social/products", "description": "US-142: List product catalog."},
+    {"module": "social_selling", "method": "POST", "path": "/api/v1/api/v1/social/products", "description": "US-142: Create product."},
+    {"module": "social_selling", "method": "PATCH", "path": "/api/v1/api/v1/social/products/{product_id}", "description": "US-143: Update product (code immutable)."},
+    {"module": "social_selling", "method": "DELETE", "path": "/api/v1/api/v1/social/products/{product_id}", "description": "US-143.3: Hard delete not allowed."},
+    {"module": "social_selling", "method": "POST", "path": "/api/v1/api/v1/social/deals/{deal_id}/products", "description": "US-144: Add product to deal."},
+    {"module": "social_selling", "method": "DELETE", "path": "/api/v1/api/v1/social/deals/{deal_id}/products/{line_id}", "description": "US-144.3: Remove product from deal."},
+    {"module": "social_selling", "method": "GET", "path": "/api/v1/api/v1/social/deals/{deal_id}/products", "description": "US-144: List products on deal."},
+    {"module": "social_selling", "method": "GET", "path": "/api/v1/api/v1/social/dashboards", "description": "US-146: List dashboards."},
+    {"module": "social_selling", "method": "POST", "path": "/api/v1/api/v1/social/dashboards", "description": "US-146: Create composable dashboard."},
+    {"module": "social_selling", "method": "GET", "path": "/api/v1/api/v1/social/scorecard/{target_user_id}", "description": "US-147: Scorecard for a collaborator."},
+    {"module": "social_selling", "method": "GET", "path": "/api/v1/api/v1/social/compensation-rules", "description": "US-148: List compensation rules."},
+    {"module": "social_selling", "method": "POST", "path": "/api/v1/api/v1/social/compensation-rules", "description": "US-148: Create compensation rule."},
+    {"module": "social_selling", "method": "GET", "path": "/api/v1/api/v1/social/compensation/monthly", "description": "US-149: List monthly compensation entries."},
+    {"module": "social_selling", "method": "POST", "path": "/api/v1/api/v1/social/compensation/calculate", "description": "US-149.2: Calculate monthly compensation."},
+    {"module": "social_selling", "method": "PATCH", "path": "/api/v1/api/v1/social/compensation/monthly/{entry_id}/confirm", "description": "US-150.1: Confirm compensation entry."},
+    {"module": "social_selling", "method": "PATCH", "path": "/api/v1/api/v1/social/compensation/monthly/{entry_id}/paid", "description": "US-150.3: Mark compensation as paid."},
     {"module": "spid", "method": "POST", "path": "/api/v1/spid/auth/spid/init", "description": "Start SPID/CIE authentication for cassetto fiscale."},
     {"module": "spid", "method": "GET", "path": "/api/v1/spid/auth/spid/callback", "description": "Handle SPID callback after user authenticates."},
     {"module": "spid", "method": "GET", "path": "/api/v1/spid/cassetto/status", "description": "Get cassetto fiscale connection status."},
@@ -255,6 +295,17 @@ ENDPOINTS = [
     {"module": "spid", "method": "GET", "path": "/api/v1/spid/auth/spid/session/{session_id}", "description": "Check FiscoAPI session status (SPID auth progress)."},
     {"module": "spid", "method": "POST", "path": "/api/v1/spid/auth/spid/session/{session_id}/otp", "description": "Send OTP code for SPID authentication."},
     {"module": "spid", "method": "POST", "path": "/api/v1/spid/auth/spid/delegate", "description": "Start delegated SPID auth (commercialista accessing client's cassetto)."},
+    {"module": "tenant_settings", "method": "GET", "path": "/api/v1/api/v1/settings/integrations", "description": "List all integration settings (masked values)."},
+    {"module": "tenant_settings", "method": "POST", "path": "/api/v1/api/v1/settings/integrations", "description": "Set a custom integration setting (encrypted)."},
+    {"module": "tenant_settings", "method": "DELETE", "path": "/api/v1/api/v1/settings/integrations/{key}", "description": "Delete custom setting (falls back to platform default)."},
+    {"module": "tenant_settings", "method": "GET", "path": "/api/v1/api/v1/settings/email-quota", "description": "Check email quota for current tenant."},
+    {"module": "tenant_settings", "method": "GET", "path": "/api/v1/api/v1/settings/sender", "description": "Get email sender config for current tenant."},
+    {"module": "user_management", "method": "GET", "path": "/api/v1/api/v1/users", "description": "AC-109.1: List team users."},
+    {"module": "user_management", "method": "POST", "path": "/api/v1/api/v1/users/invite", "description": "AC-109.2: Invite new user."},
+    {"module": "user_management", "method": "PATCH", "path": "/api/v1/api/v1/users/{user_id}/role", "description": "AC-109.3: Change user role."},
+    {"module": "user_management", "method": "POST", "path": "/api/v1/api/v1/users/{user_id}/toggle-active", "description": "AC-109.4: Activate/deactivate user."},
+    {"module": "user_management", "method": "PATCH", "path": "/api/v1/api/v1/users/{user_id}/sender", "description": "AC-111.1: Set sender email for user."},
+    {"module": "user_management", "method": "GET", "path": "/api/v1/api/v1/users/me/permissions", "description": "Get current user's permissions."},
     {"module": "withholding", "method": "POST", "path": "/api/v1/withholding-taxes/detect", "description": "Detect withholding tax from invoice XML."},
     {"module": "withholding", "method": "GET", "path": "/api/v1/withholding-taxes", "description": "List all withholding taxes for tenant."},
 ]
@@ -296,7 +347,7 @@ def _scalar(sql: str, params: dict | None = None):
 
 @mcp.tool()
 def list_tables() -> str:
-    """List all 59 tables in AgentFlow DB with row counts."""
+    """List all 72 tables in AgentFlow DB with row counts."""
     rows = _query(
         """
         SELECT tablename,
@@ -314,7 +365,7 @@ def list_tables() -> str:
 
 @mcp.tool()
 def describe_table(table_name: str) -> str:
-    """Show columns, types, and constraints for a table. Tables: tenants, users, invoices, agent_events, categorization_feedback, journal_entries, journal_lines, onboarding_states, fiscal_rules, chart_accounts..."""
+    """Show columns, types, and constraints for a table. Tables: tenants, tenant_usage, tenant_settings, users, invoices, agent_events, categorization_feedback, journal_entries, journal_lines, onboarding_states..."""
     if table_name not in TABLES:
         return f"Table '{table_name}' not found. Available: {', '.join(sorted(TABLES))}"
     rows = _query(
@@ -515,7 +566,7 @@ def top_suppliers(year: int = 2024, limit: int = 10) -> str:
 
 @mcp.tool()
 def list_endpoints(module: str | None = None) -> str:
-    """List all 226 API endpoints. Filter by module name optionally."""
+    """List all 277 API endpoints. Filter by module name optionally."""
     filtered = ENDPOINTS
     if module:
         filtered = [e for e in ENDPOINTS if e["module"] == module]
@@ -524,7 +575,7 @@ def list_endpoints(module: str | None = None) -> str:
 
 @mcp.tool()
 def list_modules() -> str:
-    """List all 44 API modules with endpoint count."""
+    """List all 48 API modules with endpoint count."""
     mods = {}
     for ep in ENDPOINTS:
         m = ep["module"]
