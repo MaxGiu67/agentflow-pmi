@@ -248,14 +248,11 @@ export default function CrmPipelinePage() {
                       onDragEnd={handleDragEnd}
                       className="cursor-grab rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing"
                     >
-                      {/* AC-90.2: Card content */}
+                      {/* Card content — click name to open detail */}
                       <div className="flex items-start justify-between">
-                        <p className="text-sm font-medium text-gray-900 line-clamp-2">{deal.name}</p>
-                        <button
-                          onClick={() => navigate(`/crm/deals/${deal.id}`)}
-                          className="ml-2 shrink-0 text-gray-400 hover:text-blue-600"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
+                        <button onClick={() => navigate(`/crm/deals/${deal.id}`)}
+                          className="text-left text-sm font-medium text-gray-900 hover:text-blue-600 line-clamp-2">
+                          {deal.name}
                         </button>
                       </div>
                       {deal.client_name && (
@@ -276,16 +273,23 @@ export default function CrmPipelinePage() {
                           {formatCurrency(deal.daily_rate)}/gg x {deal.estimated_days}gg
                         </p>
                       )}
-                      {/* AC-90.7: Mobile dropdown */}
-                      <select
-                        className="mt-2 w-full rounded border border-gray-200 px-2 py-1 text-xs text-gray-500 sm:hidden"
-                        value={deal.stage_id}
-                        onChange={(e) => updateDeal.mutate({ dealId: deal.id, stage_id: e.target.value })}
-                      >
-                        {stages?.map((s: any) => (
-                          <option key={s.id} value={s.id}>{s.name}</option>
-                        ))}
-                      </select>
+                      {/* Action buttons */}
+                      <div className="mt-2 flex items-center justify-between">
+                        <button onClick={() => navigate(`/crm/deals/${deal.id}`)}
+                          className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-1 text-[10px] font-medium text-blue-700 hover:bg-blue-100">
+                          <Eye className="h-3 w-3" /> Apri
+                        </button>
+                        {/* Mobile dropdown */}
+                        <select
+                          className="rounded border border-gray-200 px-1 py-0.5 text-[10px] text-gray-500 sm:hidden"
+                          value={deal.stage_id}
+                          onChange={(e) => updateDeal.mutate({ dealId: deal.id, stage_id: e.target.value })}
+                        >
+                          {stages?.map((s: any) => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   ))}
                   {stageDeals.length === 0 && (
