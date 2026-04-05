@@ -565,6 +565,8 @@ class CRMService:
         return {
             "id": str(c.id),
             "name": c.name,
+            "contact_name": getattr(c, "contact_name", None) or "",
+            "contact_role": getattr(c, "contact_role", None) or "",
             "type": c.type,
             "email": c.email or "",
             "phone": c.phone or "",
@@ -573,8 +575,10 @@ class CRMService:
             "province": c.province or "",
             "sector": c.sector or "",
             "source": c.source or "",
+            "website": getattr(c, "website", None) or "",
             "email_opt_in": c.email_opt_in,
             "assigned_to": str(c.assigned_to) if c.assigned_to else None,
+            "origin_id": str(c.origin_id) if getattr(c, "origin_id", None) else None,
         }
 
     def _stage_to_dict(self, s: CrmPipelineStage) -> dict:

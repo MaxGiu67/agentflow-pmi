@@ -895,7 +895,9 @@ class CrmContact(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)  # company name
+    contact_name: Mapped[str | None] = mapped_column(String(255), nullable=True)  # person name (referente)
+    contact_role: Mapped[str | None] = mapped_column(String(100), nullable=True)  # role in company (CEO, CTO, buyer)
     type: Mapped[str] = mapped_column(String(20), default="lead")  # lead, prospect, cliente, ex_cliente
     piva: Mapped[str | None] = mapped_column(String(11), nullable=True)
     codice_fiscale: Mapped[str | None] = mapped_column(String(16), nullable=True)

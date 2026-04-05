@@ -9,7 +9,7 @@ import SendEmailModal from '../../components/email/SendEmailModal'
 export default function CrmContactsPage() {
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ name: '', email: '', phone: '', vat: '', sector: '', city: '', type: 'lead', website: '', notes: '' })
+  const [form, setForm] = useState({ name: '', contact_name: '', contact_role: '', email: '', phone: '', vat: '', sector: '', city: '', type: 'lead', website: '', notes: '' })
   const [emailTarget, setEmailTarget] = useState<{ email: string; name: string; id: string } | null>(null)
 
   const { data, isLoading } = useCrmContacts(search)
@@ -19,7 +19,7 @@ export default function CrmContactsPage() {
   const handleCreate = async () => {
     if (!form.name.trim()) return
     await createContact.mutateAsync(form)
-    setForm({ name: '', email: '', phone: '', vat: '', sector: '', city: '', type: 'lead', website: '', notes: '' })
+    setForm({ name: '', contact_name: '', contact_role: '', email: '', phone: '', vat: '', sector: '', city: '', type: 'lead', website: '', notes: '' })
     setShowForm(false)
   }
 
@@ -58,6 +58,10 @@ export default function CrmContactsPage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
               placeholder="Ragione sociale *" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            <input type="text" value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })}
+              placeholder="Nome referente (es. Marco Bianchi)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            <input type="text" value={form.contact_role} onChange={(e) => setForm({ ...form, contact_role: e.target.value })}
+              placeholder="Ruolo (es. CEO, CTO, Buyer)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
             <input type="text" value={form.vat} onChange={(e) => setForm({ ...form, vat: e.target.value })}
               placeholder="P.IVA" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
             <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}
@@ -122,6 +126,11 @@ export default function CrmContactsPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-gray-900 truncate">{c.name}</p>
+                  {c.contact_name && (
+                    <p className="text-xs text-gray-600">
+                      {c.contact_name}{c.contact_role ? ` — ${c.contact_role}` : ''}
+                    </p>
+                  )}
                   {c.vat && <p className="text-xs text-gray-400">P.IVA: {c.vat}</p>}
                   {c.email && <p className="mt-1 text-sm text-gray-600 truncate">{c.email}</p>}
                   {c.phone && <p className="text-sm text-gray-500">{c.phone}</p>}
