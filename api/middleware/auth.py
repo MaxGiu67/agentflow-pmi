@@ -47,7 +47,7 @@ async def get_current_user(
 
     # Gap 5.2: Check access expiry for external users
     expires = getattr(user, "access_expires_at", None)
-    if expires and expires < datetime.now(UTC):
+    if expires and expires.replace(tzinfo=None) < datetime.now(UTC).replace(tzinfo=None):
         # Auto-deactivate expired user
         user.active = False
         await db.flush()

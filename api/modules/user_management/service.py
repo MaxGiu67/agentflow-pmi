@@ -50,10 +50,13 @@ class UserManagementService:
         # AC-139.3: Validate access_expires_at for external users
         parsed_expiry = None
         if user_type == "external" and access_expires_at:
-            from datetime import datetime, UTC
+            from datetime import datetime, timezone
             try:
-                parsed_expiry = datetime.fromisoformat(access_expires_at.replace("Z", "+00:00"))
-                if parsed_expiry < datetime.now(UTC):
+                raw = datetime.fromisoformat(access_expires_at.replace("Z", "+00:00"))
+                # Store as naive UTC (PostgreSQL TIMESTAMP without timezone)
+                parsed_expiry = raw.replace(tzinfo=None)
+                now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+                if parsed_expiry < now_utc:
                     return {"error": "Data scadenza deve essere nel futuro"}
             except ValueError:
                 return {"error": "Formato data scadenza non valido (usa ISO 8601)"}
