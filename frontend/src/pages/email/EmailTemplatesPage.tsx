@@ -100,7 +100,13 @@ export default function EmailTemplatesPage() {
       {/* ─── Manual Form Mode ─── */}
       {mode === 'manual' && (
         <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-3">
-          <h3 className="font-medium text-gray-900">{editId ? 'Modifica template' : 'Nuovo template manuale'}</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium text-gray-900">{editId ? 'Modifica template' : 'Nuovo template manuale'}</h3>
+            <button onClick={() => setMode('ai')}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-purple-100 px-3 py-1.5 text-xs font-medium text-purple-700 hover:bg-purple-200">
+              <Sparkles className="h-3.5 w-3.5" /> Passa a Editor AI
+            </button>
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nome template *" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
             <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
@@ -108,7 +114,30 @@ export default function EmailTemplatesPage() {
             </select>
           </div>
           <input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} placeholder="Oggetto (con variabili {{nome}})" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-          <textarea value={form.html_body} onChange={(e) => setForm({ ...form, html_body: e.target.value })} placeholder="Corpo HTML (con variabili {{nome}}, {{azienda}}...)" rows={8} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono text-xs" />
+
+          {/* Variable insertion toolbar */}
+          <div className="flex flex-wrap items-center gap-1.5 rounded-lg bg-gray-50 px-3 py-2 border border-gray-200">
+            <span className="text-[10px] font-semibold uppercase text-gray-400 mr-1">Inserisci variabile:</span>
+            {['nome', 'azienda', 'deal_name', 'deal_value', 'email'].map((v) => (
+              <button key={v} onClick={() => setForm({ ...form, html_body: form.html_body + `{{${v}}}` })}
+                className="rounded bg-white px-2 py-0.5 text-xs font-mono text-purple-600 border border-purple-200 hover:bg-purple-50">
+                {`{{${v}}}`}
+              </button>
+            ))}
+          </div>
+
+          <textarea value={form.html_body} onChange={(e) => setForm({ ...form, html_body: e.target.value })}
+            placeholder="Corpo HTML (con variabili {{nome}}, {{azienda}}...)"
+            rows={12} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono text-xs" />
+
+          {/* Live preview */}
+          {form.html_body && (
+            <div className="rounded-lg border border-gray-200 bg-white p-4">
+              <p className="text-[10px] font-semibold uppercase text-gray-400 mb-2">Anteprima</p>
+              <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: form.html_body }} />
+            </div>
+          )}
+
           <input value={form.variables} onChange={(e) => setForm({ ...form, variables: e.target.value })} placeholder="Variabili (separate da virgola): nome, azienda, deal_name" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           <div className="flex gap-2">
             <button onClick={handleSave} disabled={createTpl.isPending || updateTpl.isPending || !form.name}
