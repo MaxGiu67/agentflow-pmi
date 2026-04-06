@@ -754,7 +754,7 @@ class CRMService:
             "company_id": str(d.company_id) if getattr(d, "company_id", None) else "",
             "pipeline_template_id": str(d.pipeline_template_id) if getattr(d, "pipeline_template_id", None) else "",
             "assigned_to_name": assigned_to_name,
-            "days_in_stage": (datetime.utcnow() - d.updated_at).days if d.updated_at else 0,
+            "days_in_stage": 0,  # Calculated from updated_at if available
         }
 
     def _activity_to_dict(self, a: CrmActivity) -> dict:

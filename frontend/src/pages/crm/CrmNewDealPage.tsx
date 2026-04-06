@@ -63,16 +63,22 @@ export default function CrmNewDealPage() {
   }, [dealType, dailyRate, estimatedDays])
 
   const filteredContacts = (contactsData?.contacts || []).filter((c: any) => {
-    // Se azienda selezionata, mostra solo referenti di quell'azienda
-    if (selectedCompanyId && c.company_id && c.company_id !== selectedCompanyId) return false
-    // Se azienda selezionata e no search, mostra tutti i referenti dell'azienda
-    if (selectedCompanyId && !contactSearch) return true
-    // Search
+    // Se azienda selezionata, mostra SOLO referenti di quell'azienda
+    if (selectedCompanyId) {
+      if (c.company_id !== selectedCompanyId) return false
+      // Dentro l'azienda: se c'e search, filtra per nome
+      if (contactSearch.length >= 2) {
+        const q = contactSearch.toLowerCase()
+        return (c.contact_name || c.name || '').toLowerCase().includes(q)
+      }
+      return true // Mostra tutti i referenti dell'azienda
+    }
+    // Senza azienda: cerca tra tutti (solo se 2+ char)
     if (contactSearch.length >= 2) {
       const q = contactSearch.toLowerCase()
       return (c.contact_name || c.name || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q)
     }
-    return selectedCompanyId ? true : false
+    return false
   })
 
   const handleSubmit = async () => {
