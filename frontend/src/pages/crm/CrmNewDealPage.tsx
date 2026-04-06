@@ -153,6 +153,7 @@ export default function CrmNewDealPage() {
                       className="w-full flex items-center justify-between rounded-lg border border-gray-200 px-4 py-2.5 text-left text-sm hover:bg-gray-50 transition-colors">
                       <div>
                         <p className="font-medium text-gray-900">{c.name}</p>
+                        {c.contact_name && <p className="text-xs text-gray-600">{c.contact_name}{c.contact_role ? ` — ${c.contact_role}` : ''}</p>}
                         {c.vat && <p className="text-xs text-gray-400">P.IVA: {c.vat}</p>}
                       </div>
                       <span className="text-xs text-gray-400">{c.type}</span>
