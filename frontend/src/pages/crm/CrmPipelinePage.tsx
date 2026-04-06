@@ -137,6 +137,51 @@ export default function CrmPipelinePage() {
     setShowMoveActivity(false)
   }
 
+  // ── Reusable Kanban column + card renderer ──
+  const renderKanbanColumn = (stage: any, stageDeals: any[], stageTotal: number) => (
+    <div
+      key={stage.id}
+      className="flex w-64 flex-none flex-col rounded-xl bg-gray-50"
+      onDragOver={handleDragOver}
+      onDrop={(e) => handleDrop(e, stage.id)}
+    >
+      <div className="flex items-center justify-between rounded-t-xl px-3 py-2" style={{ borderTop: `3px solid ${stage.color || '#6B7280'}` }}>
+        <div>
+          <p className="text-xs font-semibold text-gray-800">{stage.name}</p>
+          <p className="text-[10px] text-gray-400">{stageDeals.length} deal &middot; {formatCurrency(stageTotal)}</p>
+        </div>
+        <span className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: stage.color || '#6B7280' }}>
+          {stageDeals.length}
+        </span>
+      </div>
+      <div className="flex-1 space-y-1.5 overflow-y-auto px-1.5 py-1.5" style={{ maxHeight: 400 }}>
+        {stageDeals.map((deal: any) => (
+          <div key={deal.id} draggable onDragStart={(e) => handleDragStart(e, deal.id)} onDragEnd={handleDragEnd}
+            className="cursor-grab rounded-lg border border-gray-200 bg-white p-2.5 shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing">
+            <button onClick={() => navigate(`/crm/deals/${deal.id}`)}
+              className="text-left text-xs font-medium text-gray-900 hover:text-blue-600 line-clamp-2">{deal.name}</button>
+            {deal.client_name && <p className="mt-0.5 text-[10px] text-gray-500">{deal.client_name}</p>}
+            <div className="mt-1.5 flex items-center justify-between">
+              <span className="text-xs font-semibold text-gray-800">{formatCurrency(deal.expected_revenue)}</span>
+              {deal.deal_type && <span className="rounded bg-gray-100 px-1 py-0.5 text-[9px] font-medium text-gray-600">{DEAL_TYPE_SHORT[deal.deal_type] || deal.deal_type}</span>}
+            </div>
+            <div className="mt-1 flex items-center justify-between text-[9px] text-gray-400">
+              {deal.assigned_to_name && <span className="flex items-center gap-0.5"><User className="h-2.5 w-2.5" /> {deal.assigned_to_name}</span>}
+              {deal.days_in_stage != null && <span className="flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {deal.days_in_stage}gg</span>}
+            </div>
+            <div className="mt-1.5">
+              <button onClick={() => navigate(`/crm/deals/${deal.id}`)}
+                className="inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-medium text-blue-700 hover:bg-blue-100">
+                <Eye className="h-2.5 w-2.5" /> Apri
+              </button>
+            </div>
+          </div>
+        ))}
+        {stageDeals.length === 0 && <div className="py-6 text-center text-[10px] text-gray-300">Trascina qui un deal</div>}
+      </div>
+    </div>
+  )
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -263,70 +308,89 @@ export default function CrmPipelinePage() {
       </div>
 
       {isLoading ? <LoadingSpinner /> : view === 'kanban' ? (
-        /* ============ KANBAN VIEW (originale, tab = filtro) ============ */
-        <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: 400 }}>
-          {stages?.filter((s: any) => !s.is_lost).map((stage: any) => {
-            const allStageDeals = dealsByStage[stage.id] || []
-            // Filter by pipeline tab
-            const tabDeals = pipelineTab === 'all'
-              ? allStageDeals
-              : allStageDeals.filter((d: any) => d.pipeline_template_id === pipelineTab)
-            // Filter by commerciale
-            const stageDeals = commercialeFilter
-              ? tabDeals.filter((d: any) => d.assigned_to_name === commercialeFilter)
-              : tabDeals
-            const stageTotal = stageDeals.reduce((sum: number, d: any) => sum + (d.expected_revenue || 0), 0)
+        /* ============ KANBAN VIEW ============ */
+        <>
+          {/* Render kanban sections */}
+          {(() => {
+            // Build list of pipeline sections to render
+            const allDealsList = deals?.deals || []
+            const filteredByComm = commercialeFilter
+              ? allDealsList.filter((d: any) => d.assigned_to_name === commercialeFilter)
+              : allDealsList
+
+            // If specific tab selected, show single kanban with existing stages
+            if (pipelineTab !== 'all') {
+              const tabDeals = filteredByComm.filter((d: any) => d.pipeline_template_id === pipelineTab)
+              return (
+                <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: 400 }}>
+                  {stages?.filter((s: any) => !s.is_lost).map((stage: any) => {
+                    const stageDeals = tabDeals.filter((d: any) => d.stage_id === stage.id)
+                    const stageTotal = stageDeals.reduce((sum: number, d: any) => sum + (d.expected_revenue || 0), 0)
+                    return renderKanbanColumn(stage, stageDeals, stageTotal)
+                  })}
+                </div>
+              )
+            }
+
+            // Tab "Tutti" → stacked per pipeline
+            const sections: { title: string; templateId: string; color: string; deals: any[]; stagesForSection: any[] }[] = []
+
+            // Pipeline templates
+            if (pipelineTemplates) {
+              for (const tmpl of pipelineTemplates) {
+                const tmplDeals = filteredByComm.filter((d: any) => d.pipeline_template_id === tmpl.id)
+                const tmplStages = (tmpl.stages || []).filter((s: any) => !s.is_lost)
+                sections.push({ title: tmpl.name, templateId: tmpl.id, color: '#6366f1', deals: tmplDeals, stagesForSection: tmplStages })
+              }
+            }
+
+            // Legacy deals (no pipeline_template_id)
+            const legacyDeals = filteredByComm.filter((d: any) => !d.pipeline_template_id)
+            if (legacyDeals.length > 0 && stages) {
+              sections.push({
+                title: 'Non classificati',
+                templateId: 'legacy',
+                color: '#6b7280',
+                deals: legacyDeals,
+                stagesForSection: stages.filter((s: any) => !s.is_lost).map((s: any) => ({ ...s, code: s.id, name: s.name })),
+              })
+            }
 
             return (
-              <div
-                key={stage.id}
-                className="flex w-72 flex-none flex-col rounded-xl bg-gray-50"
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, stage.id)}
-              >
-                <div className="flex items-center justify-between rounded-t-xl px-3 py-2.5" style={{ borderTop: `3px solid ${stage.color}` }}>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">{stage.name}</p>
-                    <p className="text-xs text-gray-400">{stageDeals.length} deal &middot; {formatCurrency(stageTotal)}</p>
-                  </div>
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: stage.color }}>
-                    {stageDeals.length}
-                  </span>
-                </div>
-                <div className="flex-1 space-y-2 overflow-y-auto px-2 py-2" style={{ maxHeight: 500 }}>
-                  {stageDeals.map((deal: any) => (
-                    <div key={deal.id} draggable onDragStart={(e) => handleDragStart(e, deal.id)} onDragEnd={handleDragEnd}
-                      className="cursor-grab rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing">
-                      <button onClick={() => navigate(`/crm/deals/${deal.id}`)}
-                        className="text-left text-sm font-medium text-gray-900 hover:text-blue-600 line-clamp-2">{deal.name}</button>
-                      {deal.client_name && <p className="mt-0.5 text-xs text-gray-500">{deal.client_name}</p>}
-                      <div className="mt-2 flex items-center justify-between">
-                        <span className="text-sm font-semibold text-gray-800">{formatCurrency(deal.expected_revenue)}</span>
-                        {deal.deal_type && <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">{DEAL_TYPE_SHORT[deal.deal_type] || deal.deal_type}</span>}
+              <div className="space-y-6">
+                {sections.map((section) => {
+                  const sectionTotal = section.deals.reduce((s: number, d: any) => s + (d.expected_revenue || 0), 0)
+                  return (
+                    <div key={section.templateId}>
+                      {/* Section header */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-bold text-gray-800">{section.title}</h3>
+                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">{section.deals.length} deal</span>
+                        </div>
+                        <span className="text-sm font-medium text-gray-500">{formatCurrency(sectionTotal)}</span>
                       </div>
-                      {/* Commerciale + giorni in stato */}
-                      <div className="mt-1.5 flex items-center justify-between text-[10px] text-gray-400">
-                        {deal.assigned_to_name && (
-                          <span className="flex items-center gap-0.5"><User className="h-2.5 w-2.5" /> {deal.assigned_to_name}</span>
-                        )}
-                        {deal.days_in_stage != null && (
-                          <span className="flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {deal.days_in_stage}gg</span>
-                        )}
-                      </div>
-                      <div className="mt-2">
-                        <button onClick={() => navigate(`/crm/deals/${deal.id}`)}
-                          className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-1 text-[10px] font-medium text-blue-700 hover:bg-blue-100">
-                          <Eye className="h-3 w-3" /> Apri
-                        </button>
+                      {/* Full kanban for this pipeline */}
+                      <div className="flex gap-3 overflow-x-auto pb-3">
+                        {section.stagesForSection.map((stageInfo: any) => {
+                          // Match deals to stage — by stage name for template stages, by stage_id for legacy
+                          const stageDeals = section.templateId === 'legacy'
+                            ? section.deals.filter((d: any) => d.stage_id === stageInfo.id)
+                            : section.deals.filter((d: any) => d.stage === stageInfo.name)
+                          const stTotal = stageDeals.reduce((s: number, d: any) => s + (d.expected_revenue || 0), 0)
+                          // Use existing stages for color, or default
+                          const realStage = stages?.find((s: any) => s.name === stageInfo.name)
+                          const color = realStage?.color || '#6B7280'
+                          return renderKanbanColumn({ ...stageInfo, id: realStage?.id || stageInfo.id, color }, stageDeals, stTotal)
+                        })}
                       </div>
                     </div>
-                  ))}
-                  {stageDeals.length === 0 && <div className="py-8 text-center text-xs text-gray-300">Trascina qui un deal</div>}
-                </div>
+                  )
+                })}
               </div>
             )
-          })}
-        </div>
+          })()}
+        </>
       ) : (
         /* ============ TABLE VIEW ============ */
         !deals?.deals?.length ? (
