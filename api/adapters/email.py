@@ -5,8 +5,8 @@ import os
 
 logger = logging.getLogger(__name__)
 
-SERVICE_SENDER_EMAIL = "noreply@iridia.tech"
-SERVICE_SENDER_NAME = "AgentFlow"
+SERVICE_SENDER_EMAIL = os.getenv("BREVO_SENDER_EMAIL", "noreply@iridia.tech")
+SERVICE_SENDER_NAME = os.getenv("BREVO_SENDER_NAME", "AgentFlow")
 
 
 async def _send_via_brevo(to_email: str, subject: str, html: str) -> bool:
