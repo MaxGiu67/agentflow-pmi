@@ -722,13 +722,19 @@ class CRMService:
             )
             client_name = contact_result.scalar() or ""
 
-        # Get assigned user name
+        # Get assigned user name (resilient — new columns may not exist yet)
         assigned_to_name = ""
         if d.assigned_to:
-            user_result = await self.db.execute(
-                select(User.name).where(User.id == d.assigned_to)
-            )
-            assigned_to_name = user_result.scalar() or ""
+            try:
+                from sqlalchemy import text as _text
+                user_result = await self.db.execute(
+                    _text("SELECT name FROM users WHERE id = :uid"),
+                    {"uid": d.assigned_to},
+                )
+                row = user_result.first()
+                assigned_to_name = row[0] if row else ""
+            except Exception:
+                assigned_to_name = ""
 
         return {
             "id": str(d.id),
