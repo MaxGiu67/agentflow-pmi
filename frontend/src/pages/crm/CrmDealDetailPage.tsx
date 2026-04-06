@@ -166,24 +166,46 @@ export default function CrmDealDetailPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* ── Deal Info ── */}
-        <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-4">
-          <h3 className="text-sm font-semibold uppercase text-gray-400">Dettagli Deal</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <Info label="Cliente" value={deal.client_name} />
-            <Info label="Fase" value={deal.stage} />
-            <Info label="Tipo" value={deal.deal_type || '-'} />
-            <Info label="Probabilita" value={`${deal.probability}%`} />
-            <Info label="Valore" value={formatCurrency(deal.expected_revenue)} />
-            <Info label="Responsabile" value={deal.user_name || deal.assigned_to || '-'} />
-            {deal.daily_rate > 0 && <Info label="Tariffa" value={`${formatCurrency(deal.daily_rate)}/gg`} />}
-            {deal.estimated_days > 0 && <Info label="Giorni" value={String(deal.estimated_days)} />}
-            {deal.technology && <Info label="Tecnologia" value={deal.technology} className="col-span-2" />}
+        {/* ── Azienda + Referente (coerente con creazione deal) ── */}
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
+          <h3 className="text-sm font-semibold uppercase text-gray-400">Cliente</h3>
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600 shrink-0">
+                <Package className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-900">{deal.client_name || 'Cliente non specificato'}</p>
+                {deal.contact_name && (
+                  <p className="text-sm text-gray-600">{deal.contact_name}{deal.contact_role ? ` — ${deal.contact_role}` : ''}</p>
+                )}
+              </div>
+            </div>
+            {(deal.client_email || deal.client_phone) && (
+              <div className="flex gap-4 text-sm text-gray-500 pl-[52px]">
+                {deal.client_email && <span>{deal.client_email}</span>}
+                {deal.client_phone && <span>{deal.client_phone}</span>}
+              </div>
+            )}
+          </div>
+
+          {/* Dettagli deal */}
+          <div className="border-t border-gray-100 pt-4">
+            <h4 className="text-xs font-semibold uppercase text-gray-400 mb-3">Dettagli Opportunita</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <Info label="Valore atteso" value={formatCurrency(deal.expected_revenue)} />
+              <Info label="Probabilita" value={`${deal.probability}%`} />
+              {deal.daily_rate > 0 && <Info label="Tariffa giornaliera" value={`${formatCurrency(deal.daily_rate)}/gg`} />}
+              {deal.estimated_days > 0 && <Info label="Giorni stimati" value={String(deal.estimated_days)} />}
+              {deal.technology && <Info label="Tecnologia / Stack" value={deal.technology} className="col-span-2" />}
+              <Info label="Responsabile" value={deal.assigned_to_name || deal.assigned_to || '-'} />
+              {deal.days_in_stage != null && <Info label="Giorni in questa fase" value={`${deal.days_in_stage} giorni`} />}
+            </div>
           </div>
         </div>
 
         {/* ── Order ── */}
-        <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-4">
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
           <h3 className="text-sm font-semibold uppercase text-gray-400">Ordine Cliente</h3>
           {isConfirmed ? (
             <div className="flex items-start gap-3 rounded-lg bg-green-50 p-4">
@@ -230,7 +252,7 @@ export default function CrmDealDetailPage() {
       </div>
 
       {/* ── Products ── */}
-      <div className="rounded-xl border border-gray-200 bg-white p-6">
+      <div className="rounded-2xl border border-gray-200 bg-white p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold uppercase text-gray-400">Prodotti / Servizi</h3>
           <button onClick={() => setShowAddProduct(!showAddProduct)}
@@ -292,7 +314,7 @@ export default function CrmDealDetailPage() {
       </div>
 
       {/* ── Activities ── */}
-      <div className="rounded-xl border border-gray-200 bg-white p-6">
+      <div className="rounded-2xl border border-gray-200 bg-white p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold uppercase text-gray-400">Attivita</h3>
           <button onClick={() => setShowActivityForm(!showActivityForm)}
@@ -384,7 +406,7 @@ export default function CrmDealDetailPage() {
 
       {/* ── Email History ── */}
       {emailHistory && emailHistory.length > 0 && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6">
+        <div className="rounded-2xl border border-gray-200 bg-white p-6">
           <h3 className="text-sm font-semibold uppercase text-gray-400 mb-4">Email inviate</h3>
           <div className="space-y-2">
             {emailHistory.map((email: any) => {
