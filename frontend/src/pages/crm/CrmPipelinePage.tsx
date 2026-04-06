@@ -84,7 +84,7 @@ export default function CrmPipelinePage() {
     e.dataTransfer.dropEffect = 'move'
   }
 
-  const handleDrop = (e: DragEvent, targetStageId: string) => {
+  const handleDrop = (e: DragEvent, targetStageId: string, stageName?: string) => {
     e.preventDefault()
     const dealId = dragDealId.current
     if (!dealId) return
@@ -92,7 +92,10 @@ export default function CrmPipelinePage() {
     const deal = deals?.deals?.find((d: any) => d.id === dealId)
     if (!deal || deal.stage_id === targetStageId) return
 
-    const toStage = stages?.find((s: any) => s.id === targetStageId)
+    // Find stage by ID first, then by name (for template stages)
+    let toStage = stages?.find((s: any) => s.id === targetStageId)
+    const resolvedStageId = toStage?.id || targetStageId
+    const resolvedStageName = toStage?.name || stageName || targetStageId
 
     // Open dialog to log activity for this stage move
     setMoveDialog({
@@ -100,13 +103,13 @@ export default function CrmPipelinePage() {
       dealName: deal.name,
       contactId: deal.contact_id,
       fromStage: deal.stage || '',
-      toStageId: targetStageId,
-      toStageName: toStage?.name || '',
+      toStageId: resolvedStageId,
+      toStageName: resolvedStageName,
     })
     setMoveForm({
       type: 'call',
       activity_type_id: '',
-      subject: `Spostamento: ${deal.stage || '?'} → ${toStage?.name || '?'}`,
+      subject: `Spostamento: ${deal.stage || '?'} → ${resolvedStageName}`,
       description: '',
     })
   }
@@ -143,7 +146,7 @@ export default function CrmPipelinePage() {
       key={stage.id}
       className="flex w-64 flex-none flex-col rounded-xl bg-gray-50"
       onDragOver={handleDragOver}
-      onDrop={(e) => handleDrop(e, stage.id)}
+      onDrop={(e) => handleDrop(e, stage.id, stage.name)}
     >
       <div className="flex items-center justify-between rounded-t-xl px-3 py-2" style={{ borderTop: `3px solid ${stage.color || '#6B7280'}` }}>
         <div>
