@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useCrmContacts, useCreateCrmDeal, useCreateCrmContact, useCrmStages, useActivityTypes, useCreateCrmActivity, useProducts, usePipelineTemplates, useCrmCompanies, useCreateCrmCompany } from '../../api/hooks'
+import { useCrmContacts, useCreateCrmDeal, useCreateCrmContact, useCrmStages, useActivityTypes, useCreateCrmActivity, usePipelineTemplates, useCrmCompanies, useCreateCrmCompany } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import PageMeta from '../../components/ui/PageMeta'
 import { ArrowLeft, Search, Building, PlusCircle } from 'lucide-react'
@@ -13,7 +13,6 @@ export default function CrmNewDealPage() {
   const { data: stages } = useCrmStages()
   const { data: activityTypes } = useActivityTypes(true)
   const createActivity = useCreateCrmActivity()
-  const { data: products } = useProducts(true)
   const { data: pipelineTemplates } = usePipelineTemplates()
 
   const [step, setStep] = useState(1)
@@ -46,7 +45,6 @@ export default function CrmNewDealPage() {
   const [estimatedDays, setEstimatedDays] = useState('')
   const [technology, setTechnology] = useState('')
 
-  const [productId, setProductId] = useState('')
   const [selectedPipeline, setSelectedPipeline] = useState<any>(null)
   const [stageId, setStageId] = useState('')
   const [actSubject, setActSubject] = useState('')
@@ -71,17 +69,17 @@ export default function CrmNewDealPage() {
     if (!name.trim()) { setError('Il nome dell\'opportunita e obbligatorio'); return }
 
     try {
-      const selectedProduct = products?.find((p: any) => p.id === productId)
       const deal = await createDeal.mutateAsync({
         name,
         contact_id: selectedContactId || undefined,
+        company_id: selectedCompanyId || undefined,
         deal_type: dealType,
         expected_revenue: parseFloat(expectedRevenue) || 0,
         daily_rate: parseFloat(dailyRate) || 0,
         estimated_days: parseFloat(estimatedDays) || 0,
         technology,
         stage_id: stageId || undefined,
-        pipeline_template_id: selectedProduct?.pipeline_template_id || selectedPipeline?.id || undefined,
+        pipeline_template_id: selectedPipeline?.id || undefined,
       })
 
       // Create initial activity if provided
@@ -355,25 +353,6 @@ export default function CrmNewDealPage() {
                 </button>
               </div>
 
-              {/* Prodotto specifico (opzionale, se ci sono prodotti a catalogo) */}
-              {products && products.length > 0 && (
-                <div className="mt-3">
-                  <select value={productId}
-                    onChange={(e) => {
-                      setProductId(e.target.value)
-                      const prod = products.find((p: any) => p.id === e.target.value)
-                      if (prod?.pipeline_template_id && pipelineTemplates) {
-                        setSelectedPipeline(pipelineTemplates.find((t: any) => t.id === prod.pipeline_template_id) || null)
-                      }
-                    }}
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600">
-                    <option value="">Prodotto specifico dal catalogo (opzionale)</option>
-                    {products.map((p: any) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
             </div>
 
             {/* Campi specifici per Consulenza T&M */}
