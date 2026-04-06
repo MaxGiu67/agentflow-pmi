@@ -35,10 +35,10 @@ export default function CrmNewDealPage() {
   // Company hooks — load ALL companies, filter client-side
   const { data: companiesData } = useCrmCompanies('')
   const createCompany = useCreateCrmCompany()
-  const allCompanies = companiesData?.companies || []
-  const filteredCompanies = companySearch.length >= 1
+  const allCompanies = (companiesData?.companies || []).sort((a: any, b: any) => a.name.localeCompare(b.name))
+  const filteredCompanies = companySearch.length >= 3
     ? allCompanies.filter((c: any) => c.name.toLowerCase().includes(companySearch.toLowerCase()))
-    : allCompanies
+    : companySearch.length === 0 && showCompanyDropdown ? allCompanies : []
   const showCompanyAutocomplete = showCompanyDropdown && !selectedCompanyId && filteredCompanies.length > 0
 
   const [name, setName] = useState('')
@@ -62,10 +62,18 @@ export default function CrmNewDealPage() {
     }
   }, [dealType, dailyRate, estimatedDays])
 
-  const filteredContacts = contactsData?.contacts?.filter((c: any) =>
-    c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
-    (c.vat && c.vat.includes(contactSearch))
-  ) || []
+  const filteredContacts = (contactsData?.contacts || []).filter((c: any) => {
+    // Se azienda selezionata, mostra solo referenti di quell'azienda
+    if (selectedCompanyId && c.company_id && c.company_id !== selectedCompanyId) return false
+    // Se azienda selezionata e no search, mostra tutti i referenti dell'azienda
+    if (selectedCompanyId && !contactSearch) return true
+    // Search
+    if (contactSearch.length >= 2) {
+      const q = contactSearch.toLowerCase()
+      return (c.contact_name || c.name || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q)
+    }
+    return selectedCompanyId ? true : false
+  })
 
   const handleSubmit = async () => {
     setError('')
@@ -171,7 +179,7 @@ export default function CrmNewDealPage() {
                   <input value={companySearch}
                     onChange={(e) => { setCompanySearch(e.target.value); setShowCompanyDropdown(true) }}
                     onFocus={() => setShowCompanyDropdown(true)}
-                    placeholder="Digita 2+ caratteri per cercare azienda..."
+                    placeholder="Clicca per vedere tutte — o digita 3+ caratteri per cercare..."
                     className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
                   {showCompanyAutocomplete && (
                     <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg max-h-48 overflow-y-auto">
@@ -188,7 +196,7 @@ export default function CrmNewDealPage() {
                       ))}
                     </div>
                   )}
-                  {companySearch.length >= 1 && filteredCompanies.length === 0 && showCompanyDropdown && (
+                  {companySearch.length >= 3 && filteredCompanies.length === 0 && showCompanyDropdown && (
                     <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg p-3">
                       <p className="text-xs text-gray-500 mb-2">Nessuna azienda trovata</p>
                       <button onClick={() => { setShowNewCompany(true); setShowCompanyDropdown(false); setNewCompanyForm({ ...newCompanyForm, name: companySearch }) }}
@@ -224,11 +232,12 @@ export default function CrmNewDealPage() {
                   <div className="relative mb-2">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                     <input value={contactSearch} onChange={(e) => setContactSearch(e.target.value)}
-                      placeholder="Cerca referente per nome..."
+                      placeholder={selectedCompanyId ? `Cerca referente di ${selectedCompanyName}...` : "Seleziona prima un'azienda"}
                       className="w-full rounded-lg border border-gray-300 pl-10 pr-4 py-2 text-sm" />
                   </div>
 
-                  {contactSearch && (
+                  {/* Mostra referenti dell'azienda selezionata (o risultati ricerca) */}
+                  {filteredContacts.length > 0 && (
                     <div className="max-h-36 overflow-y-auto space-y-1 mb-2">
                       {filteredContacts.map((c: any) => (
                         <button key={c.id} onClick={() => { setSelectedContactId(c.id); setSelectedContactName(c.contact_name || c.name) }}
@@ -241,6 +250,9 @@ export default function CrmNewDealPage() {
                         </button>
                       ))}
                     </div>
+                  )}
+                  {selectedCompanyId && filteredContacts.length === 0 && !contactSearch && (
+                    <p className="text-xs text-gray-400 mb-2">Nessun referente per {selectedCompanyName}. Creane uno nuovo.</p>
                   )}
 
                   {/* Crea nuovo referente */}

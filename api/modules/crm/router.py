@@ -187,12 +187,15 @@ async def get_deal(
 
 @router.post("/deals", status_code=201)
 async def create_deal(
-    body: DealCreate,
+    body: dict,
     user: User = Depends(get_current_user),
     svc: CRMService = Depends(get_service),
 ):
     tid = _require_tenant(user)
-    return await svc.create_deal(tid, body.model_dump())
+    # Auto-assign to current user if commerciale
+    if user.role == "commerciale" and "assigned_to" not in body:
+        body["assigned_to"] = str(user.id)
+    return await svc.create_deal(tid, body)
 
 
 @router.patch("/deals/{deal_id}")

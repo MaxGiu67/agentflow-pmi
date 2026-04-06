@@ -31,10 +31,10 @@ export default function CrmContactsPage() {
   const deleteContact = useDeleteCrmContact()
   const createCompany = useCreateCrmCompany()
 
-  const allCompanies = companiesData?.companies || []
-  const filteredCompanies = companySearch.length >= 1
+  const allCompanies = (companiesData?.companies || []).sort((a: any, b: any) => a.name.localeCompare(b.name))
+  const filteredCompanies = companySearch.length >= 3
     ? allCompanies.filter((c: any) => c.name.toLowerCase().includes(companySearch.toLowerCase()))
-    : allCompanies
+    : companySearch.length === 0 && showCompanyDropdown ? allCompanies : []
   const showAutocomplete = showCompanyDropdown && !selectedCompanyId && filteredCompanies.length > 0
 
   const handleCreateCompany = async () => {
@@ -147,7 +147,7 @@ export default function CrmContactsPage() {
                 <input type="text" value={companySearch}
                   onChange={(e) => { setCompanySearch(e.target.value); setShowCompanyDropdown(true) }}
                   onFocus={() => setShowCompanyDropdown(true)}
-                  placeholder="Digita almeno 2 caratteri per cercare azienda..."
+                  placeholder="Clicca per vedere tutte — o digita 3+ caratteri per cercare..."
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
 
                 {/* Autocomplete dropdown */}
@@ -173,7 +173,7 @@ export default function CrmContactsPage() {
                   </div>
                 )}
 
-                {companySearch.length >= 1 && filteredCompanies.length === 0 && showCompanyDropdown && (
+                {companySearch.length >= 3 && filteredCompanies.length === 0 && showCompanyDropdown && (
                   <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg p-3">
                     <p className="text-xs text-gray-500 mb-2">Nessuna azienda trovata per "{companySearch}"</p>
                     <button onClick={() => { setShowNewCompany(true); setShowCompanyDropdown(false); setNewCompany({ ...newCompany, name: companySearch }) }}
