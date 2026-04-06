@@ -287,7 +287,9 @@ class CRMService:
         deal = CrmDeal(
             tenant_id=tenant_id,
             contact_id=uuid.UUID(data["contact_id"]) if data.get("contact_id") else None,
+            company_id=uuid.UUID(data["company_id"]) if data.get("company_id") else None,
             stage_id=stage_id,
+            pipeline_template_id=uuid.UUID(data["pipeline_template_id"]) if data.get("pipeline_template_id") else None,
             name=data["name"],
             deal_type=data.get("deal_type"),
             expected_revenue=data.get("expected_revenue", 0),
@@ -738,6 +740,8 @@ class CRMService:
             "order_reference": d.order_reference or "",
             "order_date": d.order_date.isoformat() if d.order_date else "",
             "order_notes": d.order_notes or "",
+            "company_id": str(d.company_id) if getattr(d, "company_id", None) else "",
+            "pipeline_template_id": str(d.pipeline_template_id) if getattr(d, "pipeline_template_id", None) else "",
         }
 
     def _activity_to_dict(self, a: CrmActivity) -> dict:

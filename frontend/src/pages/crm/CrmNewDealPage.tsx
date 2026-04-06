@@ -5,13 +5,6 @@ import PageHeader from '../../components/ui/PageHeader'
 import PageMeta from '../../components/ui/PageMeta'
 import { ArrowLeft, Plus, Search } from 'lucide-react'
 
-const DEAL_TYPES = [
-  { value: 'T&M', label: 'Time & Material', desc: 'Tariffa giornaliera x giorni' },
-  { value: 'fixed', label: 'Progetto fisso', desc: 'Importo a corpo' },
-  { value: 'spot', label: 'Spot / Una tantum', desc: 'Consulenza breve' },
-  { value: 'hardware', label: 'Hardware / Licenze', desc: 'Vendita prodotti' },
-]
-
 export default function CrmNewDealPage() {
   const navigate = useNavigate()
   const { data: contactsData } = useCrmContacts('')
@@ -81,7 +74,7 @@ export default function CrmNewDealPage() {
         estimated_days: parseFloat(estimatedDays) || 0,
         technology,
         stage_id: stageId || undefined,
-        pipeline_template_id: selectedProduct?.pipeline_template_id || undefined,
+        pipeline_template_id: selectedProduct?.pipeline_template_id || selectedPipeline?.id || undefined,
       })
 
       // Create initial activity if provided
@@ -220,61 +213,87 @@ export default function CrmNewDealPage() {
                 className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none" />
             </div>
 
-            {/* Prodotto → Pipeline (US-201) */}
-            {products && products.length > 0 && (
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Prodotto (determina la pipeline)</label>
-                <select value={productId}
-                  onChange={(e) => {
-                    setProductId(e.target.value)
-                    const prod = products.find((p: any) => p.id === e.target.value)
-                    if (prod?.pipeline_template_id && pipelineTemplates) {
-                      const tmpl = pipelineTemplates.find((t: any) => t.id === prod.pipeline_template_id)
-                      setSelectedPipeline(tmpl || null)
-                    } else {
-                      setSelectedPipeline(null)
-                    }
-                  }}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm">
-                  <option value="">— Seleziona prodotto (opzionale) —</option>
-                  {products.map((p: any) => (
-                    <option key={p.id} value={p.id}>{p.name} ({p.pricing_model})</option>
-                  ))}
-                </select>
-                {selectedPipeline && (
-                  <p className="mt-1 text-xs text-purple-600">
-                    Pipeline: {selectedPipeline.name} ({selectedPipeline.stage_count} stati)
-                  </p>
-                )}
-              </div>
-            )}
-
+            {/* Cosa vendi? — 3 bottoni grandi + Altro */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">Tipo</label>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {DEAL_TYPES.map((t) => (
-                  <button key={t.value} onClick={() => setDealType(t.value)}
-                    className={`rounded-lg border p-3 text-left transition-colors ${
-                      dealType === t.value ? 'border-purple-500 bg-purple-50 ring-1 ring-purple-200' : 'border-gray-200 hover:bg-gray-50'
-                    }`}>
-                    <p className="text-sm font-medium text-gray-900">{t.label}</p>
-                    <p className="text-xs text-gray-400">{t.desc}</p>
-                  </button>
-                ))}
+              <label className="mb-2 block text-sm font-medium text-gray-700">Cosa vendi?</label>
+              <div className="grid gap-3 sm:grid-cols-4">
+                <button onClick={() => { setDealType('T&M'); setSelectedPipeline(pipelineTemplates?.find((t: any) => t.code === 'vendita_diretta') || null) }}
+                  className={`rounded-xl border-2 p-4 text-left transition-all ${
+                    dealType === 'T&M' ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}>
+                  <p className="text-2xl mb-1">🤝</p>
+                  <p className="text-sm font-semibold text-gray-900">Consulenza</p>
+                  <p className="text-xs text-gray-500 mt-0.5">T&M, staff augmentation, servizi</p>
+                  <p className="text-[10px] text-purple-600 mt-2 font-medium">Pipeline: Vendita Diretta</p>
+                </button>
+
+                <button onClick={() => { setDealType('fixed'); setSelectedPipeline(pipelineTemplates?.find((t: any) => t.code === 'progetto_corpo') || null) }}
+                  className={`rounded-xl border-2 p-4 text-left transition-all ${
+                    dealType === 'fixed' ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}>
+                  <p className="text-2xl mb-1">📋</p>
+                  <p className="text-sm font-semibold text-gray-900">Progetto a corpo</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Prezzo fisso, specifiche, milestone</p>
+                  <p className="text-[10px] text-purple-600 mt-2 font-medium">Pipeline: Progetto a Corpo</p>
+                </button>
+
+                <button onClick={() => { setDealType('spot'); setSelectedPipeline(pipelineTemplates?.find((t: any) => t.code === 'social_selling') || null) }}
+                  className={`rounded-xl border-2 p-4 text-left transition-all ${
+                    dealType === 'spot' ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}>
+                  <p className="text-2xl mb-1">🤖</p>
+                  <p className="text-sm font-semibold text-gray-900">Elevia / Prodotto</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Prodotto AI, licenze, SaaS</p>
+                  <p className="text-[10px] text-purple-600 mt-2 font-medium">Pipeline: Social Selling</p>
+                </button>
+
+                <button onClick={() => { setDealType('hardware'); setSelectedPipeline(pipelineTemplates?.find((t: any) => t.code === 'vendita_diretta') || null) }}
+                  className={`rounded-xl border-2 p-4 text-left transition-all ${
+                    dealType === 'hardware' ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}>
+                  <p className="text-2xl mb-1">📦</p>
+                  <p className="text-sm font-semibold text-gray-900">Altro</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Hardware, licenze, una tantum</p>
+                  <p className="text-[10px] text-purple-600 mt-2 font-medium">Pipeline: Vendita Diretta</p>
+                </button>
               </div>
+
+              {/* Prodotto specifico (opzionale, se ci sono prodotti a catalogo) */}
+              {products && products.length > 0 && (
+                <div className="mt-3">
+                  <select value={productId}
+                    onChange={(e) => {
+                      setProductId(e.target.value)
+                      const prod = products.find((p: any) => p.id === e.target.value)
+                      if (prod?.pipeline_template_id && pipelineTemplates) {
+                        setSelectedPipeline(pipelineTemplates.find((t: any) => t.id === prod.pipeline_template_id) || null)
+                      }
+                    }}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600">
+                    <option value="">Prodotto specifico dal catalogo (opzionale)</option>
+                    {products.map((p: any) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
+            {/* Campi specifici per Consulenza T&M */}
             {dealType === 'T&M' && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Tariffa giornaliera (EUR)</label>
-                  <input type="number" value={dailyRate} onChange={(e) => setDailyRate(e.target.value)}
-                    placeholder="500" className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Giorni stimati</label>
-                  <input type="number" value={estimatedDays} onChange={(e) => setEstimatedDays(e.target.value)}
-                    placeholder="60" className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
+              <div className="rounded-lg border border-purple-100 bg-purple-50/30 p-3 space-y-3">
+                <p className="text-xs font-medium text-purple-700">Dettagli consulenza</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-xs text-gray-600">Tariffa giornaliera (EUR)</label>
+                    <input type="number" value={dailyRate} onChange={(e) => setDailyRate(e.target.value)}
+                      placeholder="500" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-gray-600">Giorni stimati</label>
+                    <input type="number" value={estimatedDays} onChange={(e) => setEstimatedDays(e.target.value)}
+                      placeholder="60" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                  </div>
                 </div>
               </div>
             )}
