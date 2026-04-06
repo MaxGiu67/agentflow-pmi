@@ -1,20 +1,23 @@
 import { useState } from 'react'
-import { useCrmContacts, useCreateCrmContact, useCrmCompanies, useCreateCrmCompany } from '../../api/hooks'
+import { useCrmContacts, useCreateCrmContact, useUpdateCrmContact, useDeleteCrmContact, useCrmCompanies, useCreateCrmCompany } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
-import { Users, Plus, Search, Building, Mail, PlusCircle } from 'lucide-react'
+import { Users, Plus, Search, Building, Mail, PlusCircle, Pencil, Trash2, X, Check } from 'lucide-react'
 import SendEmailModal from '../../components/email/SendEmailModal'
 
 export default function CrmContactsPage() {
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [emailTarget, setEmailTarget] = useState<{ email: string; name: string; id: string } | null>(null)
+  const [editingId, setEditingId] = useState('')
+  const [editForm, setEditForm] = useState({ contact_name: '', contact_role: '', email: '', phone: '' })
 
-  // Company selection
+  // Company autocomplete
   const [companySearch, setCompanySearch] = useState('')
   const [selectedCompanyId, setSelectedCompanyId] = useState('')
   const [selectedCompanyName, setSelectedCompanyName] = useState('')
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false)
   const [showNewCompany, setShowNewCompany] = useState(false)
   const [newCompany, setNewCompany] = useState({ name: '', vat: '', sector: '', city: '', website: '' })
 
@@ -24,16 +27,21 @@ export default function CrmContactsPage() {
   const { data, isLoading } = useCrmContacts(search)
   const { data: companiesData } = useCrmCompanies(companySearch)
   const createContact = useCreateCrmContact()
+  const updateContact = useUpdateCrmContact()
+  const deleteContact = useDeleteCrmContact()
   const createCompany = useCreateCrmCompany()
 
   const filteredCompanies = companiesData?.companies || []
+  const showAutocomplete = companySearch.length >= 2 && filteredCompanies.length > 0 && showCompanyDropdown && !selectedCompanyId
 
   const handleCreateCompany = async () => {
     if (!newCompany.name) return
     const result = await createCompany.mutateAsync(newCompany)
     setSelectedCompanyId(result.id)
     setSelectedCompanyName(result.name)
+    setCompanySearch(result.name)
     setShowNewCompany(false)
+    setShowCompanyDropdown(false)
     setNewCompany({ name: '', vat: '', sector: '', city: '', website: '' })
   }
 
@@ -48,7 +56,28 @@ export default function CrmContactsPage() {
     setForm({ name: '', email: '', phone: '', contact_role: '' })
     setSelectedCompanyId('')
     setSelectedCompanyName('')
+    setCompanySearch('')
     setShowForm(false)
+  }
+
+  const handleStartEdit = (c: any) => {
+    setEditingId(c.id)
+    setEditForm({
+      contact_name: c.contact_name || '',
+      contact_role: c.contact_role || '',
+      email: c.email || '',
+      phone: c.phone || '',
+    })
+  }
+
+  const handleSaveEdit = async () => {
+    await updateContact.mutateAsync({ id: editingId, ...editForm })
+    setEditingId('')
+  }
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Eliminare il contatto "${name}"?`)) return
+    await deleteContact.mutateAsync(id)
   }
 
   return (
@@ -76,7 +105,7 @@ export default function CrmContactsPage() {
       {showForm && (
         <div className="rounded-xl border border-blue-200 bg-blue-50/30 p-6 space-y-4">
 
-          {/* Step 1: Select or create company */}
+          {/* Step 1: Company autocomplete */}
           <div>
             <h3 className="font-medium text-gray-900 mb-2">1. Azienda</h3>
             {selectedCompanyId ? (
@@ -85,7 +114,7 @@ export default function CrmContactsPage() {
                   <Building className="h-4 w-4 text-blue-600" />
                   <span className="font-medium text-blue-900">{selectedCompanyName}</span>
                 </div>
-                <button onClick={() => { setSelectedCompanyId(''); setSelectedCompanyName('') }}
+                <button onClick={() => { setSelectedCompanyId(''); setSelectedCompanyName(''); setCompanySearch('') }}
                   className="text-xs text-blue-600 hover:underline">Cambia</button>
               </div>
             ) : showNewCompany ? (
@@ -111,31 +140,55 @@ export default function CrmContactsPage() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-2">
-                <input type="text" value={companySearch} onChange={(e) => setCompanySearch(e.target.value)}
-                  placeholder="Cerca azienda esistente..."
+              <div className="relative">
+                <input type="text" value={companySearch}
+                  onChange={(e) => { setCompanySearch(e.target.value); setShowCompanyDropdown(true) }}
+                  onFocus={() => setShowCompanyDropdown(true)}
+                  placeholder="Digita almeno 2 caratteri per cercare azienda..."
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-                {companySearch && filteredCompanies.length > 0 && (
-                  <div className="max-h-32 overflow-y-auto space-y-1">
+
+                {/* Autocomplete dropdown */}
+                {showAutocomplete && (
+                  <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg max-h-48 overflow-y-auto">
                     {filteredCompanies.map((c: any) => (
-                      <button key={c.id} onClick={() => { setSelectedCompanyId(c.id); setSelectedCompanyName(c.name); setCompanySearch('') }}
-                        className="w-full flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-left text-sm hover:bg-gray-50">
-                        <Building className="h-3.5 w-3.5 text-gray-400" />
-                        <span className="font-medium">{c.name}</span>
-                        {c.city && <span className="text-xs text-gray-400">— {c.city}</span>}
+                      <button key={c.id}
+                        onClick={() => {
+                          setSelectedCompanyId(c.id)
+                          setSelectedCompanyName(c.name)
+                          setCompanySearch(c.name)
+                          setShowCompanyDropdown(false)
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-blue-50 border-b border-gray-100 last:border-0">
+                        <Building className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                        <div>
+                          <span className="font-medium">{c.name}</span>
+                          {c.city && <span className="text-xs text-gray-400 ml-2">— {c.city}</span>}
+                          {c.vat && <span className="text-xs text-gray-400 ml-2">P.IVA: {c.vat}</span>}
+                        </div>
                       </button>
                     ))}
                   </div>
                 )}
+
+                {companySearch.length >= 2 && filteredCompanies.length === 0 && showCompanyDropdown && (
+                  <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg p-3">
+                    <p className="text-xs text-gray-500 mb-2">Nessuna azienda trovata per "{companySearch}"</p>
+                    <button onClick={() => { setShowNewCompany(true); setShowCompanyDropdown(false); setNewCompany({ ...newCompany, name: companySearch }) }}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700">
+                      <PlusCircle className="h-3.5 w-3.5" /> Crea "{companySearch}"
+                    </button>
+                  </div>
+                )}
+
                 <button onClick={() => setShowNewCompany(true)}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700">
+                  className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700">
                   <PlusCircle className="h-3.5 w-3.5" /> Crea nuova azienda
                 </button>
               </div>
             )}
           </div>
 
-          {/* Step 2: Contact (referente) info */}
+          {/* Step 2: Contact info */}
           <div>
             <h3 className="font-medium text-gray-900 mb-2">2. Referente</h3>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -174,27 +227,63 @@ export default function CrmContactsPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {data.contacts.map((c: any) => (
             <div key={c.id} className="rounded-xl border border-gray-200 bg-white p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
-                  <Building className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-gray-900 truncate">{c.name}</p>
-                  {c.contact_name && (
-                    <p className="text-xs text-gray-600">{c.contact_name}{c.contact_role ? ` — ${c.contact_role}` : ''}</p>
-                  )}
-                  {c.vat && <p className="text-xs text-gray-400">P.IVA: {c.vat}</p>}
-                  {c.email && <p className="mt-1 text-sm text-gray-600 truncate">{c.email}</p>}
-                  {c.phone && <p className="text-sm text-gray-500">{c.phone}</p>}
-                  {c.city && <p className="mt-1 text-xs text-gray-400">{c.city}</p>}
-                  {c.email && (
-                    <button onClick={() => setEmailTarget({ email: c.email, name: c.name, id: c.id })}
-                      className="mt-2 inline-flex items-center gap-1 rounded-lg bg-purple-50 px-2.5 py-1 text-xs font-medium text-purple-700 hover:bg-purple-100">
-                      <Mail className="h-3 w-3" /> Invia email
+              {editingId === c.id ? (
+                /* Inline edit mode */
+                <div className="space-y-2">
+                  <input type="text" value={editForm.contact_name} onChange={(e) => setEditForm({ ...editForm, contact_name: e.target.value })}
+                    placeholder="Nome referente" className="w-full rounded border border-gray-300 px-2 py-1 text-sm" />
+                  <input type="text" value={editForm.contact_role} onChange={(e) => setEditForm({ ...editForm, contact_role: e.target.value })}
+                    placeholder="Ruolo" className="w-full rounded border border-gray-300 px-2 py-1 text-sm" />
+                  <input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    placeholder="Email" className="w-full rounded border border-gray-300 px-2 py-1 text-sm" />
+                  <input type="tel" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    placeholder="Telefono" className="w-full rounded border border-gray-300 px-2 py-1 text-sm" />
+                  <div className="flex gap-1">
+                    <button onClick={handleSaveEdit}
+                      className="inline-flex items-center gap-1 rounded bg-green-600 px-2 py-1 text-xs text-white">
+                      <Check className="h-3 w-3" /> Salva
                     </button>
-                  )}
+                    <button onClick={() => setEditingId('')}
+                      className="inline-flex items-center gap-1 rounded border border-gray-300 px-2 py-1 text-xs text-gray-600">
+                      <X className="h-3 w-3" /> Annulla
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* Normal view */
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600 flex-shrink-0">
+                    <Building className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-gray-900 truncate">{c.name}</p>
+                    {c.contact_name && (
+                      <p className="text-xs text-gray-600">{c.contact_name}{c.contact_role ? ` — ${c.contact_role}` : ''}</p>
+                    )}
+                    {c.vat && <p className="text-xs text-gray-400">P.IVA: {c.vat}</p>}
+                    {c.email && <p className="mt-1 text-sm text-gray-600 truncate">{c.email}</p>}
+                    {c.phone && <p className="text-sm text-gray-500">{c.phone}</p>}
+                    {c.city && <p className="mt-1 text-xs text-gray-400">{c.city}</p>}
+
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {c.email && (
+                        <button onClick={() => setEmailTarget({ email: c.email, name: c.name, id: c.id })}
+                          className="inline-flex items-center gap-1 rounded-lg bg-purple-50 px-2.5 py-1 text-xs font-medium text-purple-700 hover:bg-purple-100">
+                          <Mail className="h-3 w-3" /> Email
+                        </button>
+                      )}
+                      <button onClick={() => handleStartEdit(c)}
+                        className="inline-flex items-center gap-1 rounded-lg bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100">
+                        <Pencil className="h-3 w-3" /> Modifica
+                      </button>
+                      <button onClick={() => handleDelete(c.id, c.contact_name || c.name)}
+                        className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-100">
+                        <Trash2 className="h-3 w-3" /> Elimina
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -1364,6 +1364,21 @@ export function useCreateCrmActivity() {
   })
 }
 
+export function useUpdateCrmContact() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: any) => api.patch(`/crm/contacts/${id}`, data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-contacts'] }),
+  })
+}
+export function useDeleteCrmContact() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/crm/contacts/${id}`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-contacts'] }),
+  })
+}
+
 // ── Social Selling: Origins ──
 export function useOrigins(activeOnly = false) {
   return useQuery({
