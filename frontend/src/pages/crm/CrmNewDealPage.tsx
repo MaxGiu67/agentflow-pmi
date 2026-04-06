@@ -32,11 +32,14 @@ export default function CrmNewDealPage() {
   const [showNewContact, setShowNewContact] = useState(false)
   const [newContact, setNewContact] = useState({ name: '', email: '', phone: '', contact_role: '' })
 
-  // Company hooks (after state declarations)
-  const { data: companiesData } = useCrmCompanies(companySearch)
+  // Company hooks — load ALL companies, filter client-side
+  const { data: companiesData } = useCrmCompanies('')
   const createCompany = useCreateCrmCompany()
-  const filteredCompanies = companiesData?.companies || []
-  const showCompanyAutocomplete = companySearch.length >= 2 && filteredCompanies.length > 0 && showCompanyDropdown && !selectedCompanyId
+  const allCompanies = companiesData?.companies || []
+  const filteredCompanies = companySearch.length >= 1
+    ? allCompanies.filter((c: any) => c.name.toLowerCase().includes(companySearch.toLowerCase()))
+    : allCompanies
+  const showCompanyAutocomplete = showCompanyDropdown && !selectedCompanyId && filteredCompanies.length > 0
 
   const [name, setName] = useState('')
   const [dealType, setDealType] = useState('T&M')
@@ -185,7 +188,7 @@ export default function CrmNewDealPage() {
                       ))}
                     </div>
                   )}
-                  {companySearch.length >= 2 && filteredCompanies.length === 0 && showCompanyDropdown && (
+                  {companySearch.length >= 1 && filteredCompanies.length === 0 && showCompanyDropdown && (
                     <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg p-3">
                       <p className="text-xs text-gray-500 mb-2">Nessuna azienda trovata</p>
                       <button onClick={() => { setShowNewCompany(true); setShowCompanyDropdown(false); setNewCompanyForm({ ...newCompanyForm, name: companySearch }) }}

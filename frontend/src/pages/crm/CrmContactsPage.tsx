@@ -25,14 +25,17 @@ export default function CrmContactsPage() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', contact_role: '' })
 
   const { data, isLoading } = useCrmContacts(search)
-  const { data: companiesData } = useCrmCompanies(companySearch)
+  const { data: companiesData } = useCrmCompanies('')
   const createContact = useCreateCrmContact()
   const updateContact = useUpdateCrmContact()
   const deleteContact = useDeleteCrmContact()
   const createCompany = useCreateCrmCompany()
 
-  const filteredCompanies = companiesData?.companies || []
-  const showAutocomplete = companySearch.length >= 2 && filteredCompanies.length > 0 && showCompanyDropdown && !selectedCompanyId
+  const allCompanies = companiesData?.companies || []
+  const filteredCompanies = companySearch.length >= 1
+    ? allCompanies.filter((c: any) => c.name.toLowerCase().includes(companySearch.toLowerCase()))
+    : allCompanies
+  const showAutocomplete = showCompanyDropdown && !selectedCompanyId && filteredCompanies.length > 0
 
   const handleCreateCompany = async () => {
     if (!newCompany.name) return
@@ -170,7 +173,7 @@ export default function CrmContactsPage() {
                   </div>
                 )}
 
-                {companySearch.length >= 2 && filteredCompanies.length === 0 && showCompanyDropdown && (
+                {companySearch.length >= 1 && filteredCompanies.length === 0 && showCompanyDropdown && (
                   <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg p-3">
                     <p className="text-xs text-gray-500 mb-2">Nessuna azienda trovata per "{companySearch}"</p>
                     <button onClick={() => { setShowNewCompany(true); setShowCompanyDropdown(false); setNewCompany({ ...newCompany, name: companySearch }) }}
