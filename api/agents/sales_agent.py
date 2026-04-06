@@ -20,20 +20,28 @@ CORE_TOOLS = [
 # Tool specifici per pipeline_type
 PIPELINE_TOOLS: dict[str, list[str]] = {
     "vendita_diretta": [
-        # US-205: match_resources
-        # US-206: calc_margin, generate_tm_offer
-        # US-207: check_bench
+        "match_resources",       # US-205
+        "calc_margin",           # US-206
+        "generate_tm_offer",     # US-206
+        "check_bench",           # US-207
     ],
     "progetto_corpo": [
-        # US-219: prefill_specs, estimate_effort, generate_fixed_offer
+        "prefill_specs",         # US-219
+        "estimate_effort",       # US-219
+        "generate_fixed_offer",  # US-219
     ],
     "social_selling": [
-        # US-209: score_prospect, suggest_use_case_bundle
-        # US-214: generate_linkedin_message, suggest_content
-        # US-215: calc_warmth_score, check_linkedin_cadence
-        # US-220: prefill_discovery_brief, prepare_demo
-        # US-221: plan_onboarding, monitor_adoption
-        # US-210: calc_roi
+        "score_prospect",             # US-209
+        "suggest_use_case_bundle",    # US-209
+        "generate_linkedin_message",  # US-214
+        "suggest_content",            # US-214
+        "calc_warmth_score",          # US-215
+        "check_linkedin_cadence",     # US-215
+        "prefill_discovery_brief",    # US-220
+        "prepare_demo",              # US-220
+        "plan_onboarding",           # US-221
+        "monitor_adoption",          # US-221
+        "calc_roi",                  # US-210
     ],
 }
 

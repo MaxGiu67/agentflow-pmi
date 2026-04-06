@@ -3,7 +3,7 @@ import type { DragEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   useCrmPipeline, useCrmDeals, useCrmStages, useCrmAnalytics, useUpdateCrmDeal,
-  useActivityTypes, useCreateCrmActivity,
+  useActivityTypes, useCreateCrmActivity, usePipelineTemplates,
 } from '../../api/hooks'
 import { formatCurrency } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
@@ -22,6 +22,7 @@ export default function CrmPipelinePage() {
   const navigate = useNavigate()
   const [view, setView] = useState<'kanban' | 'table'>('kanban')
   const [typeFilter, setTypeFilter] = useState('')
+  const [pipelineTab, setPipelineTab] = useState('all')
   const dragDealId = useRef<string | null>(null)
 
   const { data: _pipeline } = useCrmPipeline()
@@ -31,6 +32,7 @@ export default function CrmPipelinePage() {
   const updateDeal = useUpdateCrmDeal()
   const { data: activityTypes } = useActivityTypes(true)
   const createActivity = useCreateCrmActivity()
+  const { data: pipelineTemplates } = usePipelineTemplates()
 
   // Stage move dialog
   const [moveDialog, setMoveDialog] = useState<{ dealId: string; dealName: string; contactId?: string; fromStage: string; toStageId: string; toStageName: string } | null>(null)
@@ -171,6 +173,34 @@ export default function CrmPipelinePage() {
             <p className="text-[10px] font-semibold uppercase text-gray-400">Win rate</p>
             <p className="text-lg font-bold text-gray-700">{analytics.won_lost_ratio}%</p>
           </div>
+        </div>
+      )}
+
+      {/* Pipeline tabs (US-203) */}
+      {pipelineTemplates && pipelineTemplates.length > 0 && (
+        <div className="flex gap-1 rounded-lg border border-gray-200 bg-white p-1">
+          <button
+            onClick={() => setPipelineTab('all')}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              pipelineTab === 'all' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Tutti ({deals?.deals?.length || 0})
+          </button>
+          {pipelineTemplates.map((tmpl: any) => {
+            const count = deals?.deals?.filter((d: any) => d.pipeline_template_id === tmpl.id).length || 0
+            return (
+              <button
+                key={tmpl.id}
+                onClick={() => setPipelineTab(tmpl.id)}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  pipelineTab === tmpl.id ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {tmpl.name} ({count})
+              </button>
+            )
+          })}
         </div>
       )}
 

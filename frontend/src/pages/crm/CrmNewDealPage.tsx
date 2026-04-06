@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useCrmContacts, useCreateCrmDeal, useCreateCrmContact, useCrmStages, useActivityTypes, useCreateCrmActivity } from '../../api/hooks'
+import { useCrmContacts, useCreateCrmDeal, useCreateCrmContact, useCrmStages, useActivityTypes, useCreateCrmActivity, useProducts, usePipelineTemplates } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import PageMeta from '../../components/ui/PageMeta'
 import { ArrowLeft, Plus, Search } from 'lucide-react'
@@ -20,6 +20,8 @@ export default function CrmNewDealPage() {
   const { data: stages } = useCrmStages()
   const { data: activityTypes } = useActivityTypes(true)
   const createActivity = useCreateCrmActivity()
+  const { data: products } = useProducts(true)
+  const { data: pipelineTemplates } = usePipelineTemplates()
 
   const [step, setStep] = useState(1)
   const [contactSearch, setContactSearch] = useState('')
@@ -35,6 +37,8 @@ export default function CrmNewDealPage() {
   const [estimatedDays, setEstimatedDays] = useState('')
   const [technology, setTechnology] = useState('')
 
+  const [productId, setProductId] = useState('')
+  const [selectedPipeline, setSelectedPipeline] = useState<any>(null)
   const [stageId, setStageId] = useState('')
   const [actSubject, setActSubject] = useState('')
   const [actType, setActType] = useState('call')
@@ -67,6 +71,7 @@ export default function CrmNewDealPage() {
     if (!name.trim()) { setError('Il nome dell\'opportunita e obbligatorio'); return }
 
     try {
+      const selectedProduct = products?.find((p: any) => p.id === productId)
       const deal = await createDeal.mutateAsync({
         name,
         contact_id: selectedContactId || undefined,
@@ -76,6 +81,7 @@ export default function CrmNewDealPage() {
         estimated_days: parseFloat(estimatedDays) || 0,
         technology,
         stage_id: stageId || undefined,
+        pipeline_template_id: selectedProduct?.pipeline_template_id || undefined,
       })
 
       // Create initial activity if provided
@@ -212,6 +218,35 @@ export default function CrmNewDealPage() {
                 placeholder="es. Migrazione SAP S/4HANA per Acme SPA"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none" />
             </div>
+
+            {/* Prodotto → Pipeline (US-201) */}
+            {products && products.length > 0 && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Prodotto (determina la pipeline)</label>
+                <select value={productId}
+                  onChange={(e) => {
+                    setProductId(e.target.value)
+                    const prod = products.find((p: any) => p.id === e.target.value)
+                    if (prod?.pipeline_template_id && pipelineTemplates) {
+                      const tmpl = pipelineTemplates.find((t: any) => t.id === prod.pipeline_template_id)
+                      setSelectedPipeline(tmpl || null)
+                    } else {
+                      setSelectedPipeline(null)
+                    }
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm">
+                  <option value="">— Seleziona prodotto (opzionale) —</option>
+                  {products.map((p: any) => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.pricing_model})</option>
+                  ))}
+                </select>
+                {selectedPipeline && (
+                  <p className="mt-1 text-xs text-purple-600">
+                    Pipeline: {selectedPipeline.name} ({selectedPipeline.stage_count} stati)
+                  </p>
+                )}
+              </div>
+            )}
 
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">Tipo</label>
