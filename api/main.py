@@ -141,6 +141,56 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+# ── Manual migration endpoint (call once after deploy) ──
+@app.get("/api/v1/admin/migrate")
+async def admin_migrate():
+    """One-time manual migration: creates missing tables and columns.
+    Call this after deploy if lifespan didn't run the migrations."""
+    from sqlalchemy import text
+    from api.db.session import engine
+    from api.db.models import Base
+
+    results = []
+
+    # Step 1: Create all missing tables
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        results.append("Tables: create_all executed")
+
+    # Step 2: ALTER TABLE for new columns
+    alter_statements = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS microsoft_token TEXT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS calendly_url VARCHAR(500)",
+        "ALTER TABLE crm_activities ADD COLUMN IF NOT EXISTS outlook_event_id VARCHAR(255)",
+        "ALTER TABLE crm_products ADD COLUMN IF NOT EXISTS pipeline_template_id UUID",
+        "ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS pipeline_template_id UUID",
+        "ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS company_id UUID",
+        "ALTER TABLE crm_contacts ADD COLUMN IF NOT EXISTS company_id UUID",
+        "ALTER TABLE crm_contacts ADD COLUMN IF NOT EXISTS contact_name VARCHAR(255)",
+        "ALTER TABLE crm_contacts ADD COLUMN IF NOT EXISTS contact_role VARCHAR(100)",
+        "ALTER TABLE crm_contacts ADD COLUMN IF NOT EXISTS origin_id UUID",
+        "ALTER TABLE crm_pipeline_stages ADD COLUMN IF NOT EXISTS stage_type VARCHAR(50) DEFAULT 'pipeline'",
+        "ALTER TABLE crm_pipeline_stages ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
+        "ALTER TABLE crm_activities ADD COLUMN IF NOT EXISTS activity_type_id UUID",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS user_type VARCHAR(50) DEFAULT 'internal'",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS access_expires_at TIMESTAMP",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS crm_role_id UUID",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS default_origin_id UUID",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS default_product_id UUID",
+    ]
+
+    async with engine.begin() as conn:
+        for stmt in alter_statements:
+            try:
+                await conn.execute(text(stmt))
+                col = stmt.split("ADD COLUMN IF NOT EXISTS ")[1].split(" ")[0]
+                results.append(f"ALTER: {col} OK")
+            except Exception as e:
+                results.append(f"ALTER: {stmt[:50]}... SKIP ({e})")
+
+    return {"status": "migration_complete", "results": results}
+
 frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
 app.add_middleware(
     CORSMiddleware,
