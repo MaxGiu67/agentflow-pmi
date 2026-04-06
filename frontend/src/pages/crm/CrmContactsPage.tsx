@@ -34,8 +34,8 @@ export default function CrmContactsPage() {
   const allCompanies = (companiesData?.companies || []).sort((a: any, b: any) => a.name.localeCompare(b.name))
   const filteredCompanies = companySearch.length >= 3
     ? allCompanies.filter((c: any) => c.name.toLowerCase().includes(companySearch.toLowerCase()))
-    : companySearch.length === 0 && showCompanyDropdown ? allCompanies : []
-  const showAutocomplete = showCompanyDropdown && !selectedCompanyId && filteredCompanies.length > 0
+    : allCompanies
+  const showAutocomplete = showCompanyDropdown && !selectedCompanyId
 
   const handleCreateCompany = async () => {
     if (!newCompany.name) return
