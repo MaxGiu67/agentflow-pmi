@@ -112,7 +112,7 @@ export default function CrmDealDetailPage() {
     <div className="space-y-6">
       <PageHeader
         title={deal.name}
-        subtitle={`${deal.client_name} - ${deal.stage}`}
+        subtitle={`${deal.client_name} · ${deal.stage}`}
         actions={
           <div className="flex items-center gap-2">
             {calendlyData?.calendly_url && (
@@ -136,6 +136,34 @@ export default function CrmDealDetailPage() {
           </div>
         }
       />
+
+      {/* Badge tipo vendita + pipeline + commerciale */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`rounded-full px-3 py-1 text-xs font-medium ${
+          deal.deal_type === 'T&M' ? 'bg-purple-100 text-purple-700' :
+          deal.deal_type === 'fixed' ? 'bg-blue-100 text-blue-700' :
+          deal.deal_type === 'spot' ? 'bg-green-100 text-green-700' :
+          'bg-gray-100 text-gray-700'
+        }`}>
+          {deal.deal_type === 'T&M' ? '🤝 Consulenza' : deal.deal_type === 'fixed' ? '📋 Progetto a corpo' : deal.deal_type === 'spot' ? '🤖 Elevia / Prodotto' : '📦 ' + (deal.deal_type || 'Altro')}
+        </span>
+        <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+          Fase: {deal.stage}
+        </span>
+        <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+          Probabilita: {deal.probability}%
+        </span>
+        {deal.assigned_to_name && (
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+            {deal.assigned_to_name}
+          </span>
+        )}
+        {deal.pipeline_template_id && (
+          <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-700">
+            Pipeline: {deal.pipeline_template_id.slice(0, 8)}...
+          </span>
+        )}
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* ── Deal Info ── */}
