@@ -6,8 +6,7 @@ import interactionPlugin from '@fullcalendar/interaction'
 import { useCrmActivities, useMicrosoftCalendarStatus, useMicrosoftConnect, useMicrosoftDisconnect, useCalendlyUrl, useUpdateCalendlyUrl } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
-import { Calendar, Download, Link2, Unlink, Settings, ExternalLink } from 'lucide-react'
-import { createEvent } from 'ics'
+import { Download, Link2, Unlink, Settings, ExternalLink } from 'lucide-react'
 
 const TYPE_COLORS: Record<string, string> = {
   call: '#3b82f6',

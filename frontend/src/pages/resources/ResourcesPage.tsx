@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { useResources, useCreateResource, useUpdateResource, useAddResourceSkill, useResourceBench } from '../../api/hooks'
+import { useResources, useCreateResource, useAddResourceSkill, useResourceBench } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
-import { Users, Plus, Search, Star, Calendar, AlertTriangle } from 'lucide-react'
+import { Users, Plus, Search, Calendar, AlertTriangle } from 'lucide-react'
 
 const SENIORITY_COLORS: Record<string, string> = {
   junior: 'bg-green-100 text-green-700',

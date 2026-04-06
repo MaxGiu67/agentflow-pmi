@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useEleviaUseCases, useEleviaScoreProspect } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
-import { Cpu, Target, Calculator } from 'lucide-react'
+import { Cpu, Target } from 'lucide-react'
 
 const ATECO_LABELS: Record<string, string> = {
   '24': 'Metallurgia', '25': 'Prodotti in metallo', '46': 'Commercio ingrosso', '20': 'Chimica',
