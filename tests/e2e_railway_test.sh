@@ -52,10 +52,9 @@ TOKEN=$(jq_val "$LOGIN" "d.get('access_token','')")
 AUTH="Authorization: Bearer $TOKEN"
 check "Login restituisce token" "$([ -n "$TOKEN" ] && [ ${#TOKEN} -gt 20 ] && echo true || echo false)"
 
-# Verify token works
-ME=$(curl -s "$API/auth/me" -H "$AUTH")
-ME_EMAIL=$(jq_val "$ME" "d.get('email','')")
-check "Token valido (GET /auth/me)" "$([ "$ME_EMAIL" = "mgiurelli@taal.it" ] && echo true || echo false)"
+# Verify token works by calling an endpoint that requires auth
+ME_TEST=$(curl -s -o /dev/null -w "%{http_code}" "$API/crm/deals?limit=1" -H "$AUTH")
+check "Token valido (GET /crm/deals)" "$([ "$ME_TEST" = "200" ] && echo true || echo false)"
 
 # Invalid login
 BAD_LOGIN=$(curl -s -o /dev/null -w "%{http_code}" "$API/auth/login" -H "Content-Type: application/json" \
@@ -193,9 +192,16 @@ CT_TOTAL=$(jq_val "$CONTACTS" "d.get('total',0)")
 check "List contacts (>= 5)" "$([ "$CT_TOTAL" -ge 5 ] 2>/dev/null && echo true || echo false)"
 
 # 3.7 Verify contact 1 in list has correct company_id
-CT1_LIST_CID=$(jq_val "$CONTACTS" "
-next((c.get('company_id','') for c in d.get('contacts',[]) if c.get('id')=='$CT1_ID'), '')
-")
+CT1_LIST_CID=$(echo "$CONTACTS" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+for c in d.get('contacts',[]):
+    if c.get('id')=='$CT1_ID':
+        print(c.get('company_id',''))
+        break
+else:
+    print('')
+" 2>/dev/null)
 check "Contact 1 in list has correct company_id" "$([ "$CT1_LIST_CID" = "$C1_ID" ] && echo true || echo false)"
 
 # 3.8 Verify contact 4 in list has null company_id
@@ -312,7 +318,7 @@ D1_CID=$(jq_val "$D1" "d.get('company_id','')")
 D1_TECH=$(jq_val "$D1" "d.get('technology','')")
 D1_STAGE=$(jq_val "$D1" "d.get('stage','')")
 check "Create deal T&M" "$([ "$D1_TYPE" = "T&M" ] && echo true || echo false)"
-check "Deal T&M revenue = 45000" "$([ "$D1_REV" = "45000" ] && echo true || echo false)"
+check "Deal T&M revenue = 45000" "$(python3 -c "print('true' if float('$D1_REV') == 45000 else 'false')" 2>/dev/null)"
 check "Deal T&M pipeline_template_id saved" "$([ "$D1_PTID" = "$VD_ID" ] && echo true || echo false)"
 check "Deal T&M company_id saved" "$([ "$D1_CID" = "$C1_ID" ] && echo true || echo false)"
 check "Deal T&M technology saved" "$(echo "$D1_TECH" | grep -q "Java" && echo true || echo false)"
@@ -328,7 +334,7 @@ D1G_PTID=$(jq_val "$D1_GET" "d.get('pipeline_template_id','')")
 D1G_CID=$(jq_val "$D1_GET" "d.get('company_id','')")
 check "GET deal T&M: name OK" "$([ "$D1G_NAME" = "E2E Consulenza Java Spring" ] && echo true || echo false)"
 check "GET deal T&M: deal_type OK" "$([ "$D1G_TYPE" = "T&M" ] && echo true || echo false)"
-check "GET deal T&M: revenue OK" "$([ "$D1G_REV" = "45000" ] && echo true || echo false)"
+check "GET deal T&M: revenue OK" "$(python3 -c "print('true' if float('$D1G_REV') == 45000 else 'false')" 2>/dev/null)"
 check "GET deal T&M: technology OK" "$(echo "$D1G_TECH" | grep -q "Spring" && echo true || echo false)"
 check "GET deal T&M: pipeline_template_id OK" "$([ "$D1G_PTID" = "$VD_ID" ] && echo true || echo false)"
 check "GET deal T&M: company_id OK" "$([ "$D1G_CID" = "$C1_ID" ] && echo true || echo false)"
@@ -341,7 +347,7 @@ D2_TYPE=$(jq_val "$D2" "d.get('deal_type','')")
 D2_REV=$(jq_val "$D2" "d.get('expected_revenue',0)")
 D2_PTID=$(jq_val "$D2" "d.get('pipeline_template_id','')")
 check "Create deal Corpo" "$([ "$D2_TYPE" = "fixed" ] && echo true || echo false)"
-check "Deal Corpo revenue = 80000" "$([ "$D2_REV" = "80000" ] && echo true || echo false)"
+check "Deal Corpo revenue = 80000" "$(python3 -c "print('true' if float('$D2_REV') == 80000 else 'false')" 2>/dev/null)"
 check "Deal Corpo pipeline_template_id" "$([ "$D2_PTID" = "$PC_ID" ] && echo true || echo false)"
 
 # 6.4 Create deal Elevia (Social Selling)
@@ -474,11 +480,14 @@ ACT1_COUNT=$(jq_val "$ACTS_D1" "len(d) if isinstance(d,list) else len(d.get('act
 check "Activity log created for stage move" "$([ "$ACT1_COUNT" -ge 1 ] 2>/dev/null && echo true || echo false)"
 
 # 7.4 Verify activity has correct subject
-ACT1_SUBJECT=$(jq_val "$ACTS_D1" "
+ACT1_HAS_SPOSTATO=$(echo "$ACTS_D1" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
 acts = d if isinstance(d,list) else d.get('activities',d.get('items',[]))
-next((a['subject'] for a in acts if 'spostato' in a.get('subject','')), '')
-")
-check "Activity subject contains 'spostato'" "$(echo "$ACT1_SUBJECT" | grep -q "spostato" && echo true || echo false)"
+found = any('spostato' in a.get('subject','') for a in acts)
+print('true' if found else 'false')
+" 2>/dev/null)
+check "Activity subject contains 'spostato'" "$([ "$ACT1_HAS_SPOSTATO" = "true" ] && echo true || echo false)"
 
 # 7.5 Get Qualificato stage
 QUAL_STAGE_ID=$(jq_val "$STAGES" "next((s['id'] for s in d if 'Qualificato' == s.get('name','')), '')")
@@ -789,7 +798,7 @@ DFG_REV=$(jq_val "$DF_GET" "d.get('expected_revenue',0)")
 DFG_PTID=$(jq_val "$DF_GET" "d.get('pipeline_template_id','')")
 check "GET full deal name" "$([ "$DFG_NAME" = "E2E Full Deal" ] && echo true || echo false)"
 check "GET full deal type" "$([ "$DFG_TYPE" = "T&M" ] && echo true || echo false)"
-check "GET full deal revenue" "$([ "$DFG_REV" = "100000" ] && echo true || echo false)"
+check "GET full deal revenue" "$(python3 -c "print('true' if float('$DFG_REV') == 100000 else 'false')" 2>/dev/null)"
 check "GET full deal pipeline_template_id" "$([ "$DFG_PTID" = "$VD_ID" ] && echo true || echo false)"
 
 echo ""

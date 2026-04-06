@@ -59,7 +59,10 @@ class OrderRegister(BaseModel):
 
 class ContactResponse(BaseModel):
     id: str
+    company_id: str | None = None
     name: str
+    contact_name: str = ""
+    contact_role: str = ""
     type: str = "lead"
     email: str = ""
     phone: str = ""
@@ -68,8 +71,10 @@ class ContactResponse(BaseModel):
     province: str = ""
     sector: str = ""
     source: str = ""
+    website: str = ""
     email_opt_in: bool = True
     assigned_to: str | None = None
+    origin_id: str | None = None
 
 
 class DealResponse(BaseModel):
@@ -77,8 +82,10 @@ class DealResponse(BaseModel):
     name: str
     client_name: str = ""
     client_id: str = ""
+    company_id: str = ""
     stage: str = ""
     stage_id: str = ""
+    pipeline_template_id: str = ""
     expected_revenue: float = 0
     probability: float = 0
     deal_type: str = ""
@@ -86,6 +93,8 @@ class DealResponse(BaseModel):
     estimated_days: float = 0
     technology: str = ""
     assigned_to: str = ""
+    assigned_to_name: str = ""
+    days_in_stage: int = 0
     order_type: str = ""
     order_reference: str = ""
     order_date: str = ""
