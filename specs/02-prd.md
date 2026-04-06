@@ -582,5 +582,165 @@ AgentFlow non sostituisce il programma di contabilita — lo affianca. Non e' ri
 | P6 | useOptimistic per Kanban drag-and-drop | Should |
 
 ---
+
+## EPIC 17: Pipeline Templates — Prodotto determina processo (Pivot 9 — v3.0)
+
+**Principio v3.0:** Il prodotto scelto dal commerciale determina automaticamente la pipeline. Le pipeline sono template FSM salvati nel DB, personalizzabili per tenant. Il commerciale vende tutto: T&M, corpo, Elevia — non e legato a una pipeline.
+
+| # | Requisito | Priorita | Giustificazione |
+|---|-----------|----------|-----------------|
+| PT1 | Tabella `PipelineTemplate` con FSM (stati, required_fields, SLA, AI actions) | Must | FSM dinamica da DB — principio v3.0 |
+| PT2 | Seed 3 template: T&M (6 stati), Corpo (7 stati), Elevia (8 stati) | Must | Il primo tenant (Nexa Data) ha 3 processi vendita diversi |
+| PT3 | Prodotto → Pipeline: FK `CrmProduct.pipeline_template_id` | Must | Il prodotto selettore la pipeline automaticamente |
+| PT4 | Create deal → scelta prodotto → sistema carica FSM corretta | Must | Flusso core della v3.0 |
+| PT5 | Admin puo creare/modificare pipeline template custom | Should | Ogni PMI ha processi diversi |
+| PT6 | Pipeline non bloccanti: commerciale puo saltare stati | Must | AI aiuta, non impone |
+| PT7 | Required fields per stato (chiesti dall'agente, non form obbligatorio) | Must | Snellezza operativa |
+
+**Pipeline T&M (6 stati):** Lead → Qualifica → Match risorse → Offerta → Negoziazione → Won/Lost → Delivery
+**Pipeline Corpo (7 stati):** Lead → Analisi requisiti → Specifiche → [Demo] → Offerta → Negoziazione → Won/Lost → Delivery
+**Pipeline Elevia (8 stati):** Prospect → Connessione → Engagement → Discovery Call → [Demo] → Offerta → Won/Lost → Onboarding
+
+---
+
+## EPIC 18: Resource DB e Matching (Pivot 9 — v3.0, T&M)
+
+**Per chi:** Commerciale T&M che vende consulenti IT. Deve sapere se ha risorse disponibili prima di fare un'offerta.
+
+| # | Requisito | Priorita | Giustificazione |
+|---|-----------|----------|-----------------|
+| R1 | Tabella `Resource` (nome, seniority, costo_giornaliero, disponibilita) | Must | DB competenze interne — core T&M |
+| R2 | Tabella `ResourceSkill` (skill, livello 1-5, certificazioni) | Must | Matching richiesta ↔ risorse |
+| R3 | Tool `match_resources`: dato stack + seniority + durata, trova top 5 profili | Must | Automazione matching — oggi e manuale su Excel |
+| R4 | Tool `calc_margin`: margine = (tariffa - costo) / tariffa | Must | Soglia 15% — sotto serve approvazione manager |
+| R5 | Bench tracking: alert risorse che si liberano in 30gg | Should | Evita bench invenduto |
+| R6 | UI pagina Risorse: CRUD + filtri per skill/seniority/disponibilita | Must | Il commerciale deve vedere chi ha disponibile |
+| R7 | CV anonimi allegabili all'offerta | Should | Standard nel T&M consulting |
+
+**Modelli DB:** Resource, ResourceSkill
+**Nuovi endpoint:** ~8 (CRUD risorse + matching + margin)
+
+---
+
+## EPIC 19: Elevia Use Case Engine (Pivot 9 — v3.0, Elevia)
+
+**Per chi:** Fractional account LinkedIn (Pietro) che vende Elevia a PMI per settore ATECO.
+
+| # | Requisito | Priorita | Giustificazione |
+|---|-----------|----------|-----------------|
+| EU1 | Tabella `EleviaUseCase` (codice, nome, descrizione, fit_score per ATECO) | Must | 20+ use case mappati per settore |
+| EU2 | Tabella `AtecoUseCaseMatrix` (ATECO → use case → fit score 0-100) | Must | Scoring automatico prospect per settore |
+| EU3 | Tool `score_prospect`: fit score composito (ATECO 30% + dimensione 15% + use case 25% + engagement 20% + decision maker 10%) | Must | Prioritizzazione prospect |
+| EU4 | Tool `suggest_use_case_bundle`: bundle ottimale per settore | Must | Metallurgia: UC02+UC04+UC13+UC14, Commercio: UC01+UC03+UC05+UC06+UC15, Chimica: UC02+UC04+UC07+UC09 |
+| EU5 | Tool `calc_roi`: ROI stimato per azienda/settore/dimensione | Should | Supporto alla proposta commerciale |
+| EU6 | Seed dati: 20+ use case Elevia + matrice ATECO per settori P1/P2 | Must | Dati pre-caricati da AI_Dorsey docs |
+| EU7 | UI pagina Use Case Catalog: lista use case con fit per settore | Should | Visibilita per il commerciale |
+
+**Modelli DB:** EleviaUseCase, AtecoUseCaseMatrix
+**Nuovi endpoint:** ~6 (CRUD use case + scoring + bundles)
+
+---
+
+## EPIC 20: Agent Refactor — Sales Agent unico (Pivot 9 — v3.0)
+
+**Principio:** Un solo Sales Agent per tutti i prodotti. L'agente carica i tool giusti in base al prodotto sul deal. L'orchestratore smista tra Sales/Controller/Analytics. Dettaglio: `specs/technical/agent-architecture.md` (ADR-010).
+
+| # | Requisito | Priorita | Giustificazione |
+|---|-----------|----------|-----------------|
+| AR1 | Agent registry con pattern plugin (registra/disabilita agenti) | Must | Estensibilita: nuovo agente = 1 file + 1 riga |
+| AR2 | Refactor graph.py: da tool-dispatch a agent-dispatch | Must | Router decide l'agente, non il tool singolo |
+| AR3 | Sales Agent con 8 tool core (ask_info, suggest_next, draft_email, move_stage, log_activity, deal_summary, classify_loss, detect_cross_sell) | Must | Funzionano per qualsiasi prodotto/pipeline |
+| AR4 | Sales Agent tool T&M: match_resources, calc_margin, generate_tm_offer, check_bench | Must | Attivati solo per prodotti T&M |
+| AR5 | Sales Agent tool Corpo: prefill_specs, estimate_effort, generate_fixed_offer | Must | Attivati solo per prodotti a corpo |
+| AR6 | Sales Agent tool Elevia: score_prospect, suggest_bundle, linkedin_message, warmth_score, roi, onboarding, adoption, linkedin_cadence | Must | Attivati solo per prodotti Elevia |
+| AR7 | Controller Agent: wrapper dei 17 tool esistenti | Must | Zero regressione |
+| AR8 | Analytics Agent: cashflow + pipeline analytics + KPI + cross-sell report | Must | Separato da Sales |
+| AR9 | Context injection: tenant + user + deal + pipeline + FSM | Must | L'agente sa sempre dove si trova |
+| AR10 | Tool filtering per product.pipeline_type | Must | L'agente vede solo i tool del prodotto corrente |
+
+**Nessun nuovo modello DB.** Refactor del codice orchestratore + 3 nuovi file agente.
+
+---
+
+## EPIC 21: LinkedIn Social Selling (Pivot 9 — v3.0, Elevia)
+
+**Per chi:** Fractional account manager che opera su LinkedIn Navigator. 200 connection/mese, social selling puro.
+
+| # | Requisito | Priorita | Giustificazione |
+|---|-----------|----------|-----------------|
+| LS1 | Tool `generate_linkedin_message`: messaggio personalizzato per fase e settore ATECO | Must | Connection request < 200 char, DM < 300 char |
+| LS2 | Tool `suggest_content`: case study e whitepaper per settore prospect | Must | Nurturing basato su contenuto di valore |
+| LS3 | Tool `calc_warmth_score`: score engagement (connessione +20, risposta +30, like +15, commento +25) | Must | Threshold >60 = ready for call |
+| LS4 | Tool `check_linkedin_cadence`: verifica warm-up fatto, touchpoint, prossima azione | Must | Cadence 21 giorni strutturata |
+| LS5 | Import CSV LinkedIn: import lista prospect da Sales Navigator export | Should | Caricamento bulk prospect |
+| LS6 | Pagina Cadence LinkedIn: vista prospect con stato cadence e prossima azione | Should | Dashboard operativa fractional |
+
+**Cadence LinkedIn (21 giorni):**
+Giorno -7: View profilo → -5: Follow azienda → -3: Like post → -1: Commento → 1: Connection request → 3: Conversation starter → 7: Share contenuto → 14: Soft ask call → 21: Breakup
+
+**Nessun modello DB nuovo** — usa CrmContact + CrmActivity + CrmDeal esistenti. I dati cadence sono attivita con tipo "linkedin_*".
+
+---
+
+## EPIC 22: Cross-sell Engine (Pivot 9 — v3.0)
+
+**Per chi:** Tutti i commerciali. Il sistema rileva segnali di cross-sell tra pipeline diverse per la stessa azienda.
+
+| # | Requisito | Priorita | Giustificazione |
+|---|-----------|----------|-----------------|
+| CS1 | Tabella `CrossSellSignal` (deal_source, deal_target, signal_type, priority, status) | Must | Tracciamento segnali |
+| CS2 | Tool `detect_cross_sell`: analizza note/attivita del deal per keyword (documentazione → Elevia, sviluppo custom → T&M) | Must | Rilevamento automatico |
+| CS3 | Notifica al commerciale: "Deal ACME T&M — segnale Elevia rilevato: cliente menziona knowledge base" | Must | Suggerimento actionable |
+| CS4 | Report cross-sell: segnali rilevati, convertiti, valore | Should | Analytics per management |
+| CS5 | Regole cross-sell configurabili per tenant (keyword → prodotto target) | Could | Personalizzazione |
+
+**Modelli DB:** CrossSellSignal
+**Nuovi endpoint:** ~4 (list signals, create, update status, report)
+
+---
+
+## MoSCoW Pivot 9 (v3.0)
+
+### Must Have
+1. Pipeline Templates con seed T&M/Corpo/Elevia (EPIC 17)
+2. Resource DB + matching + margine (EPIC 18)
+3. Elevia Use Case Engine con ATECO scoring (EPIC 19)
+4. Agent Refactor: Sales Agent unico + Controller + Analytics (EPIC 20)
+5. LinkedIn message generation + warmth score + cadence (EPIC 21)
+6. Cross-sell signal detection (EPIC 22)
+
+### Should Have
+7. Bench tracking risorse (EPIC 18)
+8. ROI calculator Elevia (EPIC 19)
+9. Import CSV LinkedIn (EPIC 21)
+10. Pipeline template editor admin (EPIC 17)
+
+### Won't Have (ora)
+11. LinkedIn API diretta (solo composizione messaggi, no automazione)
+12. WhatsApp Business API
+13. Editor visuale FSM drag-and-drop
+14. Lead scoring predittivo ML
+15. OrderAgent, InvoiceAgent
+
+---
+
+## Posizionamento (aggiornato Pivot 9)
+
+**"L'AI che vende con te e gestisce per te."**
+
+AgentFlow non e un CRM con AI sovrapposta. E un assistente che conosce il tuo processo di vendita, sa quali risorse hai, prepara le offerte, traccia i follow-up, e nel frattempo gestisce fatture, scadenze e cash flow. Un solo sistema, un solo assistente, zero switch tra app.
+
+| Dimensione | CRM tradizionale | AgentFlow v3.0 |
+|------------|-----------------|----------------|
+| Pipeline | Fissa, uguale per tutti | Per-prodotto, snella, personalizzabile |
+| AI | Suggerimenti generici | Agente che conosce il tuo processo specifico |
+| Matching risorse | Non esiste | Core per T&M (stack, seniority, disponibilita, margine) |
+| Social selling | Plugin esterno (Apollo, Lemlist) | Integrato: cadence, scoring, messaggi per settore |
+| Controller | Non esiste | Fatture, scadenze, cash flow, budget — sotto il cofano |
+| Cross-sell | Manuale | Automatico: segnali tra pipeline diverse |
+| Onboarding | Settimane di configurazione | Scegli il prodotto, la pipeline si crea da sola |
+
+---
+_Aggiornato: 2026-04-06 — Pivot 9: AgentFlow v3.0 (EPIC 17-22)_
 _Aggiornato: 2026-04-03 — Pivot 6+7 (EPIC 13-16)_
 _Aggiornato: 2026-03-29 — Pivot 5: Controller Aziendale AI_

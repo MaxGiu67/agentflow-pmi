@@ -514,9 +514,9 @@ class TestMultiAgentResponse:
         assert result["status_code"] == 200
         data = result["data"]
 
-        # The fallback formatter should include [fisco] badges
+        # The fallback formatter should include agent badges (controller/sales/analytics)
         content = data["content"]
-        assert "[fisco]" in content
+        assert "[controller]" in content or "[fisco]" in content or "[sales]" in content
 
 
 # ============================================================

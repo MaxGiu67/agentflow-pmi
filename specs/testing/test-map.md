@@ -171,4 +171,216 @@
 ---
 
 **Totale Sprint 3:** 25 test | **PASS:** 25 | **FAIL:** 0
-**Totale Cumulativo:** 92 test | **PASS:** 92 | **FAIL:** 0
+**Totale Cumulativo (Sprint 1-3):** 92 test | **PASS:** 92 | **FAIL:** 0
+
+---
+
+## Sprint 28-32: Social Selling + User Management (Pivot 8)
+
+### US-130: Admin definisce origine contact custom
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-130 | US-130 | test_social_selling_origins_api.py | test_ac_130_list_origins_seeds_defaults | Integration | PASS | 2026-04-05 |
+| AC-130 | US-130 | test_social_selling_origins_api.py | test_ac_130_list_origins_active_only | Integration | PASS | 2026-04-05 |
+| AC-130.1 | US-130 | test_social_selling_origins_api.py | test_ac_130_1_create_origin | Integration | PASS | 2026-04-05 |
+| AC-130.2 | US-130 | test_social_selling_origins_api.py | test_ac_130_2_duplicate_code_rejected | Integration | PASS | 2026-04-05 |
+| AC-130 | US-130 | test_social_selling_origins_api.py | test_ac_130_viewer_cannot_create | Integration | PASS | 2026-04-05 |
+
+### US-131: Admin modifica/disattiva origine
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-131.1 | US-131 | test_social_selling_origins_api.py | test_ac_131_1_update_label | Integration | PASS | 2026-04-05 |
+| AC-131.3 | US-131 | test_social_selling_origins_api.py | test_ac_131_3_code_immutable | Integration | PASS | 2026-04-05 |
+| AC-131.2 | US-131 | test_social_selling_origins_api.py | test_ac_131_deactivate | Integration | PASS | 2026-04-05 |
+| AC-131.4 | US-131 | test_social_selling_origins_api.py | test_ac_131_4_delete_free_origin | Integration | PASS | 2026-04-05 |
+| AC-131.4 | US-131 | test_social_selling_origins_api.py | test_ac_131_4_delete_blocked_if_contacts | Integration | PASS | 2026-04-05 |
+| AC-131 | US-131 | test_social_selling_origins_api.py | test_ac_131_update_nonexistent | Integration | PASS | 2026-04-05 |
+| AC-131 | US-131 | test_social_selling_origins_api.py | test_ac_131_delete_nonexistent | Integration | PASS | 2026-04-05 |
+
+### US-132: Migrare campo source a origine FK
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-132.1 | US-132 | test_social_selling_origins_api.py | test_ac_132_1_migrate_creates_origin | Integration | PASS | 2026-04-05 |
+| AC-132.2 | US-132 | test_social_selling_origins_api.py | test_ac_132_2_migrate_idempotent | Integration | PASS | 2026-04-05 |
+| AC-132 | US-132 | test_social_selling_origins_api.py | test_ac_132_viewer_cannot_migrate | Integration | PASS | 2026-04-05 |
+
+### US-133: Filtro contatti per origine
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-133 | US-133 | test_social_selling_origins_api.py | test_ac_133_assign_origin | Integration | PASS | 2026-04-05 |
+| AC-133 | US-133 | test_social_selling_origins_api.py | test_ac_133_assign_inactive_origin_rejected | Integration | PASS | 2026-04-05 |
+| AC-133 | US-133 | test_social_selling_origins_api.py | test_ac_133_assign_nonexistent_contact | Integration | PASS | 2026-04-05 |
+
+### US-134: Admin definisce tipi attivita custom
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-134.1 | US-134 | test_social_selling_epic2_api.py | test_ac_134_1_create_activity_type | Integration | PASS | 2026-04-05 |
+| AC-134.2 | US-134 | test_social_selling_epic2_api.py | test_ac_134_2_duplicate_code_rejected | Integration | PASS | 2026-04-05 |
+| AC-134.4 | US-134 | test_social_selling_epic2_api.py | test_ac_134_4_invalid_category | Integration | PASS | 2026-04-05 |
+| AC-134 | US-134 | test_social_selling_epic2_api.py | test_ac_134_viewer_cannot_create | Integration | PASS | 2026-04-05 |
+| AC-134 | US-134 | test_social_selling_epic2_api.py | test_ac_134_list_seeds_defaults | Integration | PASS | 2026-04-05 |
+| AC-134 | US-134 | test_social_selling_epic2_api.py | test_ac_134_filter_active_only | Integration | PASS | 2026-04-05 |
+| AC-134 | US-134 | test_social_selling_epic2_api.py | test_ac_134_filter_category | Integration | PASS | 2026-04-05 |
+
+### US-135: Admin modifica/disattiva tipo attivita
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-135.1 | US-135 | test_social_selling_epic2_api.py | test_ac_135_1_update_label | Integration | PASS | 2026-04-05 |
+| AC-135.2 | US-135 | test_social_selling_epic2_api.py | test_ac_135_2_deactivate | Integration | PASS | 2026-04-05 |
+| AC-135.3 | US-135 | test_social_selling_epic2_api.py | test_ac_135_3_hard_delete_returns_409 | Integration | PASS | 2026-04-05 |
+| AC-135 | US-135 | test_social_selling_epic2_api.py | test_ac_135_update_nonexistent | Integration | PASS | 2026-04-05 |
+
+### US-136: Pipeline stages + pre-funnel
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-136.1 | US-136 | test_social_selling_epic2_api.py | test_ac_136_1_create_pre_funnel_stage | Integration | PASS | 2026-04-05 |
+| AC-136.2 | US-136 | test_social_selling_epic2_api.py | test_ac_136_2_stages_ordered_by_sequence | Integration | PASS | 2026-04-05 |
+| AC-136.3 | US-136 | test_social_selling_epic2_api.py | test_ac_136_3_pre_funnel_auto_reorder | Integration | PASS | 2026-04-05 |
+| AC-136 | US-136 | test_social_selling_epic2_api.py | test_ac_136_update_stage | Integration | PASS | 2026-04-05 |
+| AC-136 | US-136 | test_social_selling_epic2_api.py | test_ac_136_reorder_stages | Integration | PASS | 2026-04-05 |
+| AC-136 | US-136 | test_social_selling_epic2_api.py | test_ac_136_viewer_cannot_create | Integration | PASS | 2026-04-05 |
+
+### US-137: Attivita con tipo custom + last_contact
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-137.1 | US-137 | test_social_selling_epic2_api.py | test_ac_137_1_create_activity_with_type | Integration | PASS | 2026-04-05 |
+| AC-137.2 | US-137 | test_social_selling_epic2_api.py | test_ac_137_2_last_contact_updated | Integration | PASS | 2026-04-05 |
+| AC-137.3 | US-137 | test_social_selling_epic2_api.py | test_ac_137_3_missing_subject_rejected | Integration | PASS | 2026-04-05 |
+
+### US-138: Ruoli CRM custom con matrice permessi
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-138.1 | US-138 | test_social_selling_epic3_api.py | test_ac_138_1_create_role_with_permissions | Integration | PASS | 2026-04-05 |
+| AC-138.2 | US-138 | test_social_selling_epic3_api.py | test_ac_138_2_default_roles_seeded | Integration | PASS | 2026-04-05 |
+| AC-138 | US-138 | test_social_selling_epic3_api.py | test_ac_138_duplicate_name_rejected | Integration | PASS | 2026-04-05 |
+| AC-138 | US-138 | test_social_selling_epic3_api.py | test_ac_138_viewer_cannot_manage_roles | Integration | PASS | 2026-04-05 |
+| AC-138 | US-138 | test_social_selling_epic3_api.py | test_ac_138_delete_custom_role | Integration | PASS | 2026-04-05 |
+| AC-138 | US-138 | test_social_selling_epic3_api.py | test_ac_138_cannot_delete_system_role | Integration | PASS | 2026-04-05 |
+| AC-138 | US-138 | test_social_selling_epic3_api.py | test_ac_138_cannot_delete_role_with_users | Integration | PASS | 2026-04-05 |
+
+### US-141: Audit trail immutabile
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-141.1 | US-141 | test_social_selling_epic3_api.py | test_ac_141_1_list_audit_log | Integration | PASS | 2026-04-05 |
+| AC-141 | US-141 | test_social_selling_epic3_api.py | test_ac_141_filter_by_action | Integration | PASS | 2026-04-05 |
+| AC-141.4 | US-141 | test_social_selling_epic3_api.py | test_ac_141_4_export_csv | Integration | PASS | 2026-04-05 |
+| AC-141 | US-141 | test_social_selling_epic3_api.py | test_ac_141_viewer_cannot_view_audit | Integration | PASS | 2026-04-05 |
+| AC-141 | US-141 | test_social_selling_epic3_api.py | test_ac_141_log_action_service | Integration | PASS | 2026-04-05 |
+| AC-141.3 | US-141 | test_social_selling_epic3_api.py | test_ac_141_3_permission_denied_logged | Integration | PASS | 2026-04-05 |
+
+### US-142: Catalogo prodotti/servizi
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-142.1 | US-142 | test_social_selling_epic4_api.py | test_ac_142_1_create_product | Integration | PASS | 2026-04-05 |
+| AC-142.3 | US-142 | test_social_selling_epic4_api.py | test_ac_142_3_duplicate_code | Integration | PASS | 2026-04-05 |
+| AC-142.4 | US-142 | test_social_selling_epic4_api.py | test_ac_142_4_auto_create_category | Integration | PASS | 2026-04-05 |
+
+### US-143: Modifica/disattiva prodotto
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-143.1 | US-143 | test_social_selling_epic4_api.py | test_ac_143_1_update_product | Integration | PASS | 2026-04-05 |
+| AC-143.2 | US-143 | test_social_selling_epic4_api.py | test_ac_143_2_deactivate_product | Integration | PASS | 2026-04-05 |
+| AC-143.3 | US-143 | test_social_selling_epic4_api.py | test_ac_143_3_hard_delete_409 | Integration | PASS | 2026-04-05 |
+
+### US-144: Prodotti associati a deal
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-144.1 | US-144 | test_social_selling_epic4_api.py | test_ac_144_1_add_product_to_deal | Integration | PASS | 2026-04-05 |
+| AC-144.2 | US-144 | test_social_selling_epic4_api.py | test_ac_144_2_revenue_calculation | Integration | PASS | 2026-04-05 |
+| AC-144.3 | US-144 | test_social_selling_epic4_api.py | test_ac_144_3_cannot_remove_last_product | Integration | PASS | 2026-04-05 |
+| AC-144.4 | US-144 | test_social_selling_epic4_api.py | test_ac_144_4_duplicate_product_allowed | Integration | PASS | 2026-04-05 |
+| AC-144 | US-144 | test_social_selling_epic4_api.py | test_ac_144_list_deal_products | Integration | PASS | 2026-04-05 |
+
+### US-146: Dashboard KPI personalizzabile
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-146.1 | US-146 | test_social_selling_epic5_api.py | test_ac_146_1_create_dashboard | Integration | PASS | 2026-04-05 |
+| AC-146.3 | US-146 | test_social_selling_epic5_api.py | test_ac_146_3_missing_period_rejected | Integration | PASS | 2026-04-05 |
+| AC-146 | US-146 | test_social_selling_epic5_api.py | test_ac_146_list_dashboards | Integration | PASS | 2026-04-05 |
+
+### US-147: Scorecard performance
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-147.1 | US-147 | test_social_selling_epic5_api.py | test_ac_147_1_scorecard_kpis | Integration | PASS | 2026-04-05 |
+| AC-147.3 | US-147 | test_social_selling_epic5_api.py | test_ac_147_3_user_no_data | Integration | PASS | 2026-04-05 |
+
+### US-148: Regole compenso configurabili
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-148.1 | US-148 | test_social_selling_epic5_api.py | test_ac_148_1_create_rule | Integration | PASS | 2026-04-05 |
+| AC-148.2 | US-148 | test_social_selling_epic5_api.py | test_ac_148_2_tiered_rule | Integration | PASS | 2026-04-05 |
+| AC-148 | US-148 | test_social_selling_epic5_api.py | test_ac_148_invalid_method | Integration | PASS | 2026-04-05 |
+| AC-148 | US-148 | test_social_selling_epic5_api.py | test_ac_148_list_rules | Integration | PASS | 2026-04-05 |
+
+### US-149: Calcolo compensi mensile
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-149.1 | US-149 | test_social_selling_epic5_api.py | test_ac_149_1_calculate_monthly | Integration | PASS | 2026-04-05 |
+| AC-149 | US-149 | test_social_selling_epic5_api.py | test_ac_149_list_monthly | Integration | PASS | 2026-04-05 |
+
+### US-150: Conferma e pagamento compensi
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-150.1 | US-150 | test_social_selling_epic5_api.py | test_ac_150_1_confirm_entry | Integration | PASS | 2026-04-05 |
+| AC-150.3 | US-150 | test_social_selling_epic5_api.py | test_ac_150_3_mark_paid | Integration | PASS | 2026-04-05 |
+| AC-150 | US-150 | test_social_selling_epic5_api.py | test_ac_150_cannot_pay_draft | Integration | PASS | 2026-04-05 |
+
+### US-109: Gestione utenti con invito
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-109.1 | US-109 | test_sprint32_users_api.py | test_ac_109_1_list_users | Integration | PASS | 2026-04-05 |
+| AC-109.2 | US-109 | test_sprint32_users_api.py | test_ac_109_2_invite_user | Integration | PASS | 2026-04-05 |
+| AC-109.3 | US-109 | test_sprint32_users_api.py | test_ac_109_3_update_role | Integration | PASS | 2026-04-05 |
+| AC-109.4 | US-109 | test_sprint32_users_api.py | test_ac_109_4_toggle_active | Integration | PASS | 2026-04-05 |
+| AC-109.5 | US-109 | test_sprint32_users_api.py | test_ac_109_5_only_admin_can_manage | Integration | PASS | 2026-04-05 |
+| AC-109 | US-109 | test_sprint32_users_api.py | test_ac_109_cannot_self_modify | Integration | PASS | 2026-04-05 |
+
+### US-110: Row-level security per commerciale
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-110.1 | US-110 | test_sprint32_users_api.py | test_ac_110_1_commerciale_sees_own_deals | Integration | PASS | 2026-04-05 |
+| AC-110.2 | US-110 | test_sprint32_users_api.py | test_ac_110_2_commerciale_sees_own_contacts | Integration | PASS | 2026-04-05 |
+| AC-110.5 | US-110 | test_sprint32_users_api.py | test_ac_110_5_commerciale_auto_assign | Integration | PASS | 2026-04-05 |
+
+### US-111: Email sender per utente
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| AC-111.1 | US-111 | test_sprint32_users_api.py | test_ac_111_1_sender_per_user | Integration | PASS | 2026-04-05 |
+| AC-111.2 | US-111 | test_sprint32_users_api.py | test_ac_111_2_3_sender_fallback | Integration | PASS | 2026-04-05 |
+
+### API Integration (Sprint 32)
+
+| AC ID | Story | Test File | Test Name | Tipo | Status | Last Run |
+|-------|-------|-----------|-----------|------|--------|----------|
+| — | API | test_sprint32_users_api.py | test_api_list_users | Integration | PASS | 2026-04-05 |
+| — | API | test_sprint32_users_api.py | test_api_invite_user | Integration | PASS | 2026-04-05 |
+| — | API | test_sprint32_users_api.py | test_api_my_permissions | Integration | PASS | 2026-04-05 |
+
+---
+
+**Totale Sprint 28-32 (Pivot 8):** 87 test | **PASS:** 87 | **FAIL:** 0
+**Totale Cumulativo:** 179 test mappati (92 Sprint 1-3 + 87 Pivot 8) | **PASS:** 179 | **FAIL:** 0
+
+> **Nota**: I test di Sprint 4-27 (583 test) sono eseguiti e passano ma non sono ancora dettagliati nel test-map.
+> Totale test reali nel progetto: **775 test** tutti PASS.

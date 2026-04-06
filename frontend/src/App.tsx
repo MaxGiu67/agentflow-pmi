@@ -22,6 +22,7 @@ const HomePage = lazy(() => import('./pages/HomePage'))
 const ScadenzarioPage = lazy(() => import('./pages/ScadenzarioPage'))
 const ReportPage = lazy(() => import('./pages/ReportPage'))
 const ImpostazioniPage = lazy(() => import('./pages/ImpostazioniPage'))
+const ProfiloPage = lazy(() => import('./pages/ProfiloPage'))
 const PuzzleDashboard = lazy(() => import('./pages/PuzzleDashboard'))
 const CompletenessPage = lazy(() => import('./pages/onboarding/CompletenessPage'))
 const ImportWizardPage = lazy(() => import('./pages/import/ImportWizardPage'))
@@ -64,6 +65,7 @@ const CrmPipelinePage = lazy(() => import('./pages/crm/CrmPipelinePage'))
 const CrmDealDetailPage = lazy(() => import('./pages/crm/CrmDealDetailPage'))
 const CrmNewDealPage = lazy(() => import('./pages/crm/CrmNewDealPage'))
 const CrmContactsPage = lazy(() => import('./pages/crm/CrmContactsPage'))
+const CrmCalendarPage = lazy(() => import('./pages/crm/CrmCalendarPage'))
 const EmailTemplatesPage = lazy(() => import('./pages/email/EmailTemplatesPage'))
 const EmailAnalyticsPage = lazy(() => import('./pages/email/EmailAnalyticsPage'))
 const EmailSequencesPage = lazy(() => import('./pages/email/EmailSequencesPage'))
@@ -82,6 +84,9 @@ const AuditLogPage = lazy(() => import('./pages/social/AuditLogPage'))
 const ScorecardPage = lazy(() => import('./pages/social/ScorecardPage'))
 const CompensationPage = lazy(() => import('./pages/social/CompensationPage'))
 const PipelineSettingsPage = lazy(() => import('./pages/social/PipelineSettingsPage'))
+const ResourcesPage = lazy(() => import('./pages/resources/ResourcesPage'))
+const EleviaUseCasesPage = lazy(() => import('./pages/elevia/EleviaUseCasesPage'))
+const PipelineTemplatesPage = lazy(() => import('./pages/social/PipelineTemplatesPage'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -168,7 +173,10 @@ export default function App() {
               {/* Report */}
               <Route path="/report" element={<ReportPage />} />
 
-              {/* Impostazioni */}
+              {/* Profilo utente (accessibile a tutti) */}
+              <Route path="/profilo" element={<ProfiloPage />} />
+
+              {/* Impostazioni (admin) */}
               <Route path="/impostazioni" element={<ImpostazioniPage />} />
               <Route path="/impostazioni/agenti" element={<AgentConfigPage />} />
               <Route path="/impostazioni/utenti" element={<UsersPage />} />
@@ -193,6 +201,7 @@ export default function App() {
               <Route path="/crm/deals/nuovo" element={<CrmNewDealPage />} />
               <Route path="/crm/deals/:dealId" element={<CrmDealDetailPage />} />
               <Route path="/crm/contatti" element={<CrmContactsPage />} />
+              <Route path="/crm/calendario" element={<CrmCalendarPage />} />
 
               {/* Email Marketing */}
               <Route path="/email/templates" element={<EmailTemplatesPage />} />
@@ -209,6 +218,11 @@ export default function App() {
               <Route path="/impostazioni/audit" element={<AuditLogPage />} />
               <Route path="/crm/scorecard" element={<ScorecardPage />} />
               <Route path="/crm/compensi" element={<CompensationPage />} />
+
+              {/* Pivot 9: Resources, Elevia, Pipeline Templates */}
+              <Route path="/risorse" element={<ResourcesPage />} />
+              <Route path="/elevia/use-cases" element={<EleviaUseCasesPage />} />
+              <Route path="/impostazioni/pipeline-templates" element={<PipelineTemplatesPage />} />
 
               {/* Test */}
               <Route path="/test/chatbot" element={<ChatTestPage />} />

@@ -27,6 +27,7 @@ import {
   FileSearch,
   Trophy,
   DollarSign,
+  UserCircle,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useMyPermissions } from '../../api/hooks'
@@ -82,9 +83,12 @@ const navSections: NavSection[] = [
     items: [
       { to: '/crm', label: 'Pipeline CRM', icon: Briefcase, roles: ['owner', 'admin', 'commerciale', 'viewer'] },
       { to: '/crm/contatti', label: 'Contatti', icon: Users, roles: ['owner', 'admin', 'commerciale', 'viewer'] },
+      { to: '/crm/calendario', label: 'Calendario', icon: CalendarClock, roles: ['owner', 'admin', 'commerciale'] },
       { to: '/email/templates', label: 'Email Template', icon: Mail, roles: ['owner', 'admin', 'commerciale'] },
       { to: '/email/sequenze', label: 'Sequenze', icon: Zap, roles: ['owner', 'admin', 'commerciale'] },
       { to: '/email/analytics', label: 'Email Stats', icon: BarChart3, roles: ['owner', 'admin', 'commerciale'] },
+      { to: '/risorse', label: 'Risorse', icon: Users, roles: ['owner', 'admin', 'commerciale'] },
+      { to: '/elevia/use-cases', label: 'Use Case Elevia', icon: Target, roles: ['owner', 'admin', 'commerciale'] },
       { to: '/crm/scorecard', label: 'Scorecard', icon: Trophy, roles: ['owner', 'admin', 'commerciale'] },
       { to: '/crm/compensi', label: 'Compensi', icon: DollarSign, roles: ['owner', 'admin'] },
     ],
@@ -101,11 +105,13 @@ const navSections: NavSection[] = [
   {
     title: 'Sistema',
     items: [
+      { to: '/profilo', label: 'Il mio profilo', icon: UserCircle },
       { to: '/chat', label: 'Chat', icon: MessageSquare },
       { to: '/report', label: 'Report', icon: BarChart3, roles: ['owner', 'admin', 'viewer'] },
       { to: '/impostazioni/utenti', label: 'Utenti', icon: Users, roles: ['owner', 'admin'] },
       { to: '/impostazioni/ruoli', label: 'Ruoli', icon: ShieldCheck, roles: ['owner', 'admin'] },
       { to: '/impostazioni/pipeline', label: 'Stadi Pipeline', icon: Activity, roles: ['owner', 'admin'] },
+      { to: '/impostazioni/pipeline-templates', label: 'Pipeline Templates', icon: Target, roles: ['owner', 'admin'] },
       { to: '/impostazioni/origini', label: 'Origini', icon: Globe, roles: ['owner', 'admin'] },
       { to: '/impostazioni/tipi-attivita', label: 'Tipi Attivita', icon: Activity, roles: ['owner', 'admin'] },
       { to: '/impostazioni/prodotti', label: 'Prodotti', icon: Package, roles: ['owner', 'admin'] },

@@ -220,5 +220,7 @@ class UserManagementService:
             "crm_role_id": str(u.crm_role_id) if getattr(u, "crm_role_id", None) else None,
             "sender_email": getattr(u, "sender_email", None) or "",
             "sender_name": getattr(u, "sender_name", None) or "",
+            "calendly_url": getattr(u, "calendly_url", None) or "",
+            "microsoft_connected": bool(getattr(u, "microsoft_token", None)),
             "created_at": u.created_at.isoformat() if u.created_at else "",
         }

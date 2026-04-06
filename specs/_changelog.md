@@ -8,6 +8,82 @@
 
 ---
 
+## 2026-04-06 — PIVOT 9: AgentFlow v3.0 — Da Controller a Sales AI Platform
+
+- **Causa**: Documento v3.0 (AI_Dorsey/) ridefinisce AgentFlow come piattaforma AI per vendita + controller. Dual pipeline (T&M + Elevia), prodotto determina pipeline, Sales Agent unico.
+- **Impatto**: 4 file da rifare (vision, PRD, stories pivot9, sprint plan), 4 da aggiornare (tech spec, schema DB, status, CLAUDE.md), 15+ invariati
+- **Decisioni chiave**: Stack Python resta, un Sales Agent unico (non agenti separati per pipeline), pipeline snelle e non bloccanti, commerciale vende tutto
+- **Nuove Epic**: Pipeline Templates (13), Resource DB (14), Elevia Engine (15), Agent Refactor (16), LinkedIn Selling (17), Cross-sell (18)
+- **Stories stimate**: ~25 nuove (US-200→US-225)
+- **Sprint stimati**: 34→41 (~8 settimane)
+- **Azioni**: Scrivere vision → PRD → stories → tech spec → sprint plan → implementare
+
+---
+
+## 2026-04-06 — Agent Architecture v3.0 rev.2 (ADR-010)
+
+- **Tipo**: B — Coordinator snello con Sales Agent unico product-aware
+- **Agenti**: Sales Agent (26 tool, filtrati per prodotto), Controller (17 tool, esistenti), Analytics (6 tool)
+- **Principio**: Il prodotto determina la pipeline. Un solo Sales Agent che si adatta al deal corrente.
+- **Pipeline template**: T&M (6 stati), Corpo (7 stati), Elevia (8 stati), Custom (da DB)
+- **Tool filtering**: il Sales Agent vede solo i tool del prodotto corrente (~8-12 su 26)
+- **Estensibilita**: Nuovo prodotto = nuova pipeline nel DB, zero codice. Nuovo agente = 1 file + 1 riga registry.
+- **File**: `specs/technical/agent-architecture.md`
+- **Checklist**: 4 fasi (~8 settimane)
+
+---
+
+## 2026-04-06 — Sprint 33: Integrazione Calendario Commerciali (US-151→US-155)
+
+- **5 user stories**: Vista calendario, .ics export, Microsoft 365 OAuth, Outlook push, Calendly
+- **Backend**: `api/modules/calendar/` — microsoft_service.py (OAuth2 + Graph API push), router.py (6 endpoint)
+- **Frontend**: `CrmCalendarPage.tsx` (FullCalendar daygrid+timegrid), .ics client-side, impostazioni calendario
+- **DB**: 3 campi aggiunti — `User.microsoft_token`, `User.calendly_url`, `CrmActivity.outlook_event_id`
+- **Test**: 20 test PASS (OAuth, status, disconnect, push, Calendly CRUD, API endpoints, data availability)
+- **Sidebar**: voce "Calendario" aggiunta per owner/admin/commerciale
+- **Impostazioni**: sezione "Calendario e Appuntamenti" con Microsoft 365 connect/disconnect + Calendly URL
+- **Deal detail**: bottone "Prenota appuntamento" (Calendly) visibile se configurato
+- **Principio**: AgentFlow = source of truth, Outlook = slave one-way push, no sync bidirezionale
+
+---
+
+## 2026-04-05 — Pivot 8: Implementazione Completata (Sprint 28-32)
+
+- **Fase 7**: Implementazione 21 stories Social Selling (US-130→US-150) + 3 infra (US-109→111)
+  - Sprint 28: Origini + Activity Types + Pre-funnel (8 stories, 35 test)
+  - Sprint 29: RBAC Ruoli + Audit trail (2 stories, 13 test)
+  - Sprint 30: Catalogo Prodotti + Deal-Product M2M (3 stories, 11 test)
+  - Sprint 31: Dashboard KPI + Scorecard + Compensi (5 stories, 14 test)
+  - Sprint 32: User Mgmt + Role-based UI + Company/Contact 1:N (3 stories + 4 infra, 14 test)
+- **Totale**: 90 SP, 87 test PASS, 30+ endpoint, 10 nuovi modelli DB, 8 pagine frontend
+
+### Company/Contact 1:N Split
+- **CrmCompany** (NEW): separazione azienda da contatto/referente
+- `CrmContact.company_id` FK: 1 azienda → N referenti
+- `CrmDeal.company_id` FK: deal appartiene ad azienda
+- Frontend form 2 step: seleziona/crea azienda → aggiungi referente
+
+### Role-Based UI
+- Sidebar/BottomNav filtrata per `user.role` (admin tutto, commerciale solo CRM)
+- Dashboard admin: KPI finanziari vs Dashboard commerciale: KPI vendite
+- Scorecard auto-load per commerciale, dropdown utenti per admin
+- Widget auto-reset su cambio ruolo
+
+### External Users
+- `User.user_type` internal/external con `access_expires_at`
+- Middleware auto-deactivazione utente scaduto
+- CRM role assegnabile per utente
+
+### Infrastruttura
+- TipTap rich text editor per template email
+- Service Worker network-first per HTML (fix stale chunk post-deploy)
+- ErrorBoundary auto-reload su dynamic import failure
+- Activity logging su cambio fase pipeline (dialog ibrido)
+- Planned activities con stile amber e "Completa"
+- Pre-funnel stages con auto-reorder sequence
+
+---
+
 ## 2026-04-04 — Pivot 8: Social Selling Configurabile
 
 - **Fase 5**: Sprint Planning — 6 sprint (100-105), 120 SP, 12 settimane stimate

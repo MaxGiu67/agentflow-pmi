@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Save, Bell, Shield, CreditCard, ExternalLink, RefreshCw, Bot } from 'lucide-react'
-import { useProfile, useUpdateProfile, useNotificationConfigs, useCreateNotificationConfig, useCassettoStatus } from '../api/hooks'
+import { Save, Bell, Shield, CreditCard, ExternalLink, RefreshCw, Bot, CalendarClock, Link2, Unlink } from 'lucide-react'
+import { useProfile, useUpdateProfile, useNotificationConfigs, useCreateNotificationConfig, useCassettoStatus, useMicrosoftCalendarStatus, useMicrosoftConnect, useMicrosoftDisconnect, useCalendlyUrl, useUpdateCalendlyUrl } from '../api/hooks'
 import api from '../api/client'
 import PageHeader from '../components/ui/PageHeader'
 import Card from '../components/ui/Card'
@@ -15,6 +15,11 @@ export default function ImpostazioniPage() {
   const { data: notifConfigs } = useNotificationConfigs()
   const createNotifConfig = useCreateNotificationConfig()
   const { data: cassettoStatus } = useCassettoStatus()
+  const { data: msStatus } = useMicrosoftCalendarStatus()
+  const msConnect = useMicrosoftConnect()
+  const msDisconnect = useMicrosoftDisconnect()
+  const { data: calendlyData } = useCalendlyUrl()
+  const updateCalendly = useUpdateCalendlyUrl()
 
   const [name, setName] = useState('')
   const [aziendaNome, setAziendaNome] = useState('')
@@ -35,6 +40,8 @@ export default function ImpostazioniPage() {
   const [bankName, setBankName] = useState('')
   const [bankLoading, setBankLoading] = useState(false)
   const [bankMessage, setBankMessage] = useState('')
+  const [calendlyInput, setCalendlyInput] = useState('')
+  const [calendlySaved, setCalendlySaved] = useState(false)
 
   useEffect(() => {
     if (profile) {
@@ -423,6 +430,90 @@ export default function ImpostazioniPage() {
                 <p className={`text-sm ${bankMessage.includes('successo') ? 'text-green-600' : 'text-amber-600'}`}>
                   {bankMessage}
                 </p>
+              )}
+            </div>
+          </Card>
+
+          {/* Calendar & Calendly */}
+          <Card>
+            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <CalendarClock className="h-5 w-5" />
+              Calendario e Appuntamenti
+            </h2>
+
+            {/* Microsoft 365 */}
+            <div className="flex items-center justify-between rounded-lg border border-gray-200 p-4 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
+                  <CalendarClock className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Microsoft 365 Calendar</p>
+                  <p className="text-xs text-gray-500">
+                    {msStatus?.connected
+                      ? 'Collegato — le attivita pianificate appaiono su Outlook'
+                      : 'Sincronizza le attivita con il tuo Outlook Calendar'}
+                  </p>
+                </div>
+              </div>
+              {msStatus?.connected ? (
+                <button
+                  onClick={() => msDisconnect.mutate()}
+                  disabled={msDisconnect.isPending}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
+                >
+                  <Unlink className="h-3.5 w-3.5" /> Disconnetti
+                </button>
+              ) : (
+                <button
+                  onClick={async () => {
+                    const result = await msConnect.mutateAsync()
+                    if (result.auth_url) window.open(result.auth_url, '_blank', 'width=600,height=700')
+                  }}
+                  disabled={msConnect.isPending}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700"
+                >
+                  <Link2 className="h-3.5 w-3.5" /> Collega
+                </button>
+              )}
+            </div>
+
+            {/* Calendly */}
+            <div className="rounded-lg border border-gray-200 p-4">
+              <p className="text-sm font-medium text-gray-900 mb-1">Link Calendly</p>
+              <p className="text-xs text-gray-500 mb-3">
+                Il tuo link di prenotazione appuntamenti. Apparira nel dettaglio deal e nei template email come variabile {'{{calendly_link}}'}.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={calendlyInput || calendlyData?.calendly_url || ''}
+                  onChange={(e) => { setCalendlyInput(e.target.value); setCalendlySaved(false) }}
+                  placeholder="https://calendly.com/tuonome/30min"
+                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+                <button
+                  onClick={() => {
+                    updateCalendly.mutate(calendlyInput || '')
+                    setCalendlySaved(true)
+                    setTimeout(() => setCalendlySaved(false), 3000)
+                  }}
+                  disabled={updateCalendly.isPending}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {updateCalendly.isPending ? '...' : 'Salva'}
+                </button>
+              </div>
+              {calendlySaved && <p className="mt-1 text-xs text-green-600">Salvato!</p>}
+              {calendlyData?.calendly_url && (
+                <a
+                  href={calendlyData.calendly_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" /> Apri il tuo Calendly
+                </a>
               )}
             </div>
           </Card>

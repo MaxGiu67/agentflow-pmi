@@ -4,6 +4,7 @@ import {
   useCrmDeal, useRegisterOrder, useConfirmOrder, useEmailSends,
   useDealProducts, useAddDealProduct, useRemoveDealProduct,
   useProducts, useActivityTypes, useCrmActivities, useCreateCrmActivity,
+  useCalendlyUrl,
 } from '../../api/hooks'
 import { formatCurrency } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
@@ -11,7 +12,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import SendEmailModal from '../../components/email/SendEmailModal'
 import {
   ArrowLeft, FileCheck, CheckCircle, AlertCircle, Mail, Eye, MousePointer,
-  Package, Plus, Trash2, Phone, Calendar, MessageSquare, Activity, Pencil,
+  Package, Plus, Trash2, Phone, Calendar, MessageSquare, Activity, Pencil, ExternalLink,
 } from 'lucide-react'
 
 const ORDER_TYPES = [
@@ -42,6 +43,7 @@ export default function CrmDealDetailPage() {
   const registerOrder = useRegisterOrder()
   const confirmOrder = useConfirmOrder()
   const { data: emailHistory } = useEmailSends(deal?.client_id || undefined)
+  const { data: calendlyData } = useCalendlyUrl()
 
   // Products
   const { data: dealProducts } = useDealProducts(deal?.id || '')
@@ -113,6 +115,12 @@ export default function CrmDealDetailPage() {
         subtitle={`${deal.client_name} - ${deal.stage}`}
         actions={
           <div className="flex items-center gap-2">
+            {calendlyData?.calendly_url && (
+              <a href={calendlyData.calendly_url} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
+                <ExternalLink className="h-4 w-4" /> Prenota appuntamento
+              </a>
+            )}
             <button onClick={() => setShowEmailModal(true)}
               className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700">
               <Mail className="h-4 w-4" /> Invia email

@@ -55,6 +55,10 @@ from api.modules.user_management.router import router as user_management_router
 from api.modules.tenant_settings.router import router as tenant_settings_router
 from api.modules.metering.router import router as metering_router
 from api.modules.social_selling.router import router as social_selling_router
+from api.modules.calendar.router import router as calendar_router
+from api.modules.pipeline_templates.router import router as pipeline_templates_router
+from api.modules.resources.router import router as resources_router
+from api.modules.elevia.router import router as elevia_router
 
 from contextlib import asynccontextmanager
 
@@ -191,3 +195,7 @@ app.include_router(user_management_router)
 app.include_router(tenant_settings_router)
 app.include_router(metering_router)
 app.include_router(social_selling_router)
+app.include_router(calendar_router, prefix="/api/v1")
+app.include_router(pipeline_templates_router, prefix="/api/v1")
+app.include_router(resources_router, prefix="/api/v1")
+app.include_router(elevia_router, prefix="/api/v1")

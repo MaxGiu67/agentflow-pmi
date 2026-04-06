@@ -53,6 +53,13 @@ from api.db.models import (
     CrmDashboardWidget,
     CrmCompensationRule,
     CrmCompensationEntry,
+    PipelineTemplate,
+    PipelineTemplateStage,
+    Resource,
+    ResourceSkill,
+    EleviaUseCase,
+    AtecoUseCaseMatrix,
+    CrossSellSignal,
 )
 from api.db.session import get_db
 from api.main import app

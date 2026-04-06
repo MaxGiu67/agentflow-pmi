@@ -1,5 +1,5 @@
 # Status Progetto: AgentFlow PMI
-Ultimo aggiornamento: 2026-04-03
+Ultimo aggiornamento: 2026-04-05
 
 ## Progetto
 - **Nome**: AgentFlow PMI
@@ -20,19 +20,20 @@ Ultimo aggiornamento: 2026-04-03
 | **6** | **2026-04** | **IVA scorporo, scadenzario, cash flow, fidi, anticipi fatture** |
 | **7** | **2026-04** | **CRM Sales interno + Brevo email marketing + Kanban** |
 | **8** | **2026-04** | **Social Selling configurabile + Ruoli fractional + Catalogo prodotti + Analytics multi-canale** |
+| **9** | **2026-04** | **v3.0: Dual pipeline (T&M+Corpo+Elevia), Sales Agent AI, Resource Matching, ATECO Engine, Cross-sell** |
 
 ## Numeri del Progetto
 
 | Metrica | Valore |
 |---------|--------|
-| **Stories totali implementate** | **70+** |
-| **Test PASS** | **511+** (369 base + 75 Pivot 6 + 67 Pivot 7) |
-| **Sprint completati** | **27** |
-| **Endpoint API** | **160+** |
-| **Modelli DB** | **40+** tabelle |
-| **Pagine frontend** | **48+** |
-| **Route frontend** | **42** |
-| **React Query hooks** | **100+** |
+| **Stories totali implementate** | **91+** |
+| **Test PASS** | **809+** (789 precedenti + 20 Calendar) |
+| **Sprint completati** | **33** |
+| **Endpoint API** | **196+** |
+| **Modelli DB** | **50+** tabelle |
+| **Pagine frontend** | **56+** |
+| **Route frontend** | **50+** |
+| **React Query hooks** | **130+** |
 
 ## Sprint 1-10: Base COMPLETATA (v0.1-v0.4)
 - 40/40 stories, 369 test PASS, 224 SP
@@ -107,6 +108,52 @@ Ultimo aggiornamento: 2026-04-03
 - Enrollment con protezione duplicati
 - 10 endpoint REST per email marketing
 
+## Pivot 8 IN CORSO — Sprint 28-32 (2026-04-05)
+**21 stories (US-130→US-150) + 3 stories infra (US-109→US-111), 90 SP, 87 test PASS**
+
+| Sprint | Focus | Stories | Test |
+|--------|-------|---------|------|
+| 28 | Origini + Activity Types + Pre-funnel | US-130→137 | 35 |
+| 29 | RBAC Ruoli + Audit trail | US-138/141 | 13 |
+| 30 | Catalogo Prodotti + Deal-Product | US-142→144 | 11 |
+| 31 | Dashboard KPI + Scorecard + Compensi | US-146→150 | 14 |
+| 32 | User Mgmt + Role-based UI + Company/Contact 1:N | US-109→111 + infra | 14 |
+
+**Social Selling (5 moduli implementati):**
+- M1 Origini: CRUD + migration + seed 4 default, filtro contatti per origine
+- M2 Activity Types: CRUD + seed 8 default, pre-funnel stages con auto-reorder
+- M3 RBAC: Ruoli custom + matrice permessi + seed 5 default, audit trail immutabile + CSV
+- M4 Prodotti: Catalogo + categorie auto-create, deal-product M2M con revenue calc
+- M5 Analytics: Dashboard KPI + Scorecard, compensi con regole tiered + confirm/pay
+
+**Company/Contact 1:N Split:**
+- `CrmCompany` (NEW): azienda separata da referente
+- `CrmContact.company_id` FK: referente legato a 1 azienda, N referenti per azienda
+- `CrmDeal.company_id` FK: deal appartiene ad azienda
+- Frontend: form 2 step (seleziona/crea azienda → aggiungi referente)
+
+**Role-Based UI:**
+- Sidebar/BottomNav filtrata per `user.role` (admin/owner: tutto, commerciale: solo CRM)
+- Dashboard admin: KPI finanziari (ricavi, costi, EBITDA)
+- Dashboard commerciale: KPI vendite (pipeline, win rate, attivita)
+- Scorecard auto-load per commerciale, dropdown utenti per admin
+- Widget auto-reset se cambio ruolo (widget ID prefix a→admin, c→commerciale)
+
+**External Users:**
+- `User.user_type`: "internal"/"external" con `access_expires_at`
+- Middleware check scadenza: auto-deactivazione utente scaduto
+- CRM role assegnabile per utente, default origin/product per utente esterno
+- Row-level filtering: commerciale vede solo propri deal/contatti
+
+**Infrastruttura:**
+- TipTap rich text editor per template email (toolbar, variabili quick-insert)
+- Service Worker network-first per HTML (fix stale chunk post-deploy)
+- ErrorBoundary auto-reload su "Failed to fetch dynamically imported module"
+- Activity logging automatico su cambio fase pipeline (dialog ibrido)
+- Planned activities con stile amber e bottone "Completa"
+
+**30+ nuovi endpoint REST, 10 nuovi modelli DB, 8 nuove pagine frontend**
+
 ## Frontend PWA — Fase 1-4 COMPLETATE (2026-04-03)
 
 | Fase | Cosa | Impatto |
@@ -116,17 +163,32 @@ Ultimo aggiornamento: 2026-04-03
 | **React 19** | React.lazy (96 chunk), Suspense+SkeletonPage, useOptimistic, ErrorBoundary, PageMeta | Bundle -66% (1.27MB→432KB) |
 | **Design System** | DM Sans, CSS variables (20+), dark mode prep, Skeleton components | Identita visiva |
 
-**Frontend CRM (3 pagine):**
-- `/crm` — Pipeline Kanban drag-and-drop + analytics bar + toggle tabella
-- `/crm/deals/:id` — Dettaglio deal + registrazione ordine + conferma
-- `/crm/contatti` — Lista contatti con ricerca + creazione
+**Frontend CRM (6 pagine):**
+- `/crm` — Pipeline Kanban + dialog ibrido cambio fase + analytics
+- `/crm/deals/:id` — Dettaglio deal + prodotti + timeline attivita + planned activities
+- `/crm/deals/new` — Nuovo deal con selettore stage + prima attivita
+- `/crm/contatti` — Contatti con form 2 step (azienda → referente) + invio email
+- `/crm/deals/:id` — Bottone Modifica + registrazione ordine
 
-**Sidebar aggiornata (5 sezioni):**
-1. Principale: Setup, Dashboard, Budget
-2. Operativo: Fatture, Banca, Personale, Spese, Corrispettivi
-3. **Commerciale: Pipeline CRM, Contatti**
-4. Gestione: Import, Scadenzario, Fisco
-5. Sistema: Chat, Report, Impostazioni
+**Frontend Social Selling (8 pagine):**
+- `/social/origini` — CRUD origini con edit inline, toggle, delete
+- `/social/tipi-attivita` — CRUD tipi attivita con badge categorie
+- `/social/prodotti` — Card grid prodotti con edit, badge pricing
+- `/social/ruoli` — Matrice RBAC con checkbox entity/permission
+- `/social/audit` — Log immutabile con filtri, paginazione, CSV export
+- `/social/scorecard` — KPI cards (auto-load commerciale, dropdown admin)
+- `/social/compensi` — Compensi mensili con calculate/confirm/pay
+- `/social/pipeline-settings` — Gestione stadi + pre-funnel
+
+**Sidebar filtrata per ruolo:**
+- **Admin/Owner** (tutte le sezioni):
+  1. Principale: Setup, Dashboard, Budget
+  2. Operativo: Fatture, Banca, Personale, Spese, Corrispettivi
+  3. Commerciale: Pipeline CRM, Contatti, Email Template, Sequenze, Email Stats, Scorecard
+  4. Gestione: Import, Scadenzario, Fisco
+  5. Sistema: Chat, Report, Impostazioni
+- **Commerciale** (solo sezione vendite):
+  Dashboard, Pipeline CRM, Contatti, Email Template, Sequenze, Email Stats, Scorecard, Chat
 
 **ChatbotFloating**: visibile solo su Dashboard e Chat (rimosso da tutte le altre pagine)
 
@@ -134,14 +196,14 @@ Ultimo aggiornamento: 2026-04-03
 
 | Pagina | Backend pronto | Priorita |
 |--------|---------------|----------|
+| Aziende CRM (pagina dedicata /crm/aziende) | CRUD companies | Alta |
 | Scadenzario (riscrivere con nuovi endpoint) | 12 endpoint | Alta |
-| Email Templates (gestione) | CRUD + preview | Alta |
-| Email Invio (da dettaglio contatto/deal) | POST /email/send | Alta |
 | Email Analytics dashboard | GET /email/analytics | Media |
 | Email Sequenze (creazione/gestione) | CRUD sequenze | Media |
 | Cash Flow da scadenzario | GET /scadenzario/cash-flow | Media |
 | Fidi bancari config | GET/POST /fidi | Bassa |
 | Anticipo fatture UI | POST anticipa/incassa/insoluto | Bassa |
+| Calendar integration (Google/Outlook/Calendly) | Non iniziato | Futura |
 
 ## Decisioni Architetturali Recenti
 
@@ -171,17 +233,20 @@ Ultimo aggiornamento: 2026-04-03
 - `Docs/Analisi_Frontend_PWA_Roadmap.md` — Roadmap PWA 6 fasi
 - `Docs/Guida_Setup_Odoo18_CRM.md` — Setup Odoo (opzionale)
 
-## Pivot 8 — Social Selling Configurabile (in corso)
+## Pivot 8 — Social Selling Configurabile (implementazione in corso)
 
 **5 moduli — architettura Core Engine + Configuration Layer:**
 
 | Modulo | Descrizione | Sprint | Stato |
 |--------|-------------|--------|-------|
-| M1 — Origini configurabili | US-100→103 (21 SP) | TBD | Stories pronte |
-| M2 — Attività e pre-funnel | US-104→107 (18 SP) | TBD | Stories pronte |
-| M3 — Ruoli e collaboratori esterni | US-108→111 (29 SP) | TBD | Stories pronte |
-| M4 — Catalogo prodotti | US-112→115 (18 SP) | TBD | Stories pronte |
-| M5 — Analytics e compensi | US-116→120 (34 SP) | TBD | Stories pronte |
+| M1 — Origini configurabili | US-130→133 | 28 | **COMPLETATO** (18 test) |
+| M2 — Attività e pre-funnel | US-134→137 | 28 | **COMPLETATO** (17 test) |
+| M3 — Ruoli e collaboratori esterni | US-138/141 + US-109→111 | 29/32 | **COMPLETATO** (27 test) |
+| M4 — Catalogo prodotti | US-142→144 | 30 | **COMPLETATO** (11 test) |
+| M5 — Analytics e compensi | US-146→150 | 31 | **COMPLETATO** (14 test) |
+| — Company/Contact 1:N + Role UI | Sprint 32 infra | 32 | **COMPLETATO** (14 test) |
+
+**Stories residue (parziali):** US-139 (external users E2E), US-140 (origin filter E2E), US-145 (pipeline filter per prodotto)
 
 **Documentazione:**
 - `Docs/Spec_Modulo_Social_Selling.md` — Spec prodotto completa
@@ -194,13 +259,17 @@ Ultimo aggiornamento: 2026-04-03
 ## Prossimi Passi
 1. ~~User Stories Pivot 8~~ ✅ 21 stories, 120 SP
 2. ~~Tech Spec Pivot 8~~ ✅ 32+ endpoint, 11 tabelle, 21 BR
-3. ~~Sprint Planning Pivot 8~~ ✅ 6 sprint (100-105), 12 settimane
-4. **Implementazione Sprint 100** — Origini + Activity Types + Migration DB
-5. **Frontend scadenzario** — riscrivere con nuovi endpoint
-6. **Frontend email** — template + invio dal CRM
-7. **Account Brevo** — creare, API key, webhook
-8. **Test E2E** Playwright
-9. **Deploy** su Railway
+3. ~~Sprint Planning Pivot 8~~ ✅ 6 sprint (100-105)
+4. ~~Implementazione Pivot 8~~ ✅ 21 stories, 87 test, 30+ endpoint, 10 modelli DB
+5. ~~Company/Contact 1:N split~~ ✅ CrmCompany, form 2 step
+6. ~~Role-based UI~~ ✅ Sidebar, Dashboard, Scorecard filtrati per ruolo
+7. **Pagina Aziende CRM** — `/crm/aziende` per gestione diretta
+8. **Update New Deal form** — seleziona Company invece di Contact
+9. **Frontend scadenzario** — riscrivere con nuovi endpoint
+10. ~~Calendar integration~~ ✅ FullCalendar + .ics + Microsoft 365 OAuth + Calendly
+11. **Account Brevo** — creare, API key, webhook
+12. **Test E2E** Playwright
+13. **Deploy** su Railway
 
 ---
-_Ultimo aggiornamento: 2026-04-04 — Pivot 8 Social Selling_
+_Ultimo aggiornamento: 2026-04-05 — Pivot 8 Social Selling implementato, Company/Contact 1:N, Role-based UI_

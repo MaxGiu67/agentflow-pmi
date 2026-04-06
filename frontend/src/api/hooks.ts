@@ -1580,3 +1580,117 @@ export function useSocialPipelineStages() {
     queryFn: () => api.get('/social/pipeline/stages').then((r) => r.data),
   })
 }
+
+// ── Calendar (US-151→US-155) ──
+export function useMicrosoftCalendarStatus() {
+  return useQuery({
+    queryKey: ['ms-calendar-status'],
+    queryFn: () => api.get('/calendar/microsoft/status').then((r) => r.data),
+  })
+}
+
+export function useMicrosoftConnect() {
+  return useMutation({
+    mutationFn: () => api.get('/calendar/microsoft/connect').then((r) => r.data),
+  })
+}
+
+export function useMicrosoftDisconnect() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post('/calendar/microsoft/disconnect').then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['ms-calendar-status'] }),
+  })
+}
+
+export function useCalendlyUrl() {
+  return useQuery({
+    queryKey: ['calendly-url'],
+    queryFn: () => api.get('/calendar/calendly').then((r) => r.data),
+  })
+}
+
+export function useUpdateCalendlyUrl() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (url: string) => api.patch('/calendar/calendly', { calendly_url: url }).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['calendly-url'] }),
+  })
+}
+
+// ── Pipeline Templates (Pivot 9) ──
+export function usePipelineTemplates() {
+  return useQuery({
+    queryKey: ['pipeline-templates'],
+    queryFn: () => api.get('/pipeline-templates').then((r) => r.data),
+  })
+}
+
+// ── Resources (Pivot 9) ──
+export function useResources(skill = '', seniority = '') {
+  return useQuery({
+    queryKey: ['resources', skill, seniority],
+    queryFn: () => api.get('/resources', { params: { skill, seniority } }).then((r) => r.data),
+  })
+}
+export function useCreateResource() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: any) => api.post('/resources', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['resources'] }),
+  })
+}
+export function useUpdateResource() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: any) => api.patch(`/resources/${id}`, data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['resources'] }),
+  })
+}
+export function useAddResourceSkill() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ resourceId, ...data }: any) => api.post(`/resources/${resourceId}/skills`, data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['resources'] }),
+  })
+}
+export function useResourceMatch(techStack = '', seniority = '') {
+  return useQuery({
+    queryKey: ['resource-match', techStack, seniority],
+    queryFn: () => api.get('/resources/match', { params: { tech_stack: techStack, seniority } }).then((r) => r.data),
+    enabled: !!techStack,
+  })
+}
+export function useResourceBench(days = 30) {
+  return useQuery({
+    queryKey: ['resource-bench', days],
+    queryFn: () => api.get('/resources/bench', { params: { days } }).then((r) => r.data),
+  })
+}
+
+// ── Elevia (Pivot 9) ──
+export function useEleviaUseCases() {
+  return useQuery({
+    queryKey: ['elevia-use-cases'],
+    queryFn: () => api.get('/elevia/use-cases').then((r) => r.data),
+  })
+}
+export function useEleviaScoreProspect() {
+  return useMutation({
+    mutationFn: (data: any) => api.post('/elevia/score-prospect', data).then((r) => r.data),
+  })
+}
+export function useEleviaDiscoveryBrief(ateco: string) {
+  return useQuery({
+    queryKey: ['elevia-brief', ateco],
+    queryFn: () => api.get('/elevia/discovery-brief', { params: { ateco } }).then((r) => r.data),
+    enabled: !!ateco,
+  })
+}
+export function useEleviaRoi(useCaseCount: number) {
+  return useQuery({
+    queryKey: ['elevia-roi', useCaseCount],
+    queryFn: () => api.get('/elevia/roi', { params: { use_case_count: useCaseCount } }).then((r) => r.data),
+    enabled: useCaseCount > 0,
+  })
+}

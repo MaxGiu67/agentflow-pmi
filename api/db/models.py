@@ -123,6 +123,9 @@ class User(Base):
     crm_role_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     default_origin_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     default_product_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    # US-153: Microsoft 365 Calendar
+    microsoft_token: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON: {access_token, refresh_token, expires_at}
+    calendly_url: Mapped[str | None] = mapped_column(String(500), nullable=True)  # US-155
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -942,6 +945,41 @@ class CrmContact(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+# ============================================================
+# Pipeline Templates (US-200, US-201 — Pivot 9)
+# ============================================================
+
+
+class PipelineTemplate(Base):
+    """Pipeline template — FSM definition for a product type (US-200)."""
+    __tablename__ = "pipeline_templates"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    code: Mapped[str] = mapped_column(String(50), nullable=False)  # tm_consulting, fixed_project, elevia_product
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    pipeline_type: Mapped[str] = mapped_column(String(50), nullable=False, default="custom")  # services, product, custom
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class PipelineTemplateStage(Base):
+    """Stage within a pipeline template (US-200)."""
+    __tablename__ = "pipeline_template_stages"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    template_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    code: Mapped[str] = mapped_column(String(50), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    required_fields: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # ["budget", "timeline", ...]
+    sla_days: Mapped[int] = mapped_column(Integer, default=7)
+    is_won: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_lost: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_optional: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 class CrmPipelineStage(Base):
     """CRM pipeline stage — US-88."""
     __tablename__ = "crm_pipeline_stages"
@@ -968,6 +1006,7 @@ class CrmDeal(Base):
     company_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # FK CrmCompany — who buys
     contact_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # FK CrmContact — main referente
     stage_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    pipeline_template_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # US-201: which pipeline template
     name: Mapped[str] = mapped_column(String(300), nullable=False)
     deal_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # T&M, fixed, spot, hardware
     expected_revenue: Mapped[float] = mapped_column(Float, default=0.0)
@@ -1002,6 +1041,85 @@ class CrmActivity(Base):
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="planned")  # planned, completed, cancelled
+    outlook_event_id: Mapped[str | None] = mapped_column(String(255), nullable=True)  # US-154: Microsoft Graph event ID
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+# ============================================================
+# Resource DB (US-204, US-205 — Pivot 9, T&M)
+# ============================================================
+
+
+class Resource(Base):
+    """Internal consultant/resource for T&M matching (US-204)."""
+    __tablename__ = "resources"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    seniority: Mapped[str] = mapped_column(String(20), nullable=False, default="mid")  # junior, mid, senior, lead
+    daily_cost: Mapped[float] = mapped_column(Float, default=0.0)
+    suggested_daily_rate: Mapped[float] = mapped_column(Float, default=0.0)
+    available_from: Mapped[date | None] = mapped_column(Date, nullable=True)
+    current_project: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class ResourceSkill(Base):
+    """Skill for a resource with level (US-204)."""
+    __tablename__ = "resource_skills"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    resource_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    skill_name: Mapped[str] = mapped_column(String(100), nullable=False)  # Java, Angular, DevOps, etc.
+    skill_level: Mapped[int] = mapped_column(Integer, default=3)  # 1-5
+    certification: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+# ============================================================
+# Elevia Use Case Engine (US-208, US-209 — Pivot 9)
+# ============================================================
+
+
+class EleviaUseCase(Base):
+    """Elevia AI use case with ATECO fit scores (US-208)."""
+    __tablename__ = "elevia_use_cases"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    code: Mapped[str] = mapped_column(String(20), nullable=False)  # UC01, UC02, etc.
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class AtecoUseCaseMatrix(Base):
+    """ATECO sector → use case fit score (US-209)."""
+    __tablename__ = "ateco_usecase_matrix"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    use_case_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    ateco_code: Mapped[str] = mapped_column(String(10), nullable=False)  # "24", "25", "46"
+    fit_score: Mapped[int] = mapped_column(Integer, default=50)  # 0-100
+
+
+class CrossSellSignal(Base):
+    """Cross-sell signal between pipelines (US-217)."""
+    __tablename__ = "cross_sell_signals"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    deal_source_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    signal_type: Mapped[str] = mapped_column(String(100), nullable=False)  # documentation_pain, custom_dev_need
+    keyword_matched: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    suggested_product: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    priority: Mapped[str] = mapped_column(String(20), default="medium")  # low, medium, high
+    status: Mapped[str] = mapped_column(String(20), default="new")  # new, reviewed, converted, dismissed
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -1128,6 +1246,7 @@ class CrmProduct(Base):
     technology_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     target_margin_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    pipeline_template_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # US-201: prodotto → pipeline
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

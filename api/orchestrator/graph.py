@@ -27,40 +27,48 @@ from api.orchestrator.prompts import ORCHESTRATOR_SYSTEM_PROMPT, RESPONSE_SYSTEM
 from api.orchestrator.skill_discovery import get_skill_discovery_message
 from api.orchestrator.state import OrchestratorState
 from api.orchestrator.tool_registry import get_tools_by_name, get_tools_description
+from api.agents.registry import get_agent_for_tool, route_to_agent, list_agents
 
 logger = logging.getLogger(__name__)
 
 
 # ============================================================
-# Tool → Agent mapping (US-A07)
+# Tool → Agent mapping (US-A07, updated ADR-010)
+# Uses agent registry as source of truth, with fallback map for backward compat.
 # ============================================================
 
 TOOL_AGENT_MAP: dict[str, str] = {
-    "count_invoices": "fisco",
-    "list_invoices": "fisco",
-    "get_invoice_detail": "fisco",
-    "get_dashboard_summary": "fisco",
-    "get_deadlines": "fisco",
-    "get_fiscal_alerts": "fisco",
-    "get_journal_entries": "conta",
-    "get_balance_sheet_summary": "conta",
-    "predict_cashflow": "cashflow",
-    "get_pending_review": "conta",
-    "list_expenses": "conta",
-    "list_assets": "conta",
-    "get_ceo_kpi": "conta",
-    "get_period_stats": "conta",
-    "get_top_clients": "fisco",
-    "sync_cassetto": "fisco",
+    "count_invoices": "controller",
+    "list_invoices": "controller",
+    "get_invoice_detail": "controller",
+    "get_dashboard_summary": "controller",
+    "get_deadlines": "controller",
+    "get_fiscal_alerts": "controller",
+    "get_journal_entries": "controller",
+    "get_balance_sheet_summary": "controller",
+    "get_pending_review": "controller",
+    "list_expenses": "controller",
+    "list_assets": "controller",
+    "get_ceo_kpi": "controller",
+    "get_period_stats": "controller",
+    "get_top_clients": "controller",
+    "sync_cassetto": "controller",
     "apertura_conti": "controller",
     "crea_budget": "controller",
-    # CRM (Odoo pipeline)
-    "crm_pipeline_summary": "crm",
-    "crm_list_deals": "crm",
-    "crm_list_contacts": "crm",
-    "crm_won_deals": "crm",
-    "crm_pending_orders": "crm",
+    "predict_cashflow": "analytics",
+    "crm_pipeline_summary": "sales",
+    "crm_list_deals": "sales",
+    "crm_list_contacts": "sales",
+    "crm_won_deals": "sales",
+    "crm_pending_orders": "sales",
 }
+
+
+def _get_agent_for_tool(tool_name: str) -> str:
+    """Get agent name for a tool — registry first, then fallback map."""
+    if tool_name in TOOL_AGENT_MAP:
+        return TOOL_AGENT_MAP[tool_name]
+    return get_agent_for_tool(tool_name)
 
 
 # ============================================================
@@ -902,18 +910,21 @@ async def run_orchestrator(
     assistant_messages = [m for m in state["messages"] if m.get("role") == "assistant"]
     content = assistant_messages[-1]["content"] if assistant_messages else "Operazione completata."
 
-    # Determine agent info (US-A07: multi-agent aware)
+    # Determine agent info (US-A07: multi-agent aware, ADR-010: agent registry)
     agent_name = "orchestrator"
     agent_type = "orchestrator"
     tool_calls_list = state.get("tool_calls", [])
     if tool_calls_list:
-        first_tool = tool_calls_list[0].get("tool", "")
-        if first_tool != "direct_response":
-            agent_name = first_tool
-        # Multi-agent: set agent_type to "multi" when multiple non-direct tools used
         non_direct_tools = [tc for tc in tool_calls_list if tc.get("tool") != "direct_response"]
-        if len(non_direct_tools) > 1:
-            agent_type = "multi"
+        if non_direct_tools:
+            first_tool = non_direct_tools[0].get("tool", "")
+            agent_name = _get_agent_for_tool(first_tool)
+            # Multi-agent: different agents used in same response
+            agent_names = {_get_agent_for_tool(tc["tool"]) for tc in non_direct_tools}
+            if len(agent_names) > 1:
+                agent_type = "multi"
+            else:
+                agent_type = agent_name
 
     # Smart response meta (Improvement 4)
     response_meta = _format_smart_response(state.get("tool_results", []))

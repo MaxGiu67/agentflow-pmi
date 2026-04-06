@@ -11,7 +11,7 @@ from datetime import datetime, date
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.db.models import CrmCompany, CrmContact, CrmDeal, CrmPipelineStage, CrmActivity
+from api.db.models import CrmCompany, CrmContact, CrmDeal, CrmPipelineStage, CrmActivity, User
 
 logger = logging.getLogger(__name__)
 
@@ -546,7 +546,28 @@ class CRMService:
                     contact.last_contact_at = datetime.utcnow()
                     await self.db.flush()
 
-        return self._activity_to_dict(activity)
+        # US-154: Push to Outlook if user has Microsoft 365 connected
+        result_dict = self._activity_to_dict(activity)
+        if activity.status == "planned" and activity.scheduled_at and activity.user_id:
+            try:
+                from api.modules.calendar.microsoft_service import MicrosoftCalendarService
+                user_result = await self.db.execute(
+                    select(User).where(User.id == activity.user_id)
+                )
+                user = user_result.scalar_one_or_none()
+                if user and user.microsoft_token:
+                    ms_svc = MicrosoftCalendarService(self.db)
+                    contact_name = ""
+                    if activity.contact_id:
+                        c = await self.db.execute(select(CrmContact).where(CrmContact.id == activity.contact_id))
+                        c_obj = c.scalar_one_or_none()
+                        contact_name = c_obj.name if c_obj else ""
+                    push_result = await ms_svc.push_activity(user, activity, contact_name=contact_name)
+                    result_dict["outlook_push"] = push_result
+            except Exception as e:
+                logger.warning("Outlook push failed (non-blocking): %s", e)
+
+        return result_dict
 
     async def complete_activity(self, activity_id: uuid.UUID) -> dict | None:
         result = await self.db.execute(
@@ -731,4 +752,5 @@ class CRMService:
             "scheduled_at": a.scheduled_at.isoformat() if a.scheduled_at else None,
             "completed_at": a.completed_at.isoformat() if a.completed_at else None,
             "status": a.status,
+            "outlook_event_id": getattr(a, "outlook_event_id", None),
         }

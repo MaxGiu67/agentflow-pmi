@@ -708,3 +708,221 @@ _Nessun bug trovato._
 | **TOTALE** | **13 stories** | **63 SP** | **67 test** | **67 PASS** |
 
 ---
+
+## Sprint 28: Social Selling — Epic 1 Origini + Epic 2 Activity Types (Pivot 8)
+
+| ID | Titolo | SP | Status | Tests |
+|----|--------|:--:|--------|:-----:|
+| US-130 | Admin definisce origine contact custom | 5 | Completata | 5 |
+| US-131 | Admin modifica/disattiva origine | 3 | Completata | 4 |
+| US-132 | Migrare campo source a origine FK | 5 | Completata | 3 |
+| US-133 | Filtro contatti per origine | 3 | Completata | 3 |
+| US-134 | Admin definisce tipi attivita custom | 5 | Completata | 7 |
+| US-135 | Admin modifica/disattiva tipo attivita | 3 | Completata | 4 |
+| US-136 | Pipeline stages + pre-funnel | 5 | Completata | 6 |
+| US-137 | Attivita con tipo custom + last_contact | 3 | Completata | 3 |
+
+**Sprint 28 Totale:** 32 SP | 8 stories | 35 test (18 Epic 1 + 17 Epic 2) | 35 PASS
+
+**Nuovi modelli DB:**
+- `CrmContactOrigin` — origini custom per tenant (code, label, parent_channel, icon_name, is_active)
+- `CrmActivityType` — tipi attivita custom (code, label, category, icon_name, counts_as_last_contact)
+
+**Backend:**
+- `api/modules/social_selling/origins_service.py` — CRUD origini + migration + seed 4 default
+- `api/modules/social_selling/activity_types_service.py` — CRUD tipi attivita + seed 8 default
+- `api/modules/social_selling/pipeline_service.py` — Stage CRUD + auto-reorder per pre-funnel
+
+**Frontend:**
+- `frontend/src/pages/social/OriginsPage.tsx` — Lista origini con edit inline, toggle, delete
+- `frontend/src/pages/social/ActivityTypesPage.tsx` — Lista tipi attivita con badge categorie
+- `frontend/src/pages/social/PipelineSettingsPage.tsx` — Gestione stadi con supporto pre-funnel
+
+**Test:** `test_social_selling_origins_api.py` (18), `test_social_selling_epic2_api.py` (17)
+
+---
+
+## Sprint 29: Social Selling — Epic 3 RBAC + Audit (Pivot 8)
+
+| ID | Titolo | SP | Status | Tests |
+|----|--------|:--:|--------|:-----:|
+| US-138 | Ruoli CRM custom con matrice permessi | 8 | Completata | 7 |
+| US-141 | Audit trail immutabile | 5 | Completata | 6 |
+
+**Sprint 29 Totale:** 13 SP | 2 stories | 13 test | 13 PASS
+
+**Nuovi modelli DB:**
+- `CrmRole` — ruoli custom per tenant (name, is_system)
+- `CrmRolePermission` — matrice permessi entity×permission
+- `CrmAuditLog` — log immutabile (action, entity, entity_id, user_id, details, ip_address)
+
+**Backend:**
+- `api/modules/social_selling/roles_service.py` — RBAC + seed 5 ruoli default + permission matrix
+- `api/modules/social_selling/audit_service.py` — Log immutabile + CSV export con SHA256
+
+**Frontend:**
+- `frontend/src/pages/social/RolesPage.tsx` — Matrice RBAC con checkbox per entity/permission
+- `frontend/src/pages/social/AuditLogPage.tsx` — Tabella log con filtri, paginazione, CSV export
+
+**Test:** `test_social_selling_epic3_api.py` (13)
+
+---
+
+## Sprint 30: Social Selling — Epic 4 Catalogo Prodotti (Pivot 8)
+
+| ID | Titolo | SP | Status | Tests |
+|----|--------|:--:|--------|:-----:|
+| US-142 | Catalogo prodotti/servizi | 5 | Completata | 3 |
+| US-143 | Modifica/disattiva prodotto | 3 | Completata | 3 |
+| US-144 | Prodotti associati a deal | 5 | Completata | 5 |
+
+**Sprint 30 Totale:** 13 SP | 3 stories | 11 test | 11 PASS
+
+**Nuovi modelli DB:**
+- `CrmProductCategory` — categorie prodotto per tenant
+- `CrmProduct` — prodotti/servizi (code, name, category, pricing_model, unit_price, margin_target)
+- `CrmDealProduct` — M2M deal↔prodotto (quantity, unit_price_override, total_price)
+
+**Backend:**
+- `api/modules/social_selling/products_service.py` — CRUD prodotti + deal products + revenue calc
+
+**Frontend:**
+- `frontend/src/pages/social/ProductsPage.tsx` — Card grid con edit inline, badge pricing, toggle
+
+**Test:** `test_social_selling_epic4_api.py` (11)
+
+---
+
+## Sprint 31: Social Selling — Epic 5 Analytics + Compensi (Pivot 8)
+
+| ID | Titolo | SP | Status | Tests |
+|----|--------|:--:|--------|:-----:|
+| US-146 | Dashboard KPI personalizzabile | 5 | Completata | 3 |
+| US-147 | Scorecard performance | 3 | Completata | 2 |
+| US-148 | Regole compenso configurabili | 5 | Completata | 4 |
+| US-149 | Calcolo compensi mensile | 3 | Completata | 2 |
+| US-150 | Conferma e pagamento compensi | 3 | Completata | 3 |
+
+**Sprint 31 Totale:** 19 SP | 5 stories | 14 test | 14 PASS
+
+**Nuovi modelli DB:**
+- `CrmDashboardWidget` — widget configurabili per dashboard
+- `CrmCompensationRule` — regole compenso (method, percentage, threshold, conditions)
+- `CrmCompensationEntry` — entry mensili (draft → confirmed → paid)
+
+**Backend:**
+- `api/modules/social_selling/dashboard_service.py` — Dashboard custom + scorecard KPIs
+- `api/modules/social_selling/compensation_service.py` — Regole + calcolo tiered + confirm/pay
+
+**Frontend:**
+- `frontend/src/pages/social/ScorecardPage.tsx` — KPI cards, auto-load per commerciale
+- `frontend/src/pages/social/CompensationPage.tsx` — Compensi mensili con calculate/confirm/pay
+
+**Test:** `test_social_selling_epic5_api.py` (14)
+
+---
+
+## Sprint 32: User Management + Role-Based UI + Company/Contact Split (Pivot 8)
+
+| ID | Titolo | SP | Status | Tests |
+|----|--------|:--:|--------|:-----:|
+| US-109 | Gestione utenti con invito | 5 | Completata | 6 |
+| US-110 | Row-level security per commerciale | 5 | Completata | 3 |
+| US-111 | Email sender per utente | 3 | Completata | 2 |
+| — | Role-based sidebar + dashboard | — | Completata | 3 |
+| — | Company/Contact 1:N split | — | Completata | — |
+| — | TipTap rich text editor | — | Completata | — |
+| — | Service Worker network-first | — | Completata | — |
+| — | ErrorBoundary auto-reload | — | Completata | — |
+
+**Sprint 32 Totale:** 13 SP | 3 stories + 4 infra | 14 test | 14 PASS
+
+**Nuovi modelli DB:**
+- `CrmCompany` (NEW) — azienda separata da contatto (name, piva, sector, city, website, origin_id, assigned_to)
+- `CrmContact.company_id` FK — referente legato ad azienda (1:N)
+- `CrmDeal.company_id` FK — deal appartiene ad azienda
+- `CrmPipelineStage.stage_type` — "pre_funnel" vs "pipeline"
+- `User.user_type` — "internal" vs "external"
+- `User.access_expires_at` — scadenza accesso utente esterno
+- `User.crm_role_id`, `User.default_origin_id`, `User.default_product_id`
+
+**Backend:**
+- `api/modules/crm/service.py` — Company CRUD, list_contacts con origin_id filter, pipeline analytics con assigned_to
+- `api/modules/crm/router.py` — Company endpoints, row-level filtering per commerciale/esterno
+- `api/modules/user_management/service.py` — invite con user_type/expiry, update CRM role
+- `api/modules/dashboard/default_widgets.py` — Widget set per ruolo (admin 13, commerciale 8)
+- `api/modules/dashboard/service.py` — get_crm_stats() per dashboard commerciale
+- `api/middleware/auth.py` — Check access_expires_at, auto-deactivazione
+
+**Frontend:**
+- `frontend/src/components/ui/Sidebar.tsx` — Filtro per ruolo (admin/owner vede tutto, commerciale vede solo CRM)
+- `frontend/src/components/ui/BottomNav.tsx` — Stesso filtro ruolo per mobile
+- `frontend/src/pages/DashboardPage.tsx` — Dashboard admin (financial KPIs) vs commerciale (sales KPIs)
+- `frontend/src/pages/crm/CrmContactsPage.tsx` — Form 2 step: seleziona/crea azienda → aggiungi referente
+- `frontend/src/pages/crm/CrmDealDetailPage.tsx` — Prodotti, timeline attivita, planned activities, bottone Modifica
+- `frontend/src/pages/crm/CrmPipelinePage.tsx` — Dialog ibrido cambio fase: sposta diretto o con registrazione attivita
+- `frontend/src/pages/crm/CrmNewDealPage.tsx` — Selettore stage + prima attivita opzionale
+- `frontend/src/pages/impostazioni/UsersPage.tsx` — Interno/Esterno toggle, CRM role, expiry
+- `frontend/src/pages/email/EmailTemplatesPage.tsx` — TipTap RichTextEditor per template
+- `frontend/src/components/email/RichTextEditor.tsx` — TipTap con toolbar completa + variable quick-insert
+- `frontend/public/sw.js` — Network-first per HTML, cache-first per assets hashed
+- `frontend/src/components/ui/ErrorBoundary.tsx` — Auto-reload su stale chunk (debounce 10s)
+
+**Test:** `test_sprint32_users_api.py` (14)
+
+---
+
+## PIVOT 8 IN CORSO — Social Selling + Company/Contact + Role-Based UI
+
+| Sprint | Stories | SP | Tests | Status |
+|--------|---------|----|-------|--------|
+| Sprint 28 | US-130→137 | 32 | 35 | PASS |
+| Sprint 29 | US-138, US-141 | 13 | 13 | PASS |
+| Sprint 30 | US-142→144 | 13 | 11 | PASS |
+| Sprint 31 | US-146→150 | 19 | 14 | PASS |
+| Sprint 32 | US-109→111 + infra | 13 | 14 | PASS |
+| **TOTALE** | **21 stories + infra** | **90 SP** | **87 test** | **87 PASS** |
+
+**Stories non ancora implementate (Pivot 8):**
+- US-139: Utenti esterni con scadenza accesso (parziale — backend pronto, frontend form esterno pronto)
+- US-140: Filtro dati per origine default utente esterno (parziale — backend pronto, da testare E2E)
+- US-145: Pipeline filtro per prodotto (non implementato)
+
+---
+
+## Sprint 33: Integrazione Calendario Commerciali
+
+| ID | Titolo | SP | Status | Tests |
+|----|--------|:--:|--------|:-----:|
+| US-151 | Vista calendario FullCalendar | 5 | Completata | 2 |
+| US-152 | Export .ics client-side | 3 | Completata | — |
+| US-153 | OAuth Microsoft 365 | 5 | Completata | 6 |
+| US-154 | Push attivita → Outlook | 5 | Completata | 2 |
+| US-155 | Link Calendly profilo | 3 | Completata | 10 |
+
+**Sprint 33 Totale:** 21 SP | 5 stories | 20 test | 20 PASS
+
+**Nuovi campi DB:**
+- `User.microsoft_token` (Text) — JSON criptato con access_token, refresh_token, expires_at
+- `User.calendly_url` (String) — URL Calendly personale
+- `CrmActivity.outlook_event_id` (String) — ID evento Outlook per tracking push
+
+**Backend:**
+- `api/modules/calendar/microsoft_service.py` — OAuth2 flow (authorize URL, code exchange, token refresh) + Graph API push (create/update events)
+- `api/modules/calendar/router.py` — 6 endpoint: GET/POST microsoft connect/callback/status/disconnect, GET/PATCH calendly
+- `api/modules/crm/service.py` — Hook push_activity su create_activity quando status=planned e user ha Microsoft 365
+
+**Frontend:**
+- `frontend/src/pages/crm/CrmCalendarPage.tsx` — FullCalendar (daygrid+timegrid+interaction), legenda colori per tipo, popover dettaglio con .ics download
+- `frontend/src/pages/ImpostazioniPage.tsx` — Sezione "Calendario e Appuntamenti": Microsoft 365 connect/disconnect + Calendly URL input
+- `frontend/src/pages/crm/CrmDealDetailPage.tsx` — Bottone "Prenota appuntamento" (Calendly) nel header del deal
+- `frontend/src/components/ui/Sidebar.tsx` — Voce "Calendario" nella sezione Commerciale
+- `frontend/src/api/hooks.ts` — 5 nuovi hooks: useMicrosoftCalendarStatus, useMicrosoftConnect, useMicrosoftDisconnect, useCalendlyUrl, useUpdateCalendlyUrl
+
+**Librerie aggiunte:**
+- `@fullcalendar/react` + `@fullcalendar/daygrid` + `@fullcalendar/timegrid` + `@fullcalendar/interaction` (~40KB gzipped, lazy-loaded)
+- `ics` (3KB) — generazione file .ics client-side
+
+**Test:** `test_calendar_api.py` (20)
+
+---
