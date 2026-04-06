@@ -8,6 +8,9 @@ from pydantic import BaseModel, Field
 
 class ContactCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
+    company_id: str | None = None
+    contact_name: str = ""
+    contact_role: str = ""
     type: str = "lead"
     email: str = ""
     phone: str = ""
@@ -16,6 +19,7 @@ class ContactCreate(BaseModel):
     province: str = ""
     sector: str = ""
     source: str = ""
+    website: str = ""
     email_opt_in: bool = True
 
 
