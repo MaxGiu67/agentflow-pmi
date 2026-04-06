@@ -8,6 +8,15 @@
 
 ---
 
+## 2026-04-06 — US-203: Kanban stacked per pipeline + filtro commerciale
+
+- **Decisione UX (brainstorming)**: Tab "Tutti" mostra Kanban stacked — ogni pipeline e una riga orizzontale con il suo Kanban
+- **Card arricchita**: nome deal + cliente + valore + commerciale assegnato + giorni in stato
+- **Filtro commerciale**: chip/bottoni sotto i tab (solo per admin/owner)
+- **Impatto**: solo US-203 (AC-203.1→203.4 aggiornati), CrmPipelinePage.tsx
+
+---
+
 ## 2026-04-06 — PIVOT 9: AgentFlow v3.0 — Da Controller a Sales AI Platform
 
 - **Causa**: Documento v3.0 (AI_Dorsey/) ridefinisce AgentFlow come piattaforma AI per vendita + controller. Dual pipeline (T&M + Elevia), prodotto determina pipeline, Sales Agent unico.

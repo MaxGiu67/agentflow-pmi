@@ -101,22 +101,24 @@ Il Pivot 9 trasforma AgentFlow da controller contabile a **piattaforma AI per ve
 **Voglio** vedere i deal raggruppati per pipeline (tab T&M / Corpo / Elevia / Tutti)
 **Per** focalizzarmi su un processo alla volta o avere la vista globale
 
-**AC-203.1 (Happy Path)**: DATO che ho deal in 3 pipeline diverse, QUANDO apro la pagina Pipeline CRM, ALLORA:
-  - Vedo tab in alto: "Tutti", "T&M", "Corpo", "Elevia" (+ eventuali custom)
-  - "Tutti" mostra deal di tutte le pipeline con badge colorato per pipeline
-  - Ogni tab mostra il Kanban con le colonne specifiche di quella pipeline
+**AC-203.1 (Happy Path — Tab "Tutti" = Kanban stacked per pipeline)**: DATO che ho deal in 3 pipeline diverse, QUANDO apro la pagina Pipeline CRM con tab "Tutti", ALLORA:
+  - Vedo tab in alto: "Tutti", "Vendita Diretta", "Corpo", "Social Selling" (+ eventuali custom)
+  - "Tutti" mostra **Kanban stacked per pipeline**: ogni pipeline e una riga orizzontale con il suo Kanban
+  - Ogni riga mostra: nome pipeline, conteggio deal, valore totale + colonne Kanban con le card
+  - Ogni tab specifico mostra il **Kanban classico full-width** con le colonne di quella pipeline
 
-**AC-203.2 (Conteggio)**: DATO che seleziono tab "T&M", ALLORA:
-  - Il tab mostra il conteggio deal: "T&M (12)"
-  - Il valore totale pipeline e calcolato solo sui deal T&M
+**AC-203.2 (Card deal arricchita)**: DATO che vedo una card deal nel Kanban, ALLORA:
+  - La card mostra: nome deal, cliente/azienda, valore, tipo deal, **commerciale assegnato**, **giorni in questo stato**
+  - Bottone "Apri" per andare al dettaglio
 
-**AC-203.3 (Drag tra stati stessa pipeline)**: DATO che sposto un deal T&M da "Qualifica" a "Match risorse" (stessa pipeline), ALLORA:
+**AC-203.3 (Filtro commerciale — solo admin)**: DATO che sono admin/owner, ALLORA:
+  - Vedo filtro commerciale sotto i tab: chip/bottoni con "Tutti", "Marco", "Pietro", "Sara"
+  - Selezionando un commerciale, il Kanban filtra solo i suoi deal
+  - Se sono commerciale, il filtro non appare (vedo solo i miei deal — row-level)
+
+**AC-203.4 (Drag tra stati stessa pipeline)**: DATO che sposto un deal da "Qualifica" a "Match risorse" (stessa pipeline), ALLORA:
   - Il deal si sposta normalmente
-  - L'agente chiede le info richieste per il nuovo stato
-
-**AC-203.4 (Non drag tra pipeline diverse)**: DATO che provo a spostare un deal T&M in uno stato Elevia, ALLORA:
-  - Non e possibile (le colonne sono della stessa pipeline)
-  - Per cambiare pipeline, cambia il prodotto sul deal
+  - Per cambiare pipeline, cambia il tipo di vendita sul deal
 
 **SP**: 5 | **Priorita**: Must Have | **Epic**: Pipeline Templates | **Dipendenze**: US-200, US-201
 

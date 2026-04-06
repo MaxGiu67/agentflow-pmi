@@ -9,7 +9,7 @@ import { formatCurrency } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
-import { Briefcase, Plus, Eye, LayoutGrid, List } from 'lucide-react'
+import { Briefcase, Plus, Eye, LayoutGrid, List, User, Clock } from 'lucide-react'
 
 const DEAL_TYPE_SHORT: Record<string, string> = {
   'T&M': 'T&M',
@@ -23,6 +23,7 @@ export default function CrmPipelinePage() {
   const [view, setView] = useState<'kanban' | 'table'>('kanban')
   const [typeFilter, setTypeFilter] = useState('')
   const [pipelineTab, setPipelineTab] = useState('all')
+  const [commercialeFilter, setCommercialeFilter] = useState('')
   const dragDealId = useRef<string | null>(null)
 
   const { data: _pipeline } = useCrmPipeline()
@@ -204,6 +205,27 @@ export default function CrmPipelinePage() {
         </div>
       )}
 
+      {/* Filtro commerciale (solo admin) */}
+      {(() => {
+        const allDeals = deals?.deals || []
+        const assigneeNames: string[] = [...new Set(allDeals.map((d: any) => d.assigned_to_name || '').filter(Boolean))] as string[]
+        if (assigneeNames.length <= 1) return null
+        return (
+          <div className="flex flex-wrap gap-1">
+            <button onClick={() => setCommercialeFilter('')}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${!commercialeFilter ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+              Tutti
+            </button>
+            {assigneeNames.map((name: string) => (
+              <button key={name} onClick={() => setCommercialeFilter(name)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${commercialeFilter === name ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                {name}
+              </button>
+            ))}
+          </div>
+        )
+      })()}
+
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-3">
         {/* AC-90.6: Toggle Kanban/Table */}
@@ -242,96 +264,162 @@ export default function CrmPipelinePage() {
 
       {isLoading ? <LoadingSpinner /> : view === 'kanban' ? (
         /* ============ KANBAN VIEW ============ */
-        <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: 400 }}>
-          {stages?.filter((s: any) => !s.is_lost).map((stage: any) => {
-            const stageDeals = dealsByStage[stage.id] || []
-            const stageTotal = stageDeals.reduce((sum: number, d: any) => sum + (d.expected_revenue || 0), 0)
+        pipelineTab === 'all' && pipelineTemplates?.length > 0 ? (
+          /* ── Stacked Kanban per pipeline (Tab "Tutti") ── */
+          <div className="space-y-6">
+            {pipelineTemplates.map((tmpl: any) => {
+              const tmplDeals = (deals?.deals || []).filter((d: any) =>
+                d.pipeline_template_id === tmpl.id &&
+                (!commercialeFilter || d.assigned_to_name === commercialeFilter)
+              )
+              const tmplTotal = tmplDeals.reduce((s: number, d: any) => s + (d.expected_revenue || 0), 0)
 
-            return (
-              <div
-                key={stage.id}
-                className="flex w-72 flex-none flex-col rounded-xl bg-gray-50"
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, stage.id)}
-              >
-                {/* AC-90.3: Column header */}
-                <div className="flex items-center justify-between rounded-t-xl px-3 py-2.5" style={{ borderTop: `3px solid ${stage.color}` }}>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">{stage.name}</p>
-                    <p className="text-xs text-gray-400">{stageDeals.length} deal &middot; {formatCurrency(stageTotal)}</p>
+              return (
+                <div key={tmpl.id} className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+                  {/* Pipeline header */}
+                  <div className="flex items-center justify-between bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-gray-900">{tmpl.name}</span>
+                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">{tmplDeals.length} deal</span>
+                    </div>
+                    <span className="text-sm font-medium text-gray-600">{formatCurrency(tmplTotal)}</span>
                   </div>
-                  <span
-                    className="flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white"
-                    style={{ backgroundColor: stage.color }}
-                  >
-                    {stageDeals.length}
-                  </span>
+                  {/* Mini Kanban orizzontale */}
+                  <div className="flex gap-2 overflow-x-auto p-3">
+                    {tmpl.stages?.filter((s: any) => !s.is_lost).map((tStage: any) => {
+                      const stageDeals = tmplDeals.filter((d: any) => d.stage === tStage.name)
+                      return (
+                        <div key={tStage.id} className="w-48 flex-none">
+                          <div className="rounded-t bg-gray-100 px-2 py-1.5">
+                            <p className="text-xs font-semibold text-gray-700">{tStage.name}</p>
+                            <p className="text-[10px] text-gray-400">{stageDeals.length} deal</p>
+                          </div>
+                          <div className="space-y-1 rounded-b bg-gray-50 px-1.5 py-1.5 min-h-[40px]">
+                            {stageDeals.map((deal: any) => (
+                              <button key={deal.id} onClick={() => navigate(`/crm/deals/${deal.id}`)}
+                                className="w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-left hover:shadow-sm">
+                                <p className="text-xs font-medium text-gray-900 truncate">{deal.name}</p>
+                                <p className="text-[10px] text-gray-500 truncate">{deal.client_name}</p>
+                                <div className="flex items-center justify-between mt-0.5">
+                                  <span className="text-[10px] font-semibold">{formatCurrency(deal.expected_revenue)}</span>
+                                  {deal.assigned_to_name && (
+                                    <span className="text-[9px] text-purple-600">{deal.assigned_to_name}</span>
+                                  )}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
+              )
+            })}
+            {/* Deal senza pipeline template (legacy) */}
+            {(() => {
+              const legacyDeals = (deals?.deals || []).filter((d: any) =>
+                !d.pipeline_template_id &&
+                (!commercialeFilter || d.assigned_to_name === commercialeFilter)
+              )
+              if (legacyDeals.length === 0) return null
+              return (
+                <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+                  <div className="flex items-center justify-between bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-gray-900">Non classificati</span>
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">{legacyDeals.length} deal</span>
+                    </div>
+                    <span className="text-sm font-medium text-gray-600">{formatCurrency(legacyDeals.reduce((s: number, d: any) => s + (d.expected_revenue || 0), 0))}</span>
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto p-3">
+                    {stages?.filter((s: any) => !s.is_lost).map((stage: any) => {
+                      const stageDeals = legacyDeals.filter((d: any) => d.stage_id === stage.id)
+                      if (stageDeals.length === 0) return null
+                      return (
+                        <div key={stage.id} className="w-48 flex-none">
+                          <div className="rounded-t bg-gray-100 px-2 py-1.5">
+                            <p className="text-xs font-semibold text-gray-700">{stage.name}</p>
+                          </div>
+                          <div className="space-y-1 rounded-b bg-gray-50 px-1.5 py-1.5">
+                            {stageDeals.map((deal: any) => (
+                              <button key={deal.id} onClick={() => navigate(`/crm/deals/${deal.id}`)}
+                                className="w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-left hover:shadow-sm">
+                                <p className="text-xs font-medium text-gray-900 truncate">{deal.name}</p>
+                                <p className="text-[10px] text-gray-500">{deal.client_name}</p>
+                                <span className="text-[10px] font-semibold">{formatCurrency(deal.expected_revenue)}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+        ) : (
+          /* ── Kanban classico full-width (tab specifico) ── */
+          <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: 400 }}>
+            {stages?.filter((s: any) => !s.is_lost).map((stage: any) => {
+              const allStageDeals = dealsByStage[stage.id] || []
+              const stageDeals = commercialeFilter
+                ? allStageDeals.filter((d: any) => d.assigned_to_name === commercialeFilter)
+                : allStageDeals
+              const stageTotal = stageDeals.reduce((sum: number, d: any) => sum + (d.expected_revenue || 0), 0)
 
-                {/* Cards */}
-                <div className="flex-1 space-y-2 overflow-y-auto px-2 py-2" style={{ maxHeight: 500 }}>
-                  {stageDeals.map((deal: any) => (
-                    <div
-                      key={deal.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, deal.id)}
-                      onDragEnd={handleDragEnd}
-                      className="cursor-grab rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing"
-                    >
-                      {/* Card content — click name to open detail */}
-                      <div className="flex items-start justify-between">
-                        <button onClick={() => navigate(`/crm/deals/${deal.id}`)}
-                          className="text-left text-sm font-medium text-gray-900 hover:text-blue-600 line-clamp-2">
-                          {deal.name}
-                        </button>
-                      </div>
-                      {deal.client_name && (
-                        <p className="mt-0.5 text-xs text-gray-500">{deal.client_name}</p>
-                      )}
-                      <div className="mt-2 flex items-center justify-between">
-                        <span className="text-sm font-semibold text-gray-800">
-                          {formatCurrency(deal.expected_revenue)}
-                        </span>
-                        {deal.deal_type && (
-                          <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
-                            {DEAL_TYPE_SHORT[deal.deal_type] || deal.deal_type}
-                          </span>
-                        )}
-                      </div>
-                      {deal.daily_rate > 0 && (
-                        <p className="mt-1 text-[10px] text-gray-400">
-                          {formatCurrency(deal.daily_rate)}/gg x {deal.estimated_days}gg
-                        </p>
-                      )}
-                      {/* Action buttons */}
-                      <div className="mt-2 flex items-center justify-between">
-                        <button onClick={() => navigate(`/crm/deals/${deal.id}`)}
-                          className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-1 text-[10px] font-medium text-blue-700 hover:bg-blue-100">
-                          <Eye className="h-3 w-3" /> Apri
-                        </button>
-                        {/* Mobile dropdown */}
-                        <select
-                          className="rounded border border-gray-200 px-1 py-0.5 text-[10px] text-gray-500 sm:hidden"
-                          value={deal.stage_id}
-                          onChange={(e) => updateDeal.mutate({ dealId: deal.id, stage_id: e.target.value })}
-                        >
-                          {stages?.map((s: any) => (
-                            <option key={s.id} value={s.id}>{s.name}</option>
-                          ))}
-                        </select>
-                      </div>
+              return (
+                <div
+                  key={stage.id}
+                  className="flex w-72 flex-none flex-col rounded-xl bg-gray-50"
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, stage.id)}
+                >
+                  <div className="flex items-center justify-between rounded-t-xl px-3 py-2.5" style={{ borderTop: `3px solid ${stage.color}` }}>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">{stage.name}</p>
+                      <p className="text-xs text-gray-400">{stageDeals.length} deal &middot; {formatCurrency(stageTotal)}</p>
                     </div>
-                  ))}
-                  {stageDeals.length === 0 && (
-                    <div className="py-8 text-center text-xs text-gray-300">
-                      Trascina qui un deal
-                    </div>
-                  )}
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: stage.color }}>
+                      {stageDeals.length}
+                    </span>
+                  </div>
+                  <div className="flex-1 space-y-2 overflow-y-auto px-2 py-2" style={{ maxHeight: 500 }}>
+                    {stageDeals.map((deal: any) => (
+                      <div key={deal.id} draggable onDragStart={(e) => handleDragStart(e, deal.id)} onDragEnd={handleDragEnd}
+                        className="cursor-grab rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing">
+                        <button onClick={() => navigate(`/crm/deals/${deal.id}`)}
+                          className="text-left text-sm font-medium text-gray-900 hover:text-blue-600 line-clamp-2">{deal.name}</button>
+                        {deal.client_name && <p className="mt-0.5 text-xs text-gray-500">{deal.client_name}</p>}
+                        <div className="mt-2 flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-800">{formatCurrency(deal.expected_revenue)}</span>
+                          {deal.deal_type && <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">{DEAL_TYPE_SHORT[deal.deal_type] || deal.deal_type}</span>}
+                        </div>
+                        {/* Commerciale + giorni in stato */}
+                        <div className="mt-1.5 flex items-center justify-between text-[10px] text-gray-400">
+                          {deal.assigned_to_name && (
+                            <span className="flex items-center gap-0.5"><User className="h-2.5 w-2.5" /> {deal.assigned_to_name}</span>
+                          )}
+                          {deal.days_in_stage != null && (
+                            <span className="flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {deal.days_in_stage}gg</span>
+                          )}
+                        </div>
+                        <div className="mt-2">
+                          <button onClick={() => navigate(`/crm/deals/${deal.id}`)}
+                            className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-1 text-[10px] font-medium text-blue-700 hover:bg-blue-100">
+                            <Eye className="h-3 w-3" /> Apri
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {stageDeals.length === 0 && <div className="py-8 text-center text-xs text-gray-300">Trascina qui un deal</div>}
+                  </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        )
       ) : (
         /* ============ TABLE VIEW ============ */
         !deals?.deals?.length ? (

@@ -722,6 +722,14 @@ class CRMService:
             )
             client_name = contact_result.scalar() or ""
 
+        # Get assigned user name
+        assigned_to_name = ""
+        if d.assigned_to:
+            user_result = await self.db.execute(
+                select(User.name).where(User.id == d.assigned_to)
+            )
+            assigned_to_name = user_result.scalar() or ""
+
         return {
             "id": str(d.id),
             "name": d.name,
@@ -742,6 +750,8 @@ class CRMService:
             "order_notes": d.order_notes or "",
             "company_id": str(d.company_id) if getattr(d, "company_id", None) else "",
             "pipeline_template_id": str(d.pipeline_template_id) if getattr(d, "pipeline_template_id", None) else "",
+            "assigned_to_name": assigned_to_name,
+            "days_in_stage": (datetime.utcnow() - d.updated_at).days if d.updated_at else 0,
         }
 
     def _activity_to_dict(self, a: CrmActivity) -> dict:
