@@ -107,6 +107,13 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS crm_role_id UUID",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS default_origin_id UUID",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS default_product_id UUID",
+            # Sprint 33: Calendar
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS microsoft_token TEXT",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS calendly_url VARCHAR(500)",
+            "ALTER TABLE crm_activities ADD COLUMN IF NOT EXISTS outlook_event_id VARCHAR(255)",
+            # Pivot 9: Pipeline Templates + Resources + Elevia
+            "ALTER TABLE crm_products ADD COLUMN IF NOT EXISTS pipeline_template_id UUID",
+            "ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS pipeline_template_id UUID",
         ]:
             try:
                 await conn.execute(text(stmt))
