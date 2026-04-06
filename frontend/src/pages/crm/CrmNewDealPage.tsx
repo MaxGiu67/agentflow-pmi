@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useCrmContacts, useCreateCrmDeal, useCreateCrmContact, useCrmStages, useActivityTypes, useCreateCrmActivity, useProducts, usePipelineTemplates } from '../../api/hooks'
+import { useCrmContacts, useCreateCrmDeal, useCreateCrmContact, useCrmStages, useActivityTypes, useCreateCrmActivity, useProducts, usePipelineTemplates, useCrmCompanies, useCreateCrmCompany } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import PageMeta from '../../components/ui/PageMeta'
-import { ArrowLeft, Plus, Search } from 'lucide-react'
+import { ArrowLeft, Search, Building, PlusCircle } from 'lucide-react'
 
 export default function CrmNewDealPage() {
   const navigate = useNavigate()
@@ -17,11 +17,27 @@ export default function CrmNewDealPage() {
   const { data: pipelineTemplates } = usePipelineTemplates()
 
   const [step, setStep] = useState(1)
+
+  // Company autocomplete
+  const [companySearch, setCompanySearch] = useState('')
+  const [selectedCompanyId, setSelectedCompanyId] = useState('')
+  const [selectedCompanyName, setSelectedCompanyName] = useState('')
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false)
+  const [showNewCompany, setShowNewCompany] = useState(false)
+  const [newCompanyForm, setNewCompanyForm] = useState({ name: '', vat: '', sector: '', city: '' })
+
+  // Referente
   const [contactSearch, setContactSearch] = useState('')
   const [selectedContactId, setSelectedContactId] = useState('')
   const [selectedContactName, setSelectedContactName] = useState('')
   const [showNewContact, setShowNewContact] = useState(false)
-  const [newContact, setNewContact] = useState({ name: '', email: '', vat: '', phone: '' })
+  const [newContact, setNewContact] = useState({ name: '', email: '', phone: '', contact_role: '' })
+
+  // Company hooks (after state declarations)
+  const { data: companiesData } = useCrmCompanies(companySearch)
+  const createCompany = useCreateCrmCompany()
+  const filteredCompanies = companiesData?.companies || []
+  const showCompanyAutocomplete = companySearch.length >= 2 && filteredCompanies.length > 0 && showCompanyDropdown && !selectedCompanyId
 
   const [name, setName] = useState('')
   const [dealType, setDealType] = useState('T&M')
@@ -49,15 +65,6 @@ export default function CrmNewDealPage() {
     c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
     (c.vat && c.vat.includes(contactSearch))
   ) || []
-
-  const handleCreateContact = async () => {
-    if (!newContact.name) return
-    const result = await createContact.mutateAsync(newContact)
-    setSelectedContactId(result.id)
-    setSelectedContactName(result.name)
-    setShowNewContact(false)
-    setStep(2)
-  }
 
   const handleSubmit = async () => {
     setError('')
@@ -117,84 +124,174 @@ export default function CrmNewDealPage() {
       {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
       {step === 1 ? (
-        /* ── Step 1: Seleziona cliente ── */
+        /* ── Step 1: Azienda + Referente (come pagina Contatti) ── */
         <div className="space-y-4">
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
-            <h3 className="font-semibold text-gray-900">Cliente</h3>
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 space-y-5">
 
-            {selectedContactId ? (
-              <div className="flex items-center justify-between rounded-lg bg-purple-50 border border-purple-200 p-4">
-                <div>
-                  <p className="font-medium text-purple-900">{selectedContactName}</p>
-                  <p className="text-xs text-purple-500">Cliente selezionato</p>
+            {/* 1. Azienda (autocomplete) */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-2">1. Azienda</h3>
+              {selectedCompanyId ? (
+                <div className="flex items-center justify-between rounded-lg bg-blue-50 border border-blue-200 p-3">
+                  <div className="flex items-center gap-2">
+                    <Building className="h-4 w-4 text-blue-600" />
+                    <span className="font-medium text-blue-900">{selectedCompanyName}</span>
+                  </div>
+                  <button onClick={() => { setSelectedCompanyId(''); setSelectedCompanyName(''); setCompanySearch('') }}
+                    className="text-xs text-blue-600 hover:underline">Cambia</button>
                 </div>
-                <button onClick={() => { setSelectedContactId(''); setSelectedContactName('') }}
-                  className="text-sm text-purple-600 hover:underline">Cambia</button>
-              </div>
-            ) : (
-              <>
+              ) : showNewCompany ? (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
+                  <p className="text-xs font-medium text-gray-500">Nuova azienda</p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <input value={newCompanyForm.name} onChange={(e) => setNewCompanyForm({ ...newCompanyForm, name: e.target.value })}
+                      placeholder="Ragione sociale *" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                    <input value={newCompanyForm.vat} onChange={(e) => setNewCompanyForm({ ...newCompanyForm, vat: e.target.value })}
+                      placeholder="P.IVA" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                    <input value={newCompanyForm.sector} onChange={(e) => setNewCompanyForm({ ...newCompanyForm, sector: e.target.value })}
+                      placeholder="Settore" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                    <input value={newCompanyForm.city} onChange={(e) => setNewCompanyForm({ ...newCompanyForm, city: e.target.value })}
+                      placeholder="Citta" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={async () => {
+                      if (!newCompanyForm.name) return
+                      const c = await createCompany.mutateAsync(newCompanyForm)
+                      setSelectedCompanyId(c.id); setSelectedCompanyName(c.name)
+                      setShowNewCompany(false); setNewCompanyForm({ name: '', vat: '', sector: '', city: '' })
+                    }} disabled={!newCompanyForm.name}
+                      className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">Crea azienda</button>
+                    <button onClick={() => setShowNewCompany(false)}
+                      className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600">Annulla</button>
+                  </div>
+                </div>
+              ) : (
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <input value={contactSearch} onChange={(e) => setContactSearch(e.target.value)}
-                    placeholder="Cerca cliente per nome o P.IVA..."
-                    className="w-full rounded-lg border border-gray-300 pl-10 pr-4 py-2.5 text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none" />
-                </div>
-
-                <div className="max-h-48 overflow-y-auto space-y-1">
-                  {filteredContacts.map((c: any) => (
-                    <button key={c.id} onClick={() => { setSelectedContactId(c.id); setSelectedContactName(c.name); setStep(2) }}
-                      className="w-full flex items-center justify-between rounded-lg border border-gray-200 px-4 py-2.5 text-left text-sm hover:bg-gray-50 transition-colors">
-                      <div>
-                        <p className="font-medium text-gray-900">{c.name}</p>
-                        {c.contact_name && <p className="text-xs text-gray-600">{c.contact_name}{c.contact_role ? ` — ${c.contact_role}` : ''}</p>}
-                        {c.vat && <p className="text-xs text-gray-400">P.IVA: {c.vat}</p>}
-                      </div>
-                      <span className="text-xs text-gray-400">{c.type}</span>
-                    </button>
-                  ))}
-                  {filteredContacts.length === 0 && contactSearch && (
-                    <p className="py-4 text-center text-sm text-gray-400">Nessun cliente trovato</p>
+                  <input value={companySearch}
+                    onChange={(e) => { setCompanySearch(e.target.value); setShowCompanyDropdown(true) }}
+                    onFocus={() => setShowCompanyDropdown(true)}
+                    placeholder="Digita 2+ caratteri per cercare azienda..."
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
+                  {showCompanyAutocomplete && (
+                    <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg max-h-48 overflow-y-auto">
+                      {filteredCompanies.map((c: any) => (
+                        <button key={c.id} onClick={() => {
+                          setSelectedCompanyId(c.id); setSelectedCompanyName(c.name)
+                          setCompanySearch(c.name); setShowCompanyDropdown(false)
+                        }}
+                          className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-blue-50 border-b border-gray-100 last:border-0">
+                          <Building className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                          <span className="font-medium">{c.name}</span>
+                          {c.city && <span className="text-xs text-gray-400">— {c.city}</span>}
+                        </button>
+                      ))}
+                    </div>
                   )}
+                  {companySearch.length >= 2 && filteredCompanies.length === 0 && showCompanyDropdown && (
+                    <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg p-3">
+                      <p className="text-xs text-gray-500 mb-2">Nessuna azienda trovata</p>
+                      <button onClick={() => { setShowNewCompany(true); setShowCompanyDropdown(false); setNewCompanyForm({ ...newCompanyForm, name: companySearch }) }}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-blue-600">
+                        <PlusCircle className="h-3.5 w-3.5" /> Crea "{companySearch}"
+                      </button>
+                    </div>
+                  )}
+                  <button onClick={() => setShowNewCompany(true)}
+                    className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-blue-600">
+                    <PlusCircle className="h-3.5 w-3.5" /> Crea nuova azienda
+                  </button>
                 </div>
+              )}
+            </div>
 
-                <div className="border-t border-gray-100 pt-4">
+            {/* 2. Referente (come pagina Contatti) */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-2">2. Referente</h3>
+
+              {selectedContactId ? (
+                <div className="flex items-center justify-between rounded-lg bg-purple-50 border border-purple-200 p-3">
+                  <div>
+                    <p className="font-medium text-purple-900">{selectedContactName}</p>
+                    <p className="text-xs text-purple-500">Referente selezionato</p>
+                  </div>
+                  <button onClick={() => { setSelectedContactId(''); setSelectedContactName('') }}
+                    className="text-xs text-purple-600 hover:underline">Cambia</button>
+                </div>
+              ) : (
+                <>
+                  {/* Cerca referente esistente */}
+                  <div className="relative mb-2">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <input value={contactSearch} onChange={(e) => setContactSearch(e.target.value)}
+                      placeholder="Cerca referente per nome..."
+                      className="w-full rounded-lg border border-gray-300 pl-10 pr-4 py-2 text-sm" />
+                  </div>
+
+                  {contactSearch && (
+                    <div className="max-h-36 overflow-y-auto space-y-1 mb-2">
+                      {filteredContacts.map((c: any) => (
+                        <button key={c.id} onClick={() => { setSelectedContactId(c.id); setSelectedContactName(c.contact_name || c.name) }}
+                          className="w-full flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-left text-sm hover:bg-gray-50">
+                          <div>
+                            <p className="font-medium text-gray-900">{c.contact_name || c.name}</p>
+                            {c.contact_role && <span className="text-xs text-gray-500"> — {c.contact_role}</span>}
+                            <p className="text-xs text-gray-400">{c.name}{c.email ? ` · ${c.email}` : ''}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Crea nuovo referente */}
                   {showNewContact ? (
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-medium text-gray-700">Nuovo cliente</h4>
-                      <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
+                      <p className="text-xs font-medium text-gray-500">Nuovo referente</p>
+                      <div className="grid gap-2 sm:grid-cols-2">
                         <input value={newContact.name} onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
-                          placeholder="Ragione sociale *" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-                        <input value={newContact.vat} onChange={(e) => setNewContact({ ...newContact, vat: e.target.value })}
-                          placeholder="P.IVA" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                          placeholder="Nome e cognome *" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                        <input value={newContact.contact_role} onChange={(e) => setNewContact({ ...newContact, contact_role: e.target.value })}
+                          placeholder="Ruolo (es. CEO, CTO)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
                         <input value={newContact.email} onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
                           placeholder="Email" type="email" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
                         <input value={newContact.phone} onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
                           placeholder="Telefono" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={handleCreateContact} disabled={!newContact.name}
-                          className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">Crea e continua</button>
+                        <button onClick={async () => {
+                          if (!newContact.name) return
+                          const result = await createContact.mutateAsync({
+                            name: selectedCompanyName || newContact.name,
+                            company_id: selectedCompanyId || undefined,
+                            contact_name: newContact.name,
+                            contact_role: newContact.contact_role,
+                            email: newContact.email,
+                            phone: newContact.phone,
+                          })
+                          setSelectedContactId(result.id)
+                          setSelectedContactName(newContact.name)
+                          setShowNewContact(false)
+                          setNewContact({ name: '', email: '', phone: '', contact_role: '' })
+                        }} disabled={!newContact.name}
+                          className="rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">Crea referente</button>
                         <button onClick={() => setShowNewContact(false)}
-                          className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600">Annulla</button>
+                          className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600">Annulla</button>
                       </div>
                     </div>
                   ) : (
                     <button onClick={() => setShowNewContact(true)}
-                      className="inline-flex items-center gap-2 text-sm font-medium text-purple-600 hover:text-purple-700">
-                      <Plus className="h-4 w-4" /> Crea nuovo cliente
+                      className="inline-flex items-center gap-1 text-xs font-medium text-purple-600">
+                      <PlusCircle className="h-3.5 w-3.5" /> Crea nuovo referente
                     </button>
                   )}
-                </div>
-              </>
-            )}
+                </>
+              )}
+            </div>
           </div>
 
-          {selectedContactId && (
-            <button onClick={() => setStep(2)}
-              className="w-full rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-purple-700">
-              Continua
-            </button>
-          )}
+          <button onClick={() => setStep(2)}
+            className="w-full rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-purple-700">
+            Continua
+          </button>
 
           <button onClick={() => setStep(2)} className="w-full text-center text-sm text-gray-400 hover:text-gray-600">
             Salta — crea deal senza cliente
