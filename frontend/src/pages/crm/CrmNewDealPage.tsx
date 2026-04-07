@@ -40,7 +40,7 @@ export default function CrmNewDealPage() {
     city: c.city || '',
     portal_id: c.portal_id,
   }))
-  const filteredCompanies = allCompanies
+  const filteredCompanies = [...allCompanies].sort((a, b) => a.name.localeCompare(b.name, 'it'))
   const showCompanyAutocomplete = showCompanyDropdown && !selectedCompanyId
 
   const [name, setName] = useState('')
