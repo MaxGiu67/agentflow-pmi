@@ -328,6 +328,9 @@ async def create_activity(
     svc: CRMService = Depends(get_service),
 ):
     tid = _require_tenant(user)
+    # Auto-assign current user so Outlook push works
+    if "user_id" not in body or not body["user_id"]:
+        body["user_id"] = str(user.id)
     return await svc.create_activity(tid, body)
 
 
