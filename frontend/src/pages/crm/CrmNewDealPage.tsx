@@ -103,7 +103,7 @@ export default function CrmNewDealPage() {
         daily_rate: parseFloat(dailyRate) || 0,
         estimated_days: parseFloat(estimatedDays) || 0,
         technology,
-        stage_id: stageId || undefined,
+        stage_id: stageId || stages?.find((s: any) => s.name === 'Nuovo Lead')?.id || undefined,
         pipeline_template_id: selectedPipeline?.id || undefined,
       })
 
@@ -421,12 +421,11 @@ export default function CrmNewDealPage() {
             {/* Stage selector */}
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Fase pipeline</label>
-              <select value={stageId} onChange={(e) => setStageId(e.target.value)}
+              <select value={stageId || stages?.find((s: any) => s.name === 'Nuovo Lead')?.id || ''} onChange={(e) => setStageId(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm">
-                <option value="">Nuovo Lead (default)</option>
                 {stages?.map((s: any) => (
                   <option key={s.id} value={s.id}>
-                    {s.name} ({s.probability}%){s.stage_type === 'pre_funnel' ? ' — pre-funnel' : ''}
+                    {s.name} ({s.probability_default}%){s.name === 'Nuovo Lead' ? ' — default' : ''}
                   </option>
                 ))}
               </select>
