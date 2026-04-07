@@ -358,24 +358,28 @@ export default function CrmPipelinePage() {
             // Tab "Tutti" → stacked per pipeline
             const sections: { title: string; templateId: string; color: string; deals: any[]; stagesForSection: any[] }[] = []
 
+            // All sections use GENERIC stages (deals always have generic stage_id)
+            const genericStages = stages?.map((s: any) => ({ ...s, code: s.id, name: s.name })) || []
+
             // Pipeline templates
             if (pipelineTemplates) {
               for (const tmpl of pipelineTemplates) {
                 const tmplDeals = filteredByComm.filter((d: any) => d.pipeline_template_id === tmpl.id)
-                const tmplStages = (tmpl.stages || [])
-                sections.push({ title: tmpl.name, templateId: tmpl.id, color: '#6366f1', deals: tmplDeals, stagesForSection: tmplStages })
+                if (tmplDeals.length > 0) {
+                  sections.push({ title: tmpl.name, templateId: tmpl.id, color: '#6366f1', deals: tmplDeals, stagesForSection: genericStages })
+                }
               }
             }
 
             // Legacy deals (no pipeline_template_id)
             const legacyDeals = filteredByComm.filter((d: any) => !d.pipeline_template_id)
-            if (legacyDeals.length > 0 && stages) {
+            if (legacyDeals.length > 0) {
               sections.push({
                 title: 'Non classificati',
                 templateId: 'legacy',
                 color: '#6b7280',
                 deals: legacyDeals,
-                stagesForSection: stages.map((s: any) => ({ ...s, code: s.id, name: s.name })),
+                stagesForSection: genericStages,
               })
             }
 
@@ -396,15 +400,11 @@ export default function CrmPipelinePage() {
                       {/* Full kanban for this pipeline */}
                       <div className="flex gap-3 overflow-x-auto pb-3">
                         {section.stagesForSection.map((stageInfo: any) => {
-                          // Match deals to stage — by stage name for template stages, by stage_id for legacy
-                          const stageDeals = section.templateId === 'legacy'
-                            ? section.deals.filter((d: any) => d.stage_id === stageInfo.id)
-                            : section.deals.filter((d: any) => d.stage === stageInfo.name)
+                          // All deals use generic stage_id
+                          const stageDeals = section.deals.filter((d: any) => d.stage_id === stageInfo.id)
                           const stTotal = stageDeals.reduce((s: number, d: any) => s + (d.expected_revenue || 0), 0)
-                          // Use existing stages for color, or default
-                          const realStage = stages?.find((s: any) => s.name === stageInfo.name)
-                          const color = realStage?.color || '#6B7280'
-                          return renderKanbanColumn({ ...stageInfo, id: realStage?.id || stageInfo.id, color }, stageDeals, stTotal)
+                          const color = stageInfo.color || '#6B7280'
+                          return renderKanbanColumn({ ...stageInfo, color }, stageDeals, stTotal)
                         })}
                       </div>
                     </div>
