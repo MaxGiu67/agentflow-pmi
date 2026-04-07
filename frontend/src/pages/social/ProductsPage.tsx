@@ -5,7 +5,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { Plus, Package, ToggleLeft, ToggleRight, Pencil, Trash2, X, Check } from 'lucide-react'
 import { formatCurrency } from '../../lib/utils'
 
-const EMPTY_FORM = { name: '', code: '', pricing_model: 'fixed', base_price: '', hourly_rate: '', description: '', pipeline_template_id: '' }
+const EMPTY_FORM = { name: '', code: '', pricing_model: 'fixed', base_price: '', hourly_rate: '', description: '', pipeline_template_id: '', requires_resources: false }
 
 export default function ProductsPage() {
   const { data: products, isLoading } = useProducts()
@@ -24,6 +24,7 @@ export default function ProductsPage() {
       base_price: form.base_price ? Number(form.base_price) : undefined,
       hourly_rate: form.hourly_rate ? Number(form.hourly_rate) : undefined,
       pipeline_template_id: form.pipeline_template_id || undefined,
+      requires_resources: form.requires_resources,
     })
     setForm({ ...EMPTY_FORM })
     setShowForm(false)
@@ -39,6 +40,7 @@ export default function ProductsPage() {
       hourly_rate: p.hourly_rate ? String(p.hourly_rate) : '',
       description: p.description || '',
       pipeline_template_id: p.pipeline_template_id || '',
+      requires_resources: p.requires_resources || false,
     })
   }
 
@@ -50,6 +52,7 @@ export default function ProductsPage() {
       hourly_rate: editForm.hourly_rate ? Number(editForm.hourly_rate) : undefined,
       description: editForm.description || undefined,
       pipeline_template_id: editForm.pipeline_template_id || undefined,
+      requires_resources: editForm.requires_resources,
     })
     setEditId(null)
   }
@@ -103,6 +106,10 @@ export default function ProductsPage() {
                 <option key={t.id} value={t.id}>{t.name} ({t.stage_count} stadi)</option>
               ))}
             </select>
+            <label className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={form.requires_resources} onChange={(e) => setForm({ ...form, requires_resources: e.target.checked })} />
+              Richiede risorse
+            </label>
           </div>
           <div className="flex gap-2">
             <button onClick={handleCreate} disabled={createProduct.isPending || !form.code.trim() || !form.name.trim()}
@@ -136,6 +143,10 @@ export default function ProductsPage() {
                       <option key={t.id} value={t.id}>{t.name} ({t.stage_count} stadi)</option>
                     ))}
                   </select>
+                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <input type="checkbox" checked={editForm.requires_resources} onChange={(e) => setEditForm({ ...editForm, requires_resources: e.target.checked })} />
+                    Richiede risorse Portal
+                  </label>
                   <div className="flex gap-2">
                     <button onClick={() => handleSaveEdit(p.id)}
                       className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700">
@@ -165,6 +176,9 @@ export default function ProductsPage() {
                     <p className="mt-1 text-[11px] text-purple-600 font-medium">Pipeline: {getPipelineName(p.pipeline_template_id)}</p>
                   ) : (
                     <p className="mt-1 text-[11px] text-amber-500">Nessuna pipeline collegata</p>
+                  )}
+                  {p.requires_resources && (
+                    <span className="mt-1 inline-block rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-medium text-teal-700">Richiede risorse</span>
                   )}
                   <div className="mt-3 flex items-center justify-between">
                     <button onClick={() => updateProduct.mutate({ id: p.id, is_active: !p.is_active })}

@@ -1265,6 +1265,7 @@ class CrmProduct(Base):
     target_margin_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     pipeline_template_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # US-201: prodotto → pipeline
+    requires_resources: Mapped[bool] = mapped_column(Boolean, default=False)  # Se true, deal mostra sezione risorse Portal
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

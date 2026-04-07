@@ -429,6 +429,7 @@ class ProductCreate(BaseModel):
     category_name: str | None = None
     category_id: str | None = None
     pipeline_template_id: str | None = None
+    requires_resources: bool = False
 
 
 class ProductUpdate(BaseModel):
@@ -440,6 +441,7 @@ class ProductUpdate(BaseModel):
     target_margin_percent: float | None = None
     description: str | None = None
     pipeline_template_id: str | None = None
+    requires_resources: bool | None = None
     is_active: bool | None = None
 
 
