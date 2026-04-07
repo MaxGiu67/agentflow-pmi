@@ -299,6 +299,8 @@ class CRMService:
             tenant_id=tenant_id,
             contact_id=uuid.UUID(data["contact_id"]) if data.get("contact_id") else None,
             company_id=uuid.UUID(data["company_id"]) if data.get("company_id") else None,
+            portal_customer_id=data.get("portal_customer_id"),
+            portal_customer_name=data.get("portal_customer_name"),
             stage_id=stage_id,
             pipeline_template_id=uuid.UUID(data["pipeline_template_id"]) if data.get("pipeline_template_id") else None,
             name=data["name"],
@@ -794,9 +796,9 @@ class CRMService:
             )
             stage_name = stage_result.scalar() or ""
 
-        # Get contact name
-        client_name = ""
-        if d.contact_id:
+        # Get client name — prefer portal_customer_name, fallback to contact name
+        client_name = getattr(d, "portal_customer_name", None) or ""
+        if not client_name and d.contact_id:
             contact_result = await self.db.execute(
                 select(CrmContact.name).where(CrmContact.id == d.contact_id)
             )
@@ -832,9 +834,11 @@ class CRMService:
             "order_date": d.order_date.isoformat() if d.order_date else "",
             "order_notes": d.order_notes or "",
             "company_id": str(d.company_id) if getattr(d, "company_id", None) else "",
+            "portal_customer_id": getattr(d, "portal_customer_id", None),
+            "portal_customer_name": getattr(d, "portal_customer_name", None) or "",
             "pipeline_template_id": str(d.pipeline_template_id) if getattr(d, "pipeline_template_id", None) else "",
             "assigned_to_name": assigned_to_name,
-            "days_in_stage": 0,  # Calculated from updated_at if available
+            "days_in_stage": 0,
         }
 
     def _activity_to_dict(self, a: CrmActivity) -> dict:

@@ -1388,6 +1388,21 @@ export function useDeleteDealDocument() {
   })
 }
 
+// ── Portal Integration (Pivot 10) ──
+export function usePortalCustomers(search?: string) {
+  return useQuery({
+    queryKey: ['portal-customers', search],
+    queryFn: () => api.get(`/portal/customers?search=${search || ''}`).then((r) => r.data),
+  })
+}
+
+export function usePortalStatus() {
+  return useQuery({
+    queryKey: ['portal-status'],
+    queryFn: () => api.get('/portal/status').then((r) => r.data),
+  })
+}
+
 export function useUpdateCrmContact() {
   const qc = useQueryClient()
   return useMutation({

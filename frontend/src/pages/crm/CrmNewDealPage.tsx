@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useCrmContacts, useCreateCrmDeal, useCreateCrmContact, useCrmStages, useActivityTypes, useCreateCrmActivity, usePipelineTemplates, useCrmCompanies, useCreateCrmCompany } from '../../api/hooks'
+import { useCrmContacts, useCreateCrmDeal, useCreateCrmContact, useCrmStages, useActivityTypes, useCreateCrmActivity, usePipelineTemplates, usePortalCustomers } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import PageMeta from '../../components/ui/PageMeta'
-import { ArrowLeft, Search, Building, PlusCircle } from 'lucide-react'
+import { ArrowLeft, Search, Building } from 'lucide-react'
 
 export default function CrmNewDealPage() {
   const navigate = useNavigate()
@@ -22,8 +22,7 @@ export default function CrmNewDealPage() {
   const [selectedCompanyId, setSelectedCompanyId] = useState('')
   const [selectedCompanyName, setSelectedCompanyName] = useState('')
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false)
-  const [showNewCompany, setShowNewCompany] = useState(false)
-  const [newCompanyForm, setNewCompanyForm] = useState({ name: '', vat: '', sector: '', city: '' })
+  // showNewCompany removed — companies come from Portal
 
   // Referente
   const [contactSearch, setContactSearch] = useState('')
@@ -32,21 +31,16 @@ export default function CrmNewDealPage() {
   const [showNewContact, setShowNewContact] = useState(false)
   const [newContact, setNewContact] = useState({ name: '', email: '', phone: '', contact_role: '' })
 
-  // Company hooks — load ALL companies, filter client-side
-  const { data: companiesData } = useCrmCompanies('')
-  const createCompany = useCreateCrmCompany()
-  // Deduplicate companies by name
-  const allCompanies = (() => {
-    const seen = new Map<string, any>()
-    for (const c of (companiesData?.companies || [])) {
-      const key = c.name.toLowerCase().trim()
-      if (!seen.has(key)) seen.set(key, c)
-    }
-    return [...seen.values()].sort((a: any, b: any) => a.name.localeCompare(b.name))
-  })()
-  const filteredCompanies = companySearch.length >= 3
-    ? allCompanies.filter((c: any) => c.name.toLowerCase().includes(companySearch.toLowerCase()))
-    : allCompanies
+  // Companies from Portal (Pivot 10 — Portal is master for customers)
+  const { data: portalCustomers } = usePortalCustomers(companySearch.length >= 2 ? companySearch : '')
+  const allCompanies = (portalCustomers?.customers || []).map((c: any) => ({
+    id: String(c.portal_id),  // portal_customer_id as string
+    name: c.name,
+    vat: c.vat || '',
+    city: c.city || '',
+    portal_id: c.portal_id,
+  }))
+  const filteredCompanies = allCompanies
   const showCompanyAutocomplete = showCompanyDropdown && !selectedCompanyId
 
   const [name, setName] = useState('')
@@ -97,7 +91,8 @@ export default function CrmNewDealPage() {
       const deal = await createDeal.mutateAsync({
         name,
         contact_id: selectedContactId || undefined,
-        company_id: selectedCompanyId || undefined,
+        portal_customer_id: selectedCompanyId ? parseInt(selectedCompanyId) : undefined,
+        portal_customer_name: selectedCompanyName || undefined,
         deal_type: dealType,
         expected_revenue: parseFloat(expectedRevenue) || 0,
         daily_rate: parseFloat(dailyRate) || 0,
@@ -163,39 +158,14 @@ export default function CrmNewDealPage() {
                   <button onClick={() => { setSelectedCompanyId(''); setSelectedCompanyName(''); setCompanySearch('') }}
                     className="text-xs text-blue-600 hover:underline">Cambia</button>
                 </div>
-              ) : showNewCompany ? (
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
-                  <p className="text-xs font-medium text-gray-500">Nuova azienda</p>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <input value={newCompanyForm.name} onChange={(e) => setNewCompanyForm({ ...newCompanyForm, name: e.target.value })}
-                      placeholder="Ragione sociale *" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-                    <input value={newCompanyForm.vat} onChange={(e) => setNewCompanyForm({ ...newCompanyForm, vat: e.target.value })}
-                      placeholder="P.IVA" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-                    <input value={newCompanyForm.sector} onChange={(e) => setNewCompanyForm({ ...newCompanyForm, sector: e.target.value })}
-                      placeholder="Settore" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-                    <input value={newCompanyForm.city} onChange={(e) => setNewCompanyForm({ ...newCompanyForm, city: e.target.value })}
-                      placeholder="Citta" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={async () => {
-                      if (!newCompanyForm.name) return
-                      const c = await createCompany.mutateAsync(newCompanyForm)
-                      setSelectedCompanyId(c.id); setSelectedCompanyName(c.name)
-                      setShowNewCompany(false); setNewCompanyForm({ name: '', vat: '', sector: '', city: '' })
-                    }} disabled={!newCompanyForm.name}
-                      className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">Crea azienda</button>
-                    <button onClick={() => setShowNewCompany(false)}
-                      className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600">Annulla</button>
-                  </div>
-                </div>
               ) : (
                 <div className="relative">
                   <input value={companySearch}
                     onChange={(e) => { setCompanySearch(e.target.value); setShowCompanyDropdown(true) }}
                     onFocus={() => setShowCompanyDropdown(true)}
-                    placeholder="Clicca per vedere tutte — o digita 3+ caratteri per cercare..."
+                    placeholder="Digita 2+ caratteri per cercare aziende da Portal..."
                     className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
-                  {showCompanyAutocomplete && (
+                  {showCompanyAutocomplete && filteredCompanies.length > 0 && (
                     <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg max-h-48 overflow-y-auto">
                       {filteredCompanies.map((c: any) => (
                         <button key={c.id} onClick={() => {
@@ -205,24 +175,16 @@ export default function CrmNewDealPage() {
                           className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-blue-50 border-b border-gray-100 last:border-0">
                           <Building className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
                           <span className="font-medium">{c.name}</span>
+                          {c.vat && <span className="text-xs text-gray-400">P.IVA: {c.vat}</span>}
                           {c.city && <span className="text-xs text-gray-400">— {c.city}</span>}
                         </button>
                       ))}
                     </div>
                   )}
-                  {companySearch.length >= 3 && filteredCompanies.length === 0 && showCompanyDropdown && (
-                    <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg p-3">
-                      <p className="text-xs text-gray-500 mb-2">Nessuna azienda trovata</p>
-                      <button onClick={() => { setShowNewCompany(true); setShowCompanyDropdown(false); setNewCompanyForm({ ...newCompanyForm, name: companySearch }) }}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-blue-600">
-                        <PlusCircle className="h-3.5 w-3.5" /> Crea "{companySearch}"
-                      </button>
-                    </div>
+                  {companySearch.length >= 2 && filteredCompanies.length === 0 && showCompanyDropdown && (
+                    <p className="mt-1 text-xs text-gray-400">Nessuna azienda trovata su Portal per "{companySearch}"</p>
                   )}
-                  <button onClick={() => setShowNewCompany(true)}
-                    className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-blue-600">
-                    <PlusCircle className="h-3.5 w-3.5" /> Crea nuova azienda
-                  </button>
+                  <p className="mt-1 text-[10px] text-gray-300">Fonte: PortalJS.be</p>
                 </div>
               )}
             </div>
