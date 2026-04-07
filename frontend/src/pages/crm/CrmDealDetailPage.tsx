@@ -11,7 +11,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import SendEmailModal from '../../components/email/SendEmailModal'
 import {
   ArrowLeft, FileCheck, CheckCircle, AlertCircle, Mail, Eye, MousePointer,
-  Plus, Phone, Video, Calendar, MessageSquare, Activity, Pencil, ExternalLink, Building2,
+  Plus, Phone, Video, Calendar, MessageSquare, Activity, Pencil, Building2,
   FileText, Link2, Trash2,
 } from 'lucide-react'
 

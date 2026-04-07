@@ -8,6 +8,19 @@
 
 ---
 
+## 2026-04-07 (PM) — PIVOT: Documenti Deal + Kanban stage fix + Default stage + Pulizia DB
+
+- **Causa**: Il commerciale ha bisogno di allegare offerte/ordini al deal. Stage mismatch tra generic e template. DB inquinato da test E2E.
+- **Nuovo modello**: `CrmDealDocument` (doc_type: offerta/ordine/contratto/specifica/altro, name, url, notes, uploaded_by)
+- **3 endpoint**: GET/POST `/crm/deals/{id}/documents`, DELETE `/crm/documents/{id}`
+- **Fix Kanban "Tutti"**: ora usa stage generici per tutte le sezioni (template stages non matchavano)
+- **Fix default stage**: "Nuovo Lead" come default (era "Prospect" per option vuota)
+- **DELETE deal endpoint**: aggiunto per pulizia
+- **Rimosso** bottone "Prenota appuntamento" (ridondante con attività → Outlook)
+- **DB cleanup**: 44 deal E2E, 13 aziende duplicate, 6 contatti vecchi eliminati
+- **12 E2E test documenti**: 12/12 PASS su Railway
+- **Impatto**: 3 file specs aggiornati, 0 da rifare
+
 ## 2026-04-07 — Sprint 34: CRM Bug Fixes + Schema Hardening + Calendar Enhancement + Pipeline UX
 
 - **9 bug fix**: ContactCreate/ContactResponse/DealResponse schema incompleti, `scheduled_at` string→datetime (500 error), Microsoft OAuth redirect URI errato, OAuth callback senza redirect frontend, `user_id` non auto-assegnato su activity, `useCrmActivities` hook con condizione `enabled` bloccante, import `Package` rimosso (build error)
