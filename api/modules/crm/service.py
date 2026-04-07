@@ -314,6 +314,20 @@ class CRMService:
         await self.db.flush()
         return await self._deal_to_dict(deal, tenant_id)
 
+    async def delete_deal(self, deal_id: uuid.UUID, tenant_id: uuid.UUID) -> bool:
+        result = await self.db.execute(
+            select(CrmDeal).where(CrmDeal.id == deal_id, CrmDeal.tenant_id == tenant_id)
+        )
+        deal = result.scalar_one_or_none()
+        if not deal:
+            return False
+        # Delete related activities first
+        from sqlalchemy import delete as sql_delete
+        await self.db.execute(sql_delete(CrmActivity).where(CrmActivity.deal_id == deal_id))
+        await self.db.delete(deal)
+        await self.db.flush()
+        return True
+
     async def update_deal(self, deal_id: uuid.UUID, tenant_id: uuid.UUID, data: dict) -> dict | None:
         result = await self.db.execute(
             select(CrmDeal).where(CrmDeal.id == deal_id, CrmDeal.tenant_id == tenant_id)

@@ -211,6 +211,19 @@ async def create_deal(
     return await svc.create_deal(tid, body)
 
 
+@router.delete("/deals/{deal_id}")
+async def delete_deal(
+    deal_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    svc: CRMService = Depends(get_service),
+):
+    tid = _require_tenant(user)
+    ok = await svc.delete_deal(deal_id, tid)
+    if not ok:
+        raise HTTPException(404, "Deal non trovato")
+    return {"status": "deleted"}
+
+
 @router.patch("/deals/{deal_id}")
 async def update_deal(
     deal_id: uuid.UUID,
