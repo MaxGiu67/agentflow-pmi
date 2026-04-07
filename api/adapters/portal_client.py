@@ -305,8 +305,8 @@ class PortalClient:
         return await self._get("/crud/Location", {"pageNum": 0, "pageSize": 100})
 
     async def get_account_managers(self) -> Any:
-        """Get users that can be account managers."""
-        return await self._get("/crud/User", {"pageNum": 0, "pageSize": 100, "include": "true"})
+        """Get accounts (users) that can be account managers."""
+        return await self._get("/crud/Account", {"pageNum": 0, "pageSize": 100, "include": "true"})
 
     async def find_account_manager_by_email(self, email: str) -> dict | None:
         """Find Portal User (account manager) matching an email address."""
