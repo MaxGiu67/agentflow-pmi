@@ -528,6 +528,15 @@ class CRMService:
         if data.get("activity_type_id"):
             activity_type_id = uuid.UUID(data["activity_type_id"]) if isinstance(data["activity_type_id"], str) else data["activity_type_id"]
 
+        # Parse scheduled_at string → datetime
+        scheduled_at = None
+        if data.get("scheduled_at"):
+            raw = data["scheduled_at"]
+            if isinstance(raw, str):
+                scheduled_at = datetime.fromisoformat(raw)
+            else:
+                scheduled_at = raw
+
         activity = CrmActivity(
             tenant_id=tenant_id,
             deal_id=uuid.UUID(data["deal_id"]) if data.get("deal_id") else None,
@@ -537,7 +546,7 @@ class CRMService:
             activity_type_id=activity_type_id,
             subject=data["subject"],
             description=data.get("description"),
-            scheduled_at=data.get("scheduled_at"),
+            scheduled_at=scheduled_at,
             status=data.get("status", "planned"),
         )
         self.db.add(activity)
