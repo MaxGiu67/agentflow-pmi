@@ -355,6 +355,7 @@ export default function CrmNewDealPage() {
                         {product.description && <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{product.description}</p>}
                         {linkedPipeline && <p className="text-[10px] text-purple-600 mt-2 font-medium">Pipeline: {linkedPipeline.name}</p>}
                         {product.base_price && <p className="text-[10px] text-gray-400 mt-0.5">Base: €{Number(product.base_price).toLocaleString('it-IT')}</p>}
+                        {product.requires_resources && <span className="mt-1 inline-block rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-medium text-teal-700">Richiede risorse</span>}
                       </button>
                     )
                   })}
