@@ -1045,6 +1045,21 @@ class CrmActivity(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class CrmDealDocument(Base):
+    """Document attached to a deal — offer, order, contract, etc."""
+    __tablename__ = "crm_deal_documents"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    deal_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    doc_type: Mapped[str] = mapped_column(String(30), nullable=False)  # offerta, ordine, contratto, altro
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    url: Mapped[str | None] = mapped_column(Text, nullable=True)  # external link (Drive, SharePoint, etc.)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    uploaded_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 # ============================================================
 # Resource DB (US-204, US-205 — Pivot 9, T&M)
 # ============================================================

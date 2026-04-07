@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   useCrmDeal, useRegisterOrder, useConfirmOrder, useEmailSends,
   useActivityTypes, useCrmActivities, useCreateCrmActivity,
-  useCalendlyUrl,
+  useDealDocuments, useAddDealDocument, useDeleteDealDocument,
 } from '../../api/hooks'
 import { formatCurrency } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
@@ -12,6 +12,7 @@ import SendEmailModal from '../../components/email/SendEmailModal'
 import {
   ArrowLeft, FileCheck, CheckCircle, AlertCircle, Mail, Eye, MousePointer,
   Plus, Phone, Video, Calendar, MessageSquare, Activity, Pencil, ExternalLink, Building2,
+  FileText, Link2, Trash2,
 } from 'lucide-react'
 
 const ORDER_TYPES = [
@@ -42,9 +43,11 @@ export default function CrmDealDetailPage() {
   const registerOrder = useRegisterOrder()
   const confirmOrder = useConfirmOrder()
   const { data: emailHistory } = useEmailSends(deal?.client_id || undefined)
-  const { data: calendlyData } = useCalendlyUrl()
 
-  // Products section removed — deal type + pipeline template define the product
+  // Documents
+  const { data: documents } = useDealDocuments(id)
+  const addDocument = useAddDealDocument()
+  const deleteDocument = useDeleteDealDocument()
 
   // Activities
   const { data: activityTypes } = useActivityTypes(true)
@@ -58,6 +61,8 @@ export default function CrmDealDetailPage() {
   const [showEmailModal, setShowEmailModal] = useState(false)
   const [showActivityForm, setShowActivityForm] = useState(false)
   const [actForm, setActForm] = useState({ type: 'call', activity_type_id: '', subject: '', description: '', status: 'completed', scheduled_at: '' })
+  const [showDocForm, setShowDocForm] = useState(false)
+  const [docForm, setDocForm] = useState({ doc_type: 'offerta', name: '', url: '', notes: '' })
 
   if (isLoading) return <LoadingSpinner />
   if (!deal) return <div className="p-8 text-center text-gray-500">Deal non trovato</div>
@@ -96,12 +101,6 @@ export default function CrmDealDetailPage() {
         subtitle={`${deal.client_name} · ${deal.stage}`}
         actions={
           <div className="flex items-center gap-2">
-            {calendlyData?.calendly_url && (
-              <a href={calendlyData.calendly_url} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
-                <ExternalLink className="h-4 w-4" /> Prenota appuntamento
-              </a>
-            )}
             <button onClick={() => setShowEmailModal(true)}
               className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700">
               <Mail className="h-4 w-4" /> Invia email
@@ -232,7 +231,92 @@ export default function CrmDealDetailPage() {
         </div>
       </div>
 
-      {/* Products section removed — deal type + pipeline template already define the product */}
+      {/* ── Documents (Offerta, Ordine, Contratto) ── */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold uppercase text-gray-400">Documenti</h3>
+          <button onClick={() => setShowDocForm(!showDocForm)}
+            className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100">
+            <Plus className="h-3 w-3" /> Aggiungi documento
+          </button>
+        </div>
+
+        {showDocForm && (
+          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50/30 p-4 space-y-3">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <select value={docForm.doc_type} onChange={(e) => setDocForm({ ...docForm, doc_type: e.target.value })}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                <option value="offerta">Offerta</option>
+                <option value="ordine">Ordine cliente</option>
+                <option value="contratto">Contratto</option>
+                <option value="specifica">Specifica tecnica</option>
+                <option value="altro">Altro</option>
+              </select>
+              <input type="text" value={docForm.name} onChange={(e) => setDocForm({ ...docForm, name: e.target.value })}
+                placeholder="Nome documento *" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            </div>
+            <input type="url" value={docForm.url} onChange={(e) => setDocForm({ ...docForm, url: e.target.value })}
+              placeholder="Link (Google Drive, SharePoint, Dropbox...)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            <input type="text" value={docForm.notes} onChange={(e) => setDocForm({ ...docForm, notes: e.target.value })}
+              placeholder="Note (opzionale)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            <div className="flex gap-2">
+              <button onClick={async () => {
+                if (!docForm.name.trim()) return
+                await addDocument.mutateAsync({ dealId: deal.id, ...docForm })
+                setDocForm({ doc_type: 'offerta', name: '', url: '', notes: '' })
+                setShowDocForm(false)
+              }} disabled={!docForm.name.trim() || addDocument.isPending}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+                {addDocument.isPending ? 'Salvataggio...' : 'Salva'}
+              </button>
+              <button onClick={() => setShowDocForm(false)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600">Annulla</button>
+            </div>
+          </div>
+        )}
+
+        {documents && documents.length > 0 ? (
+          <div className="space-y-2">
+            {documents.map((doc: any) => {
+              const typeLabels: Record<string, { label: string; color: string }> = {
+                offerta: { label: 'Offerta', color: 'bg-green-100 text-green-700' },
+                ordine: { label: 'Ordine', color: 'bg-blue-100 text-blue-700' },
+                contratto: { label: 'Contratto', color: 'bg-purple-100 text-purple-700' },
+                specifica: { label: 'Specifica', color: 'bg-yellow-100 text-yellow-700' },
+                altro: { label: 'Altro', color: 'bg-gray-100 text-gray-700' },
+              }
+              const typeInfo = typeLabels[doc.doc_type] || typeLabels.altro
+              return (
+                <div key={doc.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <FileText className="h-4 w-4 text-gray-400 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${typeInfo.color}`}>{typeInfo.label}</span>
+                        <p className="text-sm font-medium text-gray-900 truncate">{doc.name}</p>
+                      </div>
+                      {doc.notes && <p className="text-xs text-gray-400 mt-0.5">{doc.notes}</p>}
+                      {doc.created_at && <p className="text-[10px] text-gray-300 mt-0.5">{new Date(doc.created_at).toLocaleDateString('it-IT')}</p>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {doc.url && (
+                      <a href={doc.url} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded bg-gray-50 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50">
+                        <Link2 className="h-3 w-3" /> Apri
+                      </a>
+                    )}
+                    <button onClick={() => { if (confirm(`Eliminare "${doc.name}"?`)) deleteDocument.mutate(doc.id) }}
+                      className="text-gray-300 hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400 text-center py-4">Nessun documento allegato</p>
+        )}
+      </div>
 
       {/* ── Activities ── */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6">

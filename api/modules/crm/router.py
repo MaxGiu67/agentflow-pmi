@@ -358,3 +358,40 @@ async def complete_activity(
     if not result:
         raise HTTPException(404, "Attivita non trovata")
     return result
+
+
+# ── Documents ─────────────────────────────────────────
+
+
+@router.get("/deals/{deal_id}/documents")
+async def list_deal_documents(
+    deal_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    svc: CRMService = Depends(get_service),
+):
+    _require_tenant(user)
+    return await svc.list_deal_documents(deal_id)
+
+
+@router.post("/deals/{deal_id}/documents", status_code=201)
+async def add_deal_document(
+    deal_id: uuid.UUID,
+    body: dict,
+    user: User = Depends(get_current_user),
+    svc: CRMService = Depends(get_service),
+):
+    tid = _require_tenant(user)
+    return await svc.add_deal_document(tid, deal_id, body, user.id)
+
+
+@router.delete("/documents/{doc_id}")
+async def delete_deal_document(
+    doc_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    svc: CRMService = Depends(get_service),
+):
+    _require_tenant(user)
+    ok = await svc.delete_deal_document(doc_id)
+    if not ok:
+        raise HTTPException(404, "Documento non trovato")
+    return {"status": "deleted"}

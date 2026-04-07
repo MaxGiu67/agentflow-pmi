@@ -1,5 +1,5 @@
 # Status Progetto: AgentFlow PMI
-Ultimo aggiornamento: 2026-04-05
+Ultimo aggiornamento: 2026-04-07
 
 ## Progetto
 - **Nome**: AgentFlow PMI
@@ -27,9 +27,9 @@ Ultimo aggiornamento: 2026-04-05
 | Metrica | Valore |
 |---------|--------|
 | **Stories totali implementate** | **91+** |
-| **Test PASS** | **809+** (789 precedenti + 20 Calendar) |
-| **Sprint completati** | **33** |
-| **Endpoint API** | **196+** |
+| **Test PASS** | **1029+** (809 precedenti + 220 E2E) |
+| **Sprint completati** | **34** |
+| **Endpoint API** | **197+** |
 | **Modelli DB** | **50+** tabelle |
 | **Pagine frontend** | **56+** |
 | **Route frontend** | **50+** |
@@ -108,8 +108,8 @@ Ultimo aggiornamento: 2026-04-05
 - Enrollment con protezione duplicati
 - 10 endpoint REST per email marketing
 
-## Pivot 8 IN CORSO — Sprint 28-32 (2026-04-05)
-**21 stories (US-130→US-150) + 3 stories infra (US-109→US-111), 90 SP, 87 test PASS**
+## Pivot 8 COMPLETATO — Sprint 28-34 (2026-04-07)
+**26 stories (US-130→US-155) + 3 stories infra (US-109→US-111), 111 SP, 327 test PASS**
 
 | Sprint | Focus | Stories | Test |
 |--------|-------|---------|------|
@@ -118,6 +118,8 @@ Ultimo aggiornamento: 2026-04-05
 | 30 | Catalogo Prodotti + Deal-Product | US-142→144 | 11 |
 | 31 | Dashboard KPI + Scorecard + Compensi | US-146→150 | 14 |
 | 32 | User Mgmt + Role-based UI + Company/Contact 1:N | US-109→111 + infra | 14 |
+| 33 | Calendario: FullCalendar + MS365 + Calendly | US-151→155 | 20 |
+| 34 | Bug fix + Schema hardening + Calendar UX + Pipeline UX | — | 220 |
 
 **Social Selling (5 moduli implementati):**
 - M1 Origini: CRUD + migration + seed 4 default, filtro contatti per origine
@@ -203,7 +205,7 @@ Ultimo aggiornamento: 2026-04-05
 | Cash Flow da scadenzario | GET /scadenzario/cash-flow | Media |
 | Fidi bancari config | GET/POST /fidi | Bassa |
 | Anticipo fatture UI | POST anticipa/incassa/insoluto | Bassa |
-| Calendar integration (Google/Outlook/Calendly) | Non iniziato | Futura |
+| ~~Calendar integration~~ | ~~FullCalendar + MS365 + Calendly~~ | ~~COMPLETATO~~ |
 
 ## Decisioni Architetturali Recenti
 
@@ -246,6 +248,16 @@ Ultimo aggiornamento: 2026-04-05
 | M5 — Analytics e compensi | US-146→150 | 31 | **COMPLETATO** (14 test) |
 | — Company/Contact 1:N + Role UI | Sprint 32 infra | 32 | **COMPLETATO** (14 test) |
 
+**Sprint 33 — Calendario (completato):**
+- FullCalendar + .ics export + Microsoft 365 OAuth + Outlook push + Calendly URL
+- 20 test PASS
+
+**Sprint 34 — Bug Fix + Schema + E2E (completato 2026-04-07):**
+- 9 bug fix (schema ContactCreate/Response/DealResponse, scheduled_at, OAuth redirect, user_id auto-assign, useCrmActivities hook, build error)
+- 7 feature (search bar Pipeline, colonna Perso, DELETE company, company dedup, enhanced Calendar click-to-create + 6 tipi + Outlook badge, enhanced Activity Form)
+- 220 E2E test PASS (CRM 182 + Calendar 38)
+- DB cleanup: 13 company duplicate eliminate
+
 **Stories residue (parziali):** US-139 (external users E2E), US-140 (origin filter E2E), US-145 (pipeline filter per prodotto)
 
 **Documentazione:**
@@ -266,10 +278,10 @@ Ultimo aggiornamento: 2026-04-05
 7. **Pagina Aziende CRM** — `/crm/aziende` per gestione diretta
 8. **Update New Deal form** — seleziona Company invece di Contact
 9. **Frontend scadenzario** — riscrivere con nuovi endpoint
-10. ~~Calendar integration~~ ✅ FullCalendar + .ics + Microsoft 365 OAuth + Calendly
+10. ~~Calendar integration~~ ✅ FullCalendar + .ics + Microsoft 365 OAuth + Calendly + 220 E2E test
 11. **Account Brevo** — creare, API key, webhook
-12. **Test E2E** Playwright
+12. ~~Test E2E CRM + Calendar~~ ✅ 220 test (182 CRM + 38 Calendar)
 13. **Deploy** su Railway
 
 ---
-_Ultimo aggiornamento: 2026-04-05 — Pivot 8 Social Selling implementato, Company/Contact 1:N, Role-based UI_
+_Ultimo aggiornamento: 2026-04-07 — Pivot 8 Social Selling implementato, Company/Contact 1:N, Role-based UI_

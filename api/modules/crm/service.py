@@ -11,7 +11,7 @@ from datetime import datetime, date
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.db.models import CrmCompany, CrmContact, CrmDeal, CrmPipelineStage, CrmActivity, User
+from api.db.models import CrmCompany, CrmContact, CrmDeal, CrmPipelineStage, CrmActivity, CrmDealDocument, User
 
 logger = logging.getLogger(__name__)
 
@@ -703,6 +703,52 @@ class CRMService:
             "won_lost_ratio": won_lost_ratio,
             "total_deals": total_deals,
             "conversion_by_stage": conversion_by_stage,
+        }
+
+    # ── Deal Documents ─────────────────────────────────────
+
+    async def list_deal_documents(self, deal_id: uuid.UUID) -> list[dict]:
+        result = await self.db.execute(
+            select(CrmDealDocument).where(CrmDealDocument.deal_id == deal_id)
+            .order_by(CrmDealDocument.created_at.desc())
+        )
+        return [self._doc_to_dict(d) for d in result.scalars().all()]
+
+    async def add_deal_document(self, tenant_id: uuid.UUID, deal_id: uuid.UUID, data: dict, user_id: uuid.UUID) -> dict:
+        doc = CrmDealDocument(
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            doc_type=data.get("doc_type", "altro"),
+            name=data["name"],
+            url=data.get("url"),
+            notes=data.get("notes"),
+            uploaded_by=user_id,
+        )
+        self.db.add(doc)
+        await self.db.flush()
+        return self._doc_to_dict(doc)
+
+    async def delete_deal_document(self, doc_id: uuid.UUID) -> bool:
+        result = await self.db.execute(
+            select(CrmDealDocument).where(CrmDealDocument.id == doc_id)
+        )
+        doc = result.scalar_one_or_none()
+        if not doc:
+            return False
+        await self.db.delete(doc)
+        await self.db.flush()
+        return True
+
+    def _doc_to_dict(self, d: CrmDealDocument) -> dict:
+        return {
+            "id": str(d.id),
+            "deal_id": str(d.deal_id),
+            "doc_type": d.doc_type,
+            "name": d.name,
+            "url": d.url or "",
+            "notes": d.notes or "",
+            "uploaded_by": str(d.uploaded_by) if d.uploaded_by else None,
+            "created_at": d.created_at.isoformat() if d.created_at else None,
         }
 
     # ── Serializers ───────────────────────────────────────

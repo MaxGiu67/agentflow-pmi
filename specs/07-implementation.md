@@ -872,24 +872,6 @@ _Nessun bug trovato._
 
 ---
 
-## PIVOT 8 IN CORSO — Social Selling + Company/Contact + Role-Based UI
-
-| Sprint | Stories | SP | Tests | Status |
-|--------|---------|----|-------|--------|
-| Sprint 28 | US-130→137 | 32 | 35 | PASS |
-| Sprint 29 | US-138, US-141 | 13 | 13 | PASS |
-| Sprint 30 | US-142→144 | 13 | 11 | PASS |
-| Sprint 31 | US-146→150 | 19 | 14 | PASS |
-| Sprint 32 | US-109→111 + infra | 13 | 14 | PASS |
-| **TOTALE** | **21 stories + infra** | **90 SP** | **87 test** | **87 PASS** |
-
-**Stories non ancora implementate (Pivot 8):**
-- US-139: Utenti esterni con scadenza accesso (parziale — backend pronto, frontend form esterno pronto)
-- US-140: Filtro dati per origine default utente esterno (parziale — backend pronto, da testare E2E)
-- US-145: Pipeline filtro per prodotto (non implementato)
-
----
-
 ## Sprint 33: Integrazione Calendario Commerciali
 
 | ID | Titolo | SP | Status | Tests |
@@ -924,5 +906,87 @@ _Nessun bug trovato._
 - `ics` (3KB) — generazione file .ics client-side
 
 **Test:** `test_calendar_api.py` (20)
+
+---
+
+## Sprint 34: CRM Bug Fixes + Schema Hardening + Calendar Enhancement + Pipeline UX (2026-04-07)
+
+### Bug Fixes
+
+| # | Descrizione | Impatto | Fix |
+|---|-------------|---------|-----|
+| BF-01 | `ContactCreate` schema mancava `contact_name`, `contact_role`, `company_id`, `website` | 422 su creazione contatto | Aggiunti campi opzionali allo schema Pydantic |
+| BF-02 | `ContactResponse` schema mancava `company_id`, `contact_name`, `contact_role`, `website`, `origin_id` | Frontend non riceveva dati completi | Aggiunti campi alla response |
+| BF-03 | `DealResponse` schema mancava `company_id`, `pipeline_template_id`, `assigned_to_name`, `days_in_stage` | Card Kanban incomplete | Aggiunti campi calcolati alla response |
+| BF-04 | `scheduled_at` tipo string invece di datetime | 500 su create_activity (fromisoformat su oggetto non-stringa) | Parse esplicito con `fromisoformat()` |
+| BF-05 | Microsoft OAuth redirect URI puntava a frontend domain | OAuth callback 404 | Corretto a API domain |
+| BF-06 | OAuth callback non redirigeva al frontend | Utente restava su pagina bianca dopo OAuth | Redirect a `/profilo?calendar=connected` |
+| BF-07 | `user_id` non auto-assegnato su create_activity | Outlook push falliva (user_id null) | Auto-assign `current_user.id` |
+| BF-08 | `useCrmActivities` hook con condizione `enabled` | Calendario non caricava attivita | Rimossa condizione `enabled` |
+| BF-09 | Import `Package` rimosso da lucide-react | Build error | Sostituito con `Building2` |
+
+### Features
+
+| # | Descrizione | Dettaglio |
+|---|-------------|-----------|
+| FT-01 | Search bar in CRM Pipeline | Sostituita combo "Tutti i tipi" con campo ricerca (filtra per client, nominativo, descrizione) |
+| FT-02 | Colonna "Perso" visibile in Kanban | Rimosso filtro `!s.is_lost` che nascondeva la colonna |
+| FT-03 | DELETE company endpoint | Nuovo `DELETE /crm/companies/{id}` per rimozione aziende |
+| FT-04 | Company deduplication frontend | Dedup per nome in CrmContactsPage e CrmNewDealPage (evita duplicati in dropdown) |
+| FT-05 | Rimossa sezione Prodotti/Servizi da deal detail | Il tipo deal + pipeline template definisce il prodotto, sezione ridondante |
+| FT-06 | Enhanced Calendar | FullCalendar con click-to-create, 6 tipi attivita (call, video_call, meeting, email, task, note), badge sync Outlook |
+| FT-07 | Enhanced Activity Form in deal detail | Bottoni tipo visivi, supporto video call, campo data sempre visibile, nota sync Outlook |
+
+### E2E Tests
+
+| Suite | Test | Status |
+|-------|------|--------|
+| CRM E2E | 182 | 182 PASS (companies, contacts, deals, stages, activities, orders, analytics) |
+| Calendar E2E | 38 | 38 PASS (MS365 status, OAuth URL, Calendly CRUD, activities, non-destructive) |
+| **Totale** | **220** | **220 PASS** |
+
+### DB Cleanup
+- Eliminati 13 aziende duplicate/test dal DB produzione
+- Rimane solo l'azienda reale "replay"
+
+**Sprint 34 Totale:** 9 bug fix + 7 feature + 220 E2E test | 220 PASS
+
+**File modificati (backend):**
+- `api/modules/crm/schemas.py` — ContactCreate, ContactResponse, DealResponse ampliati
+- `api/modules/crm/service.py` — `scheduled_at` parsing, `user_id` auto-assign, delete_company
+- `api/modules/crm/router.py` — Nuovo endpoint DELETE /crm/companies/{id}
+- `api/modules/calendar/router.py` — Redirect URI corretta, callback redirect a frontend
+- `api/modules/calendar/microsoft_service.py` — OAuth redirect fix
+
+**File modificati (frontend):**
+- `frontend/src/pages/crm/CrmPipelinePage.tsx` — Search bar, colonna Perso visibile
+- `frontend/src/pages/crm/CrmContactsPage.tsx` — Company dedup
+- `frontend/src/pages/crm/CrmNewDealPage.tsx` — Company dedup
+- `frontend/src/pages/crm/CrmDealDetailPage.tsx` — Rimossa sezione prodotti, enhanced activity form
+- `frontend/src/pages/crm/CrmCalendarPage.tsx` — Click-to-create, 6 tipi, Outlook sync badge
+- `frontend/src/api/hooks.ts` — Rimossa condizione `enabled` su useCrmActivities
+- Sostituito import `Package` con `Building2` (lucide-react)
+
+**Test:** `test_crm_e2e.py` (182), `test_calendar_e2e.py` (38)
+
+---
+
+## PIVOT 8 COMPLETATO — Social Selling + Company/Contact + Role-Based UI + Calendar
+
+| Sprint | Stories | SP | Tests | Status |
+|--------|---------|----|-------|--------|
+| Sprint 28 | US-130→137 | 32 | 35 | PASS |
+| Sprint 29 | US-138, US-141 | 13 | 13 | PASS |
+| Sprint 30 | US-142→144 | 13 | 11 | PASS |
+| Sprint 31 | US-146→150 | 19 | 14 | PASS |
+| Sprint 32 | US-109→111 + infra | 13 | 14 | PASS |
+| Sprint 33 | US-151→155 (Calendar) | 21 | 20 | PASS |
+| Sprint 34 | Bug fix + Schema + UX | — | 220 | PASS |
+| **TOTALE** | **26 stories + infra** | **111 SP** | **327 test** | **327 PASS** |
+
+**Stories non ancora implementate (Pivot 8):**
+- US-139: Utenti esterni con scadenza accesso (parziale — backend pronto, frontend form esterno pronto)
+- US-140: Filtro dati per origine default utente esterno (parziale — backend pronto, da testare E2E)
+- US-145: Pipeline filtro per prodotto (non implementato)
 
 ---

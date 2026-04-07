@@ -8,6 +8,17 @@
 
 ---
 
+## 2026-04-07 — Sprint 34: CRM Bug Fixes + Schema Hardening + Calendar Enhancement + Pipeline UX
+
+- **9 bug fix**: ContactCreate/ContactResponse/DealResponse schema incompleti, `scheduled_at` string→datetime (500 error), Microsoft OAuth redirect URI errato, OAuth callback senza redirect frontend, `user_id` non auto-assegnato su activity, `useCrmActivities` hook con condizione `enabled` bloccante, import `Package` rimosso (build error)
+- **7 feature**: Search bar in Pipeline Kanban (sostituisce combo "Tutti i tipi"), colonna "Perso" visibile, DELETE company endpoint, company dedup frontend, rimossa sezione Prodotti da deal detail, Enhanced Calendar (click-to-create, 6 tipi, Outlook sync badge), Enhanced Activity Form (bottoni tipo visivi, video call, data sempre visibile)
+- **220 E2E test**: CRM 182/182 PASS + Calendar 38/38 PASS
+- **DB cleanup**: Eliminati 13 company duplicate/test, resta solo "replay"
+- **Impatto**: CRM completamente funzionale E2E, calendario production-ready, pipeline UX migliorata
+- **Pivot 8 riepilogo aggiornato**: 327 test totali (87 unit + 220 E2E + 20 calendar unit)
+
+---
+
 ## 2026-04-06 — US-203: Kanban stacked per pipeline + filtro commerciale
 
 - **Decisione UX (brainstorming)**: Tab "Tutti" mostra Kanban stacked — ogni pipeline e una riga orizzontale con il suo Kanban

@@ -34,16 +34,15 @@
 
 ## Stato Implementazione
 
-### Backend — 91+ stories, 876+ test
+### Backend — 91+ stories, 1096+ test
 | Fase | Stories | Test | Cosa |
 |------|---------|------|------|
 | v0.1-v0.4 (Sprint 1-10) | 40 | 369 | Auth, fatture, contabilita, fisco, banca, spese, cespiti, F24, CU, CEO |
 | Pivot 5 (Sprint 11-16) | - | - | Import pipeline, agenti, chatbot, puzzle dashboard |
 | Pivot 6 (Sprint 17-22) | 17 | 75 | IVA scorporo, scadenzario, cash flow, fidi, anticipo fatture |
 | Pivot 7 (Sprint 23-27) | 13 | 67 | CRM interno, Kanban, Brevo email, sequenze |
-| Pivot 8 (Sprint 28-32) | 21 | 87 | Social Selling, Company/Contact 1:N, RBAC, prodotti, compensi |
-| Sprint 33 | 5 | 20 | Calendario: FullCalendar + Microsoft 365 + Calendly |
-| Pivot 9 (Sprint 34-41) | 22 | 67 | Agent Foundation, Pipeline Templates, Resource DB, Elevia Engine, LinkedIn, Cross-sell |
+| Pivot 8 (Sprint 28-34) | 26 | 327 | Social Selling, Company/Contact 1:N, RBAC, prodotti, compensi, Calendar, E2E |
+| Pivot 9 (Sprint 35-41) | 22 | 67 | Agent Foundation, Pipeline Templates, Resource DB, Elevia Engine, LinkedIn, Cross-sell |
 
 ### Frontend — PWA React 19
 | Feature | Status |
@@ -75,7 +74,7 @@
 - `api/modules/scadenzario/` — **12 endpoint**: scadenzario attivo/passivo, chiusura, insoluti, cash flow 30/60/90, cash flow per banca, fidi bancari, anticipo fatture, confronto costi
 
 ### CRM Sales + Email Marketing (Pivot 7)
-- `api/modules/crm/` — **15+ endpoint**: contatti CRUD, deal CRUD, pipeline stages, ordini, attivita, analytics (weighted, conversion, won/lost)
+- `api/modules/crm/` — **16+ endpoint**: contatti CRUD, deal CRUD, pipeline stages, ordini, attivita, analytics (weighted, conversion, won/lost), DELETE companies
 - `api/modules/email_marketing/` — **10 endpoint**: template CRUD+preview, invio email, webhook tracking, storico, stats, analytics, sequenze multi-step, enrollment
 - `api/adapters/brevo.py` — client async Brevo API (invio + tracking)
 - `api/adapters/odoo_crm.py` — legacy, opzionale per bundle clienti
@@ -108,7 +107,7 @@
 - `CrmContact` — contatti/referenti (company_id FK, contact_name, contact_role, origin_id)
 - `CrmPipelineStage` — stadi pipeline (name, sequence, stage_type, is_won, is_lost)
 - `CrmDeal` — deal (company_id, contact_id, stage_id, pipeline_template_id, deal_type, revenue)
-- `CrmActivity` — attivita (type, activity_type_id, scheduled_at, outlook_event_id)
+- `CrmActivity` — attivita (type: call/video_call/meeting/email/task/note, activity_type_id, scheduled_at datetime, outlook_event_id, user_id auto-assigned)
 
 ### Pipeline Templates (Pivot 9)
 - `PipelineTemplate` — template FSM (code, name, pipeline_type: services/product/custom)
