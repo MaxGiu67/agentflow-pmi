@@ -180,23 +180,27 @@ export default function UsersPage() {
 
                   {canManage && (
                     <div className="flex items-center gap-2 shrink-0">
-                      <select
-                        value={u.role}
-                        onChange={(e) => updateRole.mutate({ userId: u.id, role: e.target.value })}
-                        className="rounded border border-gray-200 px-2 py-1 text-xs"
-                        title="Ruolo sistema"
-                      >
-                        {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                      </select>
-                      <select
-                        value={u.crm_role_id || ''}
-                        onChange={(e) => updateCrmRole.mutate({ userId: u.id, crm_role_id: e.target.value || null })}
-                        className="rounded border border-gray-200 px-2 py-1 text-xs max-w-[140px]"
-                        title="Ruolo CRM"
-                      >
-                        <option value="">-- Ruolo CRM --</option>
-                        {crmRoles?.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                      </select>
+                      <div className="text-right">
+                        <label className="block text-[10px] text-gray-400 mb-0.5">Ruolo</label>
+                        <select
+                          value={u.crm_role_id || ''}
+                          onChange={(e) => {
+                            const selectedRole = crmRoles?.find((r: any) => r.id === e.target.value)
+                            const roleName = (selectedRole?.name || '').toLowerCase()
+                            // Sync system role from CRM role
+                            const sysRole = roleName.includes('admin') ? 'admin'
+                              : roleName.includes('owner') ? 'owner'
+                              : roleName.includes('viewer') ? 'viewer'
+                              : 'commerciale'
+                            updateCrmRole.mutate({ userId: u.id, crm_role_id: e.target.value || null })
+                            updateRole.mutate({ userId: u.id, role: sysRole })
+                          }}
+                          className="rounded border border-gray-200 px-2 py-1.5 text-xs min-w-[140px]"
+                        >
+                          <option value="">-- Nessun ruolo --</option>
+                          {crmRoles?.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                        </select>
+                      </div>
                       <button
                         onClick={() => toggleActive.mutate(u.id)}
                         className={`rounded-lg p-1.5 ${u.active !== false ? 'text-red-400 hover:bg-red-50' : 'text-green-400 hover:bg-green-50'}`}
