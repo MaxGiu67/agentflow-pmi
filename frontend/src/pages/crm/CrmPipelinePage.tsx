@@ -341,32 +341,57 @@ export default function CrmPipelinePage() {
               ? allDealsList.filter((d: any) => d.assigned_to_name === commercialeFilter)
               : allDealsList
 
-            // If specific tab selected, show single kanban with existing stages
+            // If specific tab selected, show template-specific stages
             if (pipelineTab !== 'all') {
               const tabDeals = filteredByComm.filter((d: any) => d.pipeline_template_id === pipelineTab)
+              const tmpl = pipelineTemplates?.find((t: any) => t.id === pipelineTab)
+              const tmplStages = tmpl?.stages?.length ? [...tmpl.stages].sort((a: any, b: any) => a.sequence - b.sequence) : stages || []
+
+              // Map generic stage names to template stage IDs for matching
+              const genericStageMap: Record<string, string> = {}
+              for (const s of stages || []) { genericStageMap[s.id] = s.name }
+
               return (
                 <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: 400 }}>
-                  {stages?.map((stage: any) => {
-                    const stageDeals = tabDeals.filter((d: any) => d.stage_id === stage.id)
-                    const stageTotal = stageDeals.reduce((sum: number, d: any) => sum + (d.expected_revenue || 0), 0)
-                    return renderKanbanColumn(stage, stageDeals, stageTotal)
+                  {tmplStages.map((tStage: any) => {
+                    // Match deals: by stage name match OR first template stage as catch-all
+                    const stageDeals = tabDeals.filter((d: any) => {
+                      const dealStageName = genericStageMap[d.stage_id] || ''
+                      return dealStageName === tStage.name
+                    })
+                    // Catch unmatched deals in first stage
+                    const isFirstStage = tStage.sequence === tmplStages[0]?.sequence
+                    const unmatchedDeals = isFirstStage ? tabDeals.filter((d: any) => {
+                      const dealStageName = genericStageMap[d.stage_id] || ''
+                      return !tmplStages.some((ts: any) => ts.name === dealStageName)
+                    }) : []
+                    const allDeals = [...stageDeals, ...unmatchedDeals]
+                    const stageTotal = allDeals.reduce((sum: number, d: any) => sum + (d.expected_revenue || 0), 0)
+                    // Use template stage with fallback color/probability
+                    const columnStage = { ...tStage, color: tStage.is_won ? '#10B981' : tStage.is_lost ? '#EF4444' : '#6B7280', probability_default: tStage.is_won ? 100 : tStage.is_lost ? 0 : 50 }
+                    return renderKanbanColumn(columnStage, allDeals, stageTotal)
                   })}
                 </div>
               )
             }
 
-            // Tab "Tutti" → stacked per pipeline
+            // Tab "Tutti" → stacked per pipeline, using TEMPLATE stages
             const sections: { title: string; templateId: string; color: string; deals: any[]; stagesForSection: any[] }[] = []
-
-            // All sections use GENERIC stages (deals always have generic stage_id)
+            const genericStageMap: Record<string, string> = {}
+            for (const s of stages || []) { genericStageMap[s.id] = s.name }
             const genericStages = stages?.map((s: any) => ({ ...s, code: s.id, name: s.name })) || []
 
-            // Pipeline templates
+            // Pipeline templates — use template stages
             if (pipelineTemplates) {
               for (const tmpl of pipelineTemplates) {
                 const tmplDeals = filteredByComm.filter((d: any) => d.pipeline_template_id === tmpl.id)
                 if (tmplDeals.length > 0) {
-                  sections.push({ title: tmpl.name, templateId: tmpl.id, color: '#6366f1', deals: tmplDeals, stagesForSection: genericStages })
+                  const tmplStages = tmpl.stages?.length
+                    ? [...tmpl.stages].sort((a: any, b: any) => a.sequence - b.sequence).map((s: any) => ({
+                        ...s, color: s.is_won ? '#10B981' : s.is_lost ? '#EF4444' : '#6B7280', probability_default: s.is_won ? 100 : s.is_lost ? 0 : 50,
+                      }))
+                    : genericStages
+                  sections.push({ title: tmpl.name, templateId: tmpl.id, color: '#6366f1', deals: tmplDeals, stagesForSection: tmplStages })
                 }
               }
             }
@@ -397,14 +422,22 @@ export default function CrmPipelinePage() {
                         </div>
                         <span className="text-sm font-medium text-gray-500">{formatCurrency(sectionTotal)}</span>
                       </div>
-                      {/* Full kanban for this pipeline */}
+                      {/* Full kanban for this pipeline — match by stage name */}
                       <div className="flex gap-3 overflow-x-auto pb-3">
-                        {section.stagesForSection.map((stageInfo: any) => {
-                          // All deals use generic stage_id
-                          const stageDeals = section.deals.filter((d: any) => d.stage_id === stageInfo.id)
-                          const stTotal = stageDeals.reduce((s: number, d: any) => s + (d.expected_revenue || 0), 0)
+                        {section.stagesForSection.map((stageInfo: any, idx: number) => {
+                          const stageDeals = section.deals.filter((d: any) => {
+                            const dealStageName = genericStageMap[d.stage_id] || ''
+                            return dealStageName === stageInfo.name
+                          })
+                          // Catch unmatched in first stage
+                          const unmatchedDeals = idx === 0 ? section.deals.filter((d: any) => {
+                            const dealStageName = genericStageMap[d.stage_id] || ''
+                            return !section.stagesForSection.some((ts: any) => ts.name === dealStageName)
+                          }) : []
+                          const allDeals = [...stageDeals, ...unmatchedDeals]
+                          const stTotal = allDeals.reduce((s: number, d: any) => s + (d.expected_revenue || 0), 0)
                           const color = stageInfo.color || '#6B7280'
-                          return renderKanbanColumn({ ...stageInfo, color }, stageDeals, stTotal)
+                          return renderKanbanColumn({ ...stageInfo, color }, allDeals, stTotal)
                         })}
                       </div>
                     </div>
