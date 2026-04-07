@@ -605,4 +605,386 @@ Il Pivot 9 trasforma AgentFlow da controller contabile a **piattaforma AI per ve
 | **US-219** | **Specifiche + effort + offerta Corpo** | **8** | **18b** | **Must** |
 | **US-220** | **Discovery brief + demo Elevia** | **5** | **19b** | **Must** |
 | **US-221** | **Onboarding + adozione Elevia** | **5** | **19b** | **Must** |
-| **TOTALE** | | **116 SP** | | **16 Must, 6 Should** |
+| **TOTALE Pivot 9** | | **116 SP** | | **16 Must, 6 Should** |
+
+---
+
+# Pivot 10 — Portal Integration (ADR-011)
+
+**AgentFlow PMI — Integrazione PortalJS.be per gestione operativa**
+
+---
+
+## Overview
+
+Il Pivot 10 integra AgentFlow con PortalJS.be (sistema gestionale operativo: commesse, rapportini, dipendenti). Portal diventa **master anagrafico** per Aziende/Clienti. AgentFlow resta **master commerciale** (deal, referenti, pipeline).
+
+**Principio guida:** Portal gestisce l'operativo (commesse, dipendenti, timesheet). AgentFlow gestisce il commerciale (deal, referenti, pipeline). Il ponte tra i due e il `portal_customer_id` su CrmContact e CrmDeal. Ogni scrittura su Portal richiede conferma umana.
+
+**Connessione:** JWT auto-generato con JWTSECRET condiviso tra i due sistemi, nessun login/password.
+
+**Staging API:** `https://portaaljsbe-staging.up.railway.app/api/v1`
+
+**DB staging (copia produzione):** 2149 persone, 315 commesse, 66 clienti, 365 attivita, 1543 timesheet, 214 contratti.
+
+**Tenant mapping:** AgentFlow tenant "Nexa Data" <-> Portal tenant "NEXA"
+
+**Formato AC:** DATO-QUANDO-ALLORA, 4+ AC per story.
+
+---
+
+## EPIC 23: Portal Client & Read
+
+### US-230: Portal Client adapter (auth JWT + lettura customer/person/project)
+
+**Come** sistema
+**Voglio** un adapter async per PortalJS.be che si autentica via JWT auto-generato e legge Customer, Person, Project
+**Per** avere un punto unico di integrazione con Portal, disaccoppiato dal resto dell'applicazione
+
+**AC-230.1 (Happy Path — JWT)**: DATO che PORTAL_API_URL e PORTAL_JWT_SECRET sono configurati, QUANDO il PortalClient si inizializza, ALLORA:
+  - Genera un JWT firmato con PORTAL_JWT_SECRET (HS256) contenente tenant="NEXA" e exp=5min
+  - Non serve login/password — il JWT e autosufficiente
+  - Il JWT viene rigenerato automaticamente prima della scadenza
+
+**AC-230.2 (Read Customers)**: DATO che il PortalClient e autenticato, QUANDO chiamo `get_customers()`, ALLORA:
+  - Ritorna la lista dei clienti Portal (66 in staging) con: id, name, vatNumber, fiscalCode, address, city
+  - Supporta paginazione e filtro per nome/P.IVA
+
+**AC-230.3 (Read Persons)**: DATO che il PortalClient e autenticato, QUANDO chiamo `get_persons()`, ALLORA:
+  - Ritorna la lista delle persone Portal (2149 in staging) con: id, firstName, lastName, fiscalCode, email
+  - Supporta paginazione e filtro per nome
+
+**AC-230.4 (Errore connessione)**: DATO che PORTAL_API_URL punta a un server non raggiungibile, QUANDO chiamo qualsiasi metodo, ALLORA:
+  - Ritorna un errore chiaro: "Portal non raggiungibile: {url}"
+  - Non blocca il funzionamento di AgentFlow (graceful degradation)
+
+**AC-230.5 (JWT Secret mancante)**: DATO che PORTAL_JWT_SECRET non e configurato, QUANDO il sistema si avvia, ALLORA:
+  - Il PortalClient si inizializza in modalita "disabled"
+  - Le chiamate a Portal ritornano empty result con warning nel log
+
+**SP**: 5 | **Priorita**: Must Have | **Epic**: Portal Client & Read | **Dipendenze**: Nessuna
+
+---
+
+### US-231: Aziende da Portal (dropdown Customer nel deal, sostituisce CrmCompany)
+
+**Come** commerciale
+**Voglio** che le aziende/clienti nel CRM vengano lette direttamente da Portal Customer invece che dalla tabella CrmCompany locale
+**Per** avere un'unica fonte dati anagrafica (Portal) ed evitare duplicati e disallineamenti
+
+**AC-231.1 (Happy Path)**: DATO che Portal ha 66 clienti, QUANDO apro il form "Nuovo Deal" e clicco sul dropdown azienda, ALLORA:
+  - Il dropdown mostra i clienti da Portal (non da CrmCompany locale)
+  - Ogni cliente mostra: nome, P.IVA, citta
+  - La ricerca e filtrata lato server (typeahead con debounce 300ms)
+
+**AC-231.2 (CrmContact legato a portal_customer_id)**: DATO che seleziono il cliente Portal "ACME SRL" (id=42), QUANDO creo un referente per quel deal, ALLORA:
+  - Il CrmContact viene creato con `portal_customer_id=42` (invece di `company_id` FK locale)
+  - Il referente resta in AgentFlow (tabella CrmContact) ma punta al cliente Portal
+
+**AC-231.3 (CrmCompany deprecato)**: DATO che il sistema e aggiornato a Pivot 10, ALLORA:
+  - La tabella CrmCompany resta in DB ma non viene piu usata per nuovi deal
+  - I deal esistenti mantengono il company_id FK locale per retrocompatibilita
+  - I nuovi deal usano `portal_customer_id` al posto di `company_id`
+
+**AC-231.4 (Portal non disponibile)**: DATO che Portal e offline, QUANDO apro il form Nuovo Deal, ALLORA:
+  - Il dropdown mostra un messaggio "Portal non raggiungibile — usa il campo testo libero"
+  - L'utente puo digitare il nome azienda manualmente (sara matchato in seguito)
+
+**SP**: 5 | **Priorita**: Must Have | **Epic**: Portal Client & Read | **Dipendenze**: US-230
+
+---
+
+### US-232: Lettura persone e contratti da Portal (per resource matching)
+
+**Come** commerciale
+**Voglio** vedere i collaboratori disponibili da Portal con i loro contratti di lavoro
+**Per** sapere chi e disponibile quando devo proporre risorse per un deal T&M
+
+**AC-232.1 (Happy Path)**: DATO che Portal ha 2149 persone e 214 contratti, QUANDO cerco "sviluppatori Java disponibili", ALLORA:
+  - Il sistema legge le persone da Portal con relativi contratti (tipo, inizio, fine, ore settimanali)
+  - Mostra solo le persone con contratto attivo
+
+**AC-232.2 (Filtro per competenze)**: DATO che Portal Person ha campi skill/ruolo, QUANDO filtro per "backend developer", ALLORA:
+  - La lista mostra solo le persone con ruolo/skill corrispondente
+  - Include: nome, ruolo, tipo contratto, scadenza contratto
+
+**AC-232.3 (Contratto in scadenza)**: DATO che un collaboratore ha contratto in scadenza entro 30gg, ALLORA:
+  - Il sistema lo evidenzia con badge "In scadenza"
+  - L'informazione e utile per il bench tracking
+
+**AC-232.4 (Paginazione)**: DATO che ci sono 2149 persone, QUANDO carico la pagina, ALLORA:
+  - I risultati sono paginati (50 per pagina)
+  - Il filtro ricerca e server-side per performance
+
+**SP**: 3 | **Priorita**: Must Have | **Epic**: Portal Client & Read | **Dipendenze**: US-230
+
+---
+
+### US-233: Proxy endpoint /portal/*
+
+**Come** frontend
+**Voglio** accedere ai dati Portal tramite endpoint proxy `/api/v1/portal/*` del backend AgentFlow
+**Per** non esporre le credenziali Portal al browser e centralizzare l'autenticazione
+
+**AC-233.1 (Happy Path)**: DATO che il backend ha il PortalClient configurato, QUANDO il frontend chiama `GET /api/v1/portal/customers`, ALLORA:
+  - Il backend fa la richiesta a Portal con JWT auto-generato
+  - Ritorna i dati al frontend in formato AgentFlow (schema normalizzato)
+  - Il frontend non conosce l'URL di Portal ne il JWT
+
+**AC-233.2 (Endpoint disponibili)**: DATO che il proxy e attivo, ALLORA i seguenti endpoint sono disponibili:
+  - `GET /api/v1/portal/customers` — lista clienti
+  - `GET /api/v1/portal/customers/{id}` — dettaglio cliente
+  - `GET /api/v1/portal/persons` — lista persone
+  - `GET /api/v1/portal/persons/{id}` — dettaglio persona
+  - `GET /api/v1/portal/projects` — lista commesse
+  - `GET /api/v1/portal/projects/{id}` — dettaglio commessa
+  - `GET /api/v1/portal/timesheets` — timesheet per commessa
+
+**AC-233.3 (Autorizzazione)**: DATO che l'utente corrente e un commerciale, QUANDO chiama `/portal/customers`, ALLORA:
+  - L'accesso e consentito (il proxy rispetta i ruoli AgentFlow)
+  - Solo admin e commerciale possono accedere ai dati Portal
+
+**AC-233.4 (Rate limiting)**: DATO che il frontend fa molte richieste, ALLORA:
+  - Il proxy implementa cache in-memory (TTL 5 min) per le letture
+  - Evita di sovraccaricare Portal con richieste ripetute
+
+**SP**: 3 | **Priorita**: Must Have | **Epic**: Portal Client & Read | **Dipendenze**: US-230
+
+---
+
+## EPIC 24: Create Commessa su Portal
+
+### US-234: Crea Commessa (Project) da Deal Won (con conferma umana)
+
+**Come** commerciale
+**Voglio** che quando un deal viene marcato come Won, il sistema proponga di creare una commessa su Portal
+**Per** evitare di dover inserire manualmente i dati della commessa nel gestionale operativo
+
+**AC-234.1 (Happy Path)**: DATO che il deal "Consulenza Java Senior" passa allo stato Won, QUANDO confermo la vittoria, ALLORA:
+  - Il sistema mostra un dialog: "Vuoi creare la commessa su Portal?"
+  - Precompila i campi: nome commessa (= deal name), cliente Portal (da portal_customer_id), valore, date
+  - L'utente puo modificare i campi prima di confermare
+
+**AC-234.2 (Conferma umana obbligatoria)**: DATO che il dialog e aperto, QUANDO clicco "Crea Commessa", ALLORA:
+  - Il sistema chiama Portal `POST /projects` con i dati confermati
+  - Il deal viene aggiornato con `portal_project_id` = ID della commessa creata
+  - Un toast conferma: "Commessa creata su Portal: {nome}"
+
+**AC-234.3 (Annulla)**: DATO che il dialog e aperto, QUANDO clicco "Non ora", ALLORA:
+  - Il deal resta Won ma senza commessa Portal
+  - Nella deal detail appare un bottone "Crea Commessa su Portal" per farlo in seguito
+
+**AC-234.4 (Errore Portal)**: DATO che Portal e offline, QUANDO provo a creare la commessa, ALLORA:
+  - Il sistema mostra: "Portal non raggiungibile. La commessa potra essere creata in seguito."
+  - Il deal resta Won, il bottone "Crea Commessa" resta visibile
+
+**SP**: 5 | **Priorita**: Must Have | **Epic**: Create Commessa | **Dipendenze**: US-230, US-231
+
+---
+
+### US-235: Customer matching (AgentFlow deal -> Portal customer by P.IVA)
+
+**Come** sistema
+**Voglio** trovare automaticamente il cliente Portal corrispondente al deal AgentFlow usando la P.IVA
+**Per** collegare i deal ai clienti Portal senza intervento manuale
+
+**AC-235.1 (Happy Path — match P.IVA)**: DATO che il deal ha un'azienda con P.IVA "IT12345678901" e Portal ha un Customer con vatNumber "IT12345678901", QUANDO il sistema cerca il match, ALLORA:
+  - Trova il Customer Portal corrispondente
+  - Propone il match all'utente: "Azienda ACME SRL matchata con cliente Portal ACME SRL (P.IVA: IT12345678901)"
+
+**AC-235.2 (Match multiplo)**: DATO che 2 Customer Portal hanno la stessa P.IVA (dato sporco), QUANDO cerco il match, ALLORA:
+  - Il sistema mostra entrambi i risultati
+  - L'utente sceglie manualmente quale associare
+
+**AC-235.3 (Nessun match)**: DATO che la P.IVA del deal non esiste su Portal, QUANDO cerco il match, ALLORA:
+  - Il sistema mostra: "Nessun cliente Portal trovato con P.IVA {piva}. Vuoi crearlo su Portal?"
+  - Se confermato, crea il Customer su Portal e associa
+
+**AC-235.4 (Match automatico su deal creation)**: DATO che creo un nuovo deal e seleziono un cliente Portal dal dropdown (US-231), ALLORA:
+  - Il portal_customer_id e gia impostato (nessun matching necessario)
+  - Il matching serve solo per deal legacy senza portal_customer_id
+
+**SP**: 5 | **Priorita**: Must Have | **Epic**: Create Commessa | **Dipendenze**: US-230, US-231
+
+---
+
+### US-236: Deal detail — bottone "Crea Commessa su Portal"
+
+**Come** commerciale
+**Voglio** un bottone nella pagina dettaglio deal per creare la commessa su Portal in qualsiasi momento
+**Per** poter creare la commessa anche se non l'ho fatto al momento del Won
+
+**AC-236.1 (Happy Path)**: DATO che il deal e in stato Won e non ha portal_project_id, QUANDO apro il deal detail, ALLORA:
+  - Vedo un bottone "Crea Commessa su Portal" nella sezione azioni
+  - Il bottone e visibile solo se il deal e Won e non ha gia una commessa Portal
+
+**AC-236.2 (Commessa gia creata)**: DATO che il deal ha portal_project_id, QUANDO apro il deal detail, ALLORA:
+  - Invece del bottone, vedo un link "Vedi Commessa su Portal" che apre il dettaglio
+  - Mostra: nome commessa, stato, valore, ore registrate
+
+**AC-236.3 (Form pre-compilato)**: DATO che clicco "Crea Commessa", ALLORA:
+  - Si apre un dialog con campi precompilati dal deal (nome, cliente, valore, date stimate)
+  - Posso modificare i campi prima di confermare
+  - Il cliente Portal e gia selezionato (da portal_customer_id del deal)
+
+**AC-236.4 (Permessi)**: DATO che sono un commerciale base (non admin), QUANDO vedo il deal Won, ALLORA:
+  - Il bottone "Crea Commessa" e visibile solo se ho il permesso "portal:write"
+  - Commerciale senza permesso vede solo "Richiedi creazione commessa" (notifica admin)
+
+**SP**: 4 | **Priorita**: Must Have | **Epic**: Create Commessa | **Dipendenze**: US-234
+
+---
+
+## EPIC 25: Assign Collaborators
+
+### US-237: Crea Activity/Assignment su Portal (con conferma)
+
+**Come** project manager
+**Voglio** assegnare collaboratori a una commessa Portal direttamente da AgentFlow
+**Per** gestire le assegnazioni dal CRM senza entrare nel gestionale operativo
+
+**AC-237.1 (Happy Path)**: DATO che il deal ha una commessa Portal (portal_project_id), QUANDO clicco "Assegna Collaboratore", ALLORA:
+  - Vedo un dropdown con le persone Portal filtrate per competenza/disponibilita
+  - Seleziono la persona, specifico: ruolo, ore settimanali, data inizio, data fine
+  - Il sistema chiede conferma: "Assegnare Mario Rossi alla commessa XYZ?"
+
+**AC-237.2 (Conferma e creazione)**: DATO che confermo l'assegnazione, ALLORA:
+  - Il sistema chiama Portal `POST /activities` con: person_id, project_id, role, weekly_hours, start_date, end_date
+  - Un toast conferma: "Mario Rossi assegnato alla commessa XYZ"
+  - La sezione "Risorse assegnate" si aggiorna
+
+**AC-237.3 (Persona gia assegnata)**: DATO che Mario Rossi e gia assegnato alla commessa XYZ, QUANDO provo ad assegnarlo di nuovo, ALLORA:
+  - Il sistema mostra: "Mario Rossi e gia assegnato a questa commessa. Vuoi modificare l'assegnazione?"
+
+**AC-237.4 (Nessuna commessa Portal)**: DATO che il deal non ha portal_project_id, QUANDO clicco "Assegna Collaboratore", ALLORA:
+  - Il sistema mostra: "Prima crea la commessa su Portal (bottone sopra)"
+
+**SP**: 5 | **Priorita**: Must Have | **Epic**: Assign Collaborators | **Dipendenze**: US-234, US-232
+
+---
+
+### US-238: Deal detail — sezione "Risorse assegnate da Portal"
+
+**Come** commerciale
+**Voglio** vedere le risorse assegnate alla commessa Portal direttamente nella pagina dettaglio deal
+**Per** avere una vista completa del deal (commerciale + operativo) in un unico posto
+
+**AC-238.1 (Happy Path)**: DATO che il deal ha portal_project_id e 3 persone assegnate, QUANDO apro il deal detail, ALLORA:
+  - Vedo la sezione "Risorse Assegnate" con: nome, ruolo, ore/settimana, periodo, stato
+  - I dati vengono letti da Portal `GET /activities?project_id={portal_project_id}`
+
+**AC-238.2 (Nessuna risorsa)**: DATO che la commessa Portal esiste ma non ha assegnazioni, ALLORA:
+  - La sezione mostra: "Nessuna risorsa assegnata. Usa il bottone 'Assegna Collaboratore'."
+
+**AC-238.3 (Aggiornamento real-time)**: DATO che un PM assegna una risorsa direttamente su Portal, QUANDO ricarico il deal detail, ALLORA:
+  - La sezione si aggiorna con la nuova risorsa (lettura da Portal, non cache locale)
+
+**AC-238.4 (Nessuna commessa)**: DATO che il deal non ha portal_project_id, ALLORA:
+  - La sezione non viene mostrata (appare solo dopo la creazione della commessa)
+
+**SP**: 6 | **Priorita**: Must Have | **Epic**: Assign Collaborators | **Dipendenze**: US-237
+
+---
+
+## EPIC 26: Sync Timesheets & Dashboard
+
+### US-239: Timesheet sync job + margine reale
+
+**Come** manager
+**Voglio** che i rapportini (timesheet) da Portal vengano sincronizzati periodicamente per calcolare il margine reale della commessa
+**Per** confrontare il costo effettivo con il budget e intervenire prima che il margine si eroda
+
+**AC-239.1 (Happy Path)**: DATO che la commessa Portal ha 50 timesheet finalizzati, QUANDO il sync job viene eseguito, ALLORA:
+  - I timesheet vengono letti da Portal `GET /timesheets?project_id={id}&status=finalized`
+  - Per ogni timesheet: persona, ore, data, descrizione
+  - Il costo viene calcolato: ore x costo_orario (da contratto Portal)
+  - Il margine reale = valore_deal - somma_costi_timesheet
+
+**AC-239.2 (Sync periodico)**: DATO che il sync job e configurato, ALLORA:
+  - Viene eseguito ogni 6 ore (configurabile in PortalConfig)
+  - Sincronizza solo i timesheet nuovi/modificati (delta sync basato su updated_at)
+
+**AC-239.3 (Alert margine basso)**: DATO che il margine reale scende sotto il 15%, ALLORA:
+  - Il sistema genera un alert: "Commessa XYZ: margine reale 12% (sotto soglia 15%). Ore registrate: 120, Costo: 18.000 EUR, Valore deal: 20.000 EUR"
+
+**AC-239.4 (Nessun timesheet)**: DATO che la commessa non ha ancora timesheet, ALLORA:
+  - Il margine reale mostra "N/D — nessun rapportino registrato"
+  - Il margine stimato (da calcolo offerta) resta visibile
+
+**SP**: 5 | **Priorita**: Must Have | **Epic**: Sync Timesheets | **Dipendenze**: US-234
+
+---
+
+### US-240: Deal detail — "Avanzamento Operativo" (ore fatte vs pianificate)
+
+**Come** commerciale/manager
+**Voglio** vedere l'avanzamento operativo della commessa (ore fatte vs pianificate, margine reale, % completamento)
+**Per** avere una vista istantanea dello stato della commessa senza entrare in Portal
+
+**AC-240.1 (Happy Path)**: DATO che il deal ha una commessa Portal con timesheet sincronizzati, QUANDO apro il deal detail, ALLORA:
+  - Vedo la sezione "Avanzamento Operativo" con:
+    - Barra progresso: ore fatte / ore pianificate (es. 80/120 = 67%)
+    - Costo effettivo vs budget
+    - Margine reale (EUR e %) con colore verde/giallo/rosso
+    - Trend: margine proiettato a fine commessa
+
+**AC-240.2 (Margine rosso)**: DATO che il margine reale e sotto 15%, ALLORA:
+  - La barra margine e rossa
+  - Appare un warning: "Margine in erosione. Azione consigliata: rinegoziare scope o tariffe."
+
+**AC-240.3 (Commessa completata)**: DATO che le ore fatte superano le ore pianificate, ALLORA:
+  - La barra progresso mostra 120% in rosso
+  - Il margine reale riflette lo sforamento
+
+**AC-240.4 (Nessun dato operativo)**: DATO che il deal non ha commessa Portal o non ci sono timesheet, ALLORA:
+  - La sezione mostra placeholder: "Dati operativi non disponibili. Crea la commessa su Portal per abilitare il tracking."
+
+**SP**: 3 | **Priorita**: Must Have | **Epic**: Sync Timesheets | **Dipendenze**: US-239
+
+---
+
+### US-241: PortalConfig — pagina admin configurazione Portal
+
+**Come** admin
+**Voglio** una pagina nelle impostazioni per configurare la connessione a Portal
+**Per** gestire URL, credenziali e mapping tenant senza modificare variabili d'ambiente
+
+**AC-241.1 (Happy Path)**: DATO che sono admin e vado in Impostazioni > Portal, ALLORA:
+  - Vedo un form con: Portal API URL, JWT Secret (masked), Portal Tenant Code
+  - Vedo lo stato connessione: "Connesso" (verde) o "Non raggiungibile" (rosso)
+  - Bottone "Test Connessione" che chiama Portal e mostra il risultato
+
+**AC-241.2 (Statistiche Portal)**: DATO che la connessione e attiva, ALLORA:
+  - Vedo le statistiche: N clienti, N persone, N commesse, N timesheet
+  - Ultimo sync: data/ora
+  - Prossimo sync: data/ora stimata
+
+**AC-241.3 (Mapping)**: DATO che configuro il mapping, ALLORA:
+  - Posso associare il tenant AgentFlow al tenant Portal (es. "Nexa Data" -> "NEXA")
+  - Il mapping e salvato in DB (tabella PortalConfig)
+
+**AC-241.4 (Solo admin)**: DATO che sono un commerciale (non admin), QUANDO provo ad accedere alla pagina Portal, ALLORA:
+  - La pagina non e visibile nella sidebar
+  - L'accesso diretto via URL ritorna 403
+
+**SP**: 3 | **Priorita**: Should Have | **Epic**: Sync Timesheets | **Dipendenze**: US-230
+
+---
+
+## Riepilogo Pivot 10
+
+| Story | Titolo | SP | Epic | Priorita |
+|-------|--------|:--:|------|----------|
+| US-230 | Portal Client adapter (JWT + read) | 5 | 23 | Must |
+| US-231 | Aziende da Portal (sostituisce CrmCompany) | 5 | 23 | Must |
+| US-232 | Read persons + employment contracts | 3 | 23 | Must |
+| US-233 | Proxy endpoints /portal/* | 3 | 23 | Must |
+| US-234 | Create Project from Deal Won | 5 | 24 | Must |
+| US-235 | Customer matching by P.IVA | 5 | 24 | Must |
+| US-236 | Deal detail "Crea Commessa su Portal" | 4 | 24 | Must |
+| US-237 | Create Activity/Assignment on Portal | 5 | 25 | Must |
+| US-238 | Deal detail "Risorse assegnate da Portal" | 6 | 25 | Must |
+| US-239 | Timesheet sync job + margine reale | 5 | 26 | Must |
+| US-240 | Deal detail "Avanzamento Operativo" | 3 | 26 | Must |
+| US-241 | PortalConfig admin page | 3 | 26 | Should |
+| **TOTALE Pivot 10** | | **52 SP** | | **11 Must, 1 Should** |

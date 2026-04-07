@@ -990,3 +990,45 @@ _Nessun bug trovato._
 - US-145: Pipeline filtro per prodotto (non implementato)
 
 ---
+
+## Pivot 10 — Portal Integration (ADR-011)
+
+**Architettura:** ADR-011 (`specs/technical/ADR-011-portal-integration.md`), tech spec: `specs/technical/portal-integration.md`
+
+**Decisione chiave:**
+- Portal (PortalJS.be) e il **master anagrafico** per Aziende/Clienti (Customer table)
+- AgentFlow e il **master commerciale** per Deal, Referenti (CrmContact), Pipeline
+- CrmCompany di AgentFlow va **deprecata** — sostituita da lettura Portal Customer
+- CrmContact resta in AgentFlow, legato a `portal_customer_id` (FK verso Portal)
+- Ogni scrittura su Portal richiede **conferma umana** (dialog)
+
+**Connessione:**
+- JWT auto-generato con JWTSECRET condiviso tra i due sistemi
+- Nessun login/password — il JWT e autosufficiente (HS256, tenant + exp)
+- Env vars: `PORTAL_API_URL`, `PORTAL_JWT_SECRET`, `PORTAL_TENANT`
+
+**Staging:**
+- API: `https://portaaljsbe-staging.up.railway.app/api/v1`
+- DB copiato da produzione: 2149 persone, 315 commesse, 66 clienti, 365 attivita, 1543 timesheet, 214 contratti
+- Tenant mapping: AgentFlow "Nexa Data" -> Portal "NEXA"
+- API testata e funzionante
+
+**Stories:** 12 (US-230 -> US-241), 52 SP, 4 sprint (42-45)
+
+**Sprint plan:**
+| Sprint | Focus | Stories | SP |
+|--------|-------|---------|:--:|
+| 42 | Portal Client + Read | US-230, US-231, US-232, US-233 | 16 |
+| 43 | Create Commessa | US-234, US-235, US-236 | 14 |
+| 44 | Assign Collaborators | US-237, US-238 | 11 |
+| 45 | Sync Timesheets + Dashboard | US-239, US-240, US-241 | 11 |
+
+**Status:** Sprint 42 ready to start.
+
+**File chiave:**
+- `api/adapters/portal_client.py` — Client async per PortalJS.be API
+- `api/modules/portal/router.py` — Proxy endpoints /portal/*
+- `specs/03-user-stories-pivot9.md` — Stories US-230 -> US-241 (sezione Pivot 10)
+- `specs/05-sprint-plan-pivot9.md` — Sprint 42-45
+
+---

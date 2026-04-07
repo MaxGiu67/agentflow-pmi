@@ -276,13 +276,18 @@ Ultimo aggiornamento: 2026-04-07
 4. ~~Implementazione Pivot 8~~ ✅ 21 stories, 87 test, 30+ endpoint, 10 modelli DB
 5. ~~Company/Contact 1:N split~~ ✅ CrmCompany, form 2 step
 6. ~~Role-based UI~~ ✅ Sidebar, Dashboard, Scorecard filtrati per ruolo
-7. **Pagina Aziende CRM** — `/crm/aziende` per gestione diretta
-8. **Update New Deal form** — seleziona Company invece di Contact
+7. **Pagina Aziende CRM** — `/crm/aziende` per gestione diretta (da rivedere con Portal integration)
+8. **Update New Deal form** — dropdown Aziende da Portal Customer (US-231)
 9. **Frontend scadenzario** — riscrivere con nuovi endpoint
 10. ~~Calendar integration~~ ✅ FullCalendar + .ics + Microsoft 365 OAuth + Calendly + 220 E2E test
 11. **Account Brevo** — creare, API key, webhook
 12. ~~Test E2E CRM + Calendar~~ ✅ 220 test (182 CRM + 38 Calendar)
 13. **Deploy** su Railway
+14. **Pivot 10 — Portal Integration (Sprint 42-45):**
+    - Sprint 42: Portal Client + Read (US-230/231/232/233, 16 SP) — **READY TO START**
+    - Sprint 43: Create Commessa (US-234/235/236, 14 SP)
+    - Sprint 44: Assign Collaborators (US-237/238, 11 SP)
+    - Sprint 45: Sync Timesheets + Dashboard (US-239/240/241, 11 SP)
 
 ---
-_Ultimo aggiornamento: 2026-04-07 — Pivot 8 Social Selling implementato, Company/Contact 1:N, Role-based UI_
+_Ultimo aggiornamento: 2026-04-07 — Pivot 10 Portal Integration spec completate (12 stories, 52 SP, Sprint 42-45). Pivot 8 implementato, Pivot 9 in spec._

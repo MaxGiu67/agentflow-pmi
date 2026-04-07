@@ -101,6 +101,7 @@ class MicrosoftCalendarService:
         try:
             token_data = json.loads(user.microsoft_token)
         except (json.JSONDecodeError, TypeError):
+            logger.warning("Invalid microsoft_token JSON for user %s — keeping token", user.email)
             return None
 
         expires_at = datetime.fromisoformat(token_data["expires_at"])
@@ -109,31 +110,31 @@ class MicrosoftCalendarService:
         if now < expires_at - timedelta(minutes=5):
             return token_data["access_token"]
 
-        # Token expired — refresh
+        # Token expired — try refresh
         refresh_token = token_data.get("refresh_token")
         if not refresh_token:
-            logger.warning("No refresh token for user %s", user.email)
-            user.microsoft_token = None
-            await self.db.flush()
-            return None
+            logger.warning("No refresh token for user %s — token expired but NOT cleared (reconnect needed)", user.email)
+            return None  # Don't clear — user can still reconnect
 
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{AUTHORITY}/oauth2/v2.0/token",
-                data={
-                    "client_id": MICROSOFT_CLIENT_ID,
-                    "client_secret": MICROSOFT_CLIENT_SECRET,
-                    "refresh_token": refresh_token,
-                    "grant_type": "refresh_token",
-                    "scope": " ".join(SCOPES),
-                },
-            )
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(
+                    f"{AUTHORITY}/oauth2/v2.0/token",
+                    data={
+                        "client_id": MICROSOFT_CLIENT_ID,
+                        "client_secret": MICROSOFT_CLIENT_SECRET,
+                        "refresh_token": refresh_token,
+                        "grant_type": "refresh_token",
+                        "scope": " ".join(SCOPES),
+                    },
+                )
+        except Exception as e:
+            logger.error("Token refresh HTTP error for %s: %s — keeping existing token", user.email, e)
+            return None  # Network error — don't clear, retry next time
 
         if resp.status_code != 200:
-            logger.error("Token refresh failed for %s: %s", user.email, resp.text)
-            user.microsoft_token = None
-            await self.db.flush()
-            return None
+            logger.error("Token refresh failed for %s (HTTP %s): %s — keeping existing token", user.email, resp.status_code, resp.text[:200])
+            return None  # Don't clear — might be temporary Microsoft outage
 
         data = resp.json()
         new_token_data = {
@@ -144,6 +145,7 @@ class MicrosoftCalendarService:
         user.microsoft_token = json.dumps(new_token_data)
         await self.db.flush()
 
+        logger.info("Microsoft token refreshed for user %s", user.email)
         return data["access_token"]
 
     # ── US-154: Push events to Outlook ──────────────────

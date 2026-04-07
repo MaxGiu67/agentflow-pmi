@@ -419,3 +419,214 @@ Tutti i 26 tool del Sales Agent sono ora coperti da stories:
 | LinkedIn ToS (automazione) | Media | L'agente COMPONE messaggi, non li invia. L'utente fa copia-incolla |
 | Prompt troppo grande con 26 tool | Media | Tool filtering: l'agente vede solo 8-12 tool per volta |
 | Scope creep su pipeline editor | Alta | US-202 e Should Have, si fa solo se c'e tempo |
+
+---
+
+# Sprint Plan — Pivot 10: Portal Integration (ADR-011)
+
+**Data:** 2026-04-07
+**Stories:** 12 (US-230 -> US-241), 52 SP
+**Sprint:** 42 -> 45 (~8 settimane)
+**Principio:** Portal master anagrafico (Customer), AgentFlow master commerciale (Deal/Contact). Conferma umana per ogni scrittura su Portal. Zero regressione sui 1029+ test esistenti.
+
+**Connessione:** JWT auto-generato con JWTSECRET condiviso, nessun login/password.
+**Staging API:** `https://portaaljsbe-staging.up.railway.app/api/v1`
+**DB staging:** 2149 persone, 315 commesse, 66 clienti, 365 attivita, 1543 timesheet
+
+---
+
+## Sprint 42: Portal Client + Read (2 settimane)
+
+**Goal:** Adapter Portal funzionante. Lettura Customer/Person/Project. Proxy endpoint. CrmCompany sostituito da Portal Customer per nuovi deal.
+
+| Story | Titolo | SP | Prio |
+|-------|--------|:--:|:----:|
+| US-230 | Portal Client adapter (JWT + read) | 5 | Must |
+| US-231 | Aziende da Portal (sostituisce CrmCompany) | 5 | Must |
+| US-232 | Read persons + employment contracts | 3 | Must |
+| US-233 | Proxy endpoints /portal/* | 3 | Must |
+
+**SP totale:** 16
+
+**Task breakdown:**
+
+1. **Portal Client adapter** (`api/adapters/portal_client.py`)
+   - Classe `PortalClient` async con httpx
+   - JWT auto-generation: HS256, payload {tenant, exp}, PORTAL_JWT_SECRET
+   - Metodi: `get_customers()`, `get_persons()`, `get_projects()`, `get_timesheets()`
+   - Graceful degradation: se Portal offline, ritorna empty con warning
+   - Test: JWT generation, customer list, error handling, disabled mode
+
+2. **Aziende da Portal**
+   - Migration: ALTER TABLE crm_deals ADD portal_customer_id INTEGER
+   - Migration: ALTER TABLE crm_contacts ADD portal_customer_id INTEGER
+   - Service: `get_portal_customers()` con cache in-memory (TTL 5 min)
+   - Frontend: dropdown "Azienda" nel NewDeal legge da `/portal/customers` invece di `/crm/companies`
+   - Retrocompatibilita: deal esistenti mantengono company_id FK
+   - Test: dropdown, portal_customer_id su deal/contact, fallback
+
+3. **Read persons + contracts**
+   - `PortalClient.get_persons()` con paginazione e filtro
+   - `PortalClient.get_employment_contracts()` per contratti attivi
+   - Badge "In scadenza" per contratti < 30gg
+   - Test: person list, contract filter, pagination
+
+4. **Proxy endpoints** (`api/modules/portal/router.py`)
+   - GET /portal/customers, /portal/customers/{id}
+   - GET /portal/persons, /portal/persons/{id}
+   - GET /portal/projects, /portal/projects/{id}
+   - GET /portal/timesheets
+   - Middleware: solo ruoli admin/commerciale
+   - Cache: in-memory TTL 5 min per letture
+   - Test: proxy endpoints, auth, cache
+
+5. **Gate di uscita sprint:**
+   - `python3 -m pytest tests/` -> tutti i test PASS
+   - Ruff 0 errori
+   - TypeScript 0 errori
+   - Portal Client testato con staging API
+
+---
+
+## Sprint 43: Create Commessa (2 settimane)
+
+**Goal:** Deal Won crea commessa su Portal. Customer matching automatico. Bottone "Crea Commessa" nel deal detail.
+
+| Story | Titolo | SP | Prio |
+|-------|--------|:--:|:----:|
+| US-234 | Create Project from Deal Won | 5 | Must |
+| US-235 | Customer matching by P.IVA | 5 | Must |
+| US-236 | Deal detail "Crea Commessa su Portal" | 4 | Must |
+
+**SP totale:** 14
+
+**Task breakdown:**
+
+1. **Create Project from Deal Won**
+   - `PortalClient.create_project()` — POST /projects su Portal
+   - Service: `create_portal_project_from_deal(deal_id)` — mappa campi deal -> project
+   - Dialog conferma su cambio stage Won: "Vuoi creare la commessa su Portal?"
+   - Migration: ALTER TABLE crm_deals ADD portal_project_id INTEGER
+   - Aggiornamento deal con portal_project_id dopo creazione
+   - Test: project creation, confirmation flow, error handling, retry
+
+2. **Customer matching by P.IVA**
+   - Service: `match_portal_customer(piva)` — cerca Customer Portal per vatNumber
+   - Gestione: match singolo (auto), match multiplo (scelta utente), nessun match (propone creazione)
+   - Batch matching: endpoint per matchare tutti i deal legacy senza portal_customer_id
+   - Test: match singolo, multiplo, nessuno, batch
+
+3. **Deal detail "Crea Commessa"**
+   - Frontend: bottone condizionale (visibile se Won e senza portal_project_id)
+   - Dialog con form precompilato (nome, cliente, valore, date)
+   - Link "Vedi Commessa su Portal" se portal_project_id presente
+   - Permessi: portal:write per commerciale
+   - Test: bottone visibilita, dialog, permessi
+
+4. **Gate di uscita sprint:**
+   - `python3 -m pytest tests/` -> tutti i test PASS
+   - Creazione commessa testata su staging Portal
+
+---
+
+## Sprint 44: Assign Collaborators (2 settimane)
+
+**Goal:** Assegnazione collaboratori a commessa Portal da AgentFlow. Sezione "Risorse assegnate" nel deal detail.
+
+| Story | Titolo | SP | Prio |
+|-------|--------|:--:|:----:|
+| US-237 | Create Activity/Assignment on Portal | 5 | Must |
+| US-238 | Deal detail "Risorse assegnate da Portal" | 6 | Must |
+
+**SP totale:** 11
+
+**Task breakdown:**
+
+1. **Create Activity/Assignment**
+   - `PortalClient.create_activity()` — POST /activities su Portal
+   - Dialog: dropdown persone Portal (filtrate per competenza), ruolo, ore/settimana, periodo
+   - Conferma umana obbligatoria prima della scrittura
+   - Validazione: persona non gia assegnata, commessa esistente
+   - Test: assignment creation, duplicate check, validation, error handling
+
+2. **Sezione "Risorse assegnate"**
+   - Frontend: sezione nel deal detail (sotto info commessa)
+   - Lettura da Portal: `GET /activities?project_id={portal_project_id}`
+   - Mostra: nome, ruolo, ore/settimana, periodo, stato
+   - Placeholder se nessuna commessa/nessuna risorsa
+   - Aggiornamento al reload (no cache per risorse — dati freschi)
+   - Test: sezione rendering, empty state, refresh
+
+3. **Gate di uscita sprint:**
+   - `python3 -m pytest tests/` -> tutti i test PASS
+   - Assegnazione testata su staging Portal
+
+---
+
+## Sprint 45: Sync Timesheets + Dashboard (2 settimane)
+
+**Goal:** Sync periodico timesheet da Portal. Margine reale calcolato. Sezione "Avanzamento Operativo" nel deal detail. Pagina admin PortalConfig.
+
+| Story | Titolo | SP | Prio |
+|-------|--------|:--:|:----:|
+| US-239 | Timesheet sync job + margine reale | 5 | Must |
+| US-240 | Deal detail "Avanzamento Operativo" | 3 | Must |
+| US-241 | PortalConfig admin page | 3 | Should |
+
+**SP totale:** 11
+
+**Task breakdown:**
+
+1. **Timesheet sync job**
+   - Celery task: `sync_portal_timesheets` — eseguito ogni 6 ore (configurabile)
+   - Delta sync: solo timesheet con updated_at > ultimo sync
+   - Storage locale: tabella `portal_timesheet_cache` (project_id, person_id, date, hours, cost, synced_at)
+   - Calcolo margine reale: valore_deal - somma(ore x costo_orario)
+   - Alert margine < 15%: notifica in-app + log
+   - Test: sync job, delta logic, margin calculation, alert threshold
+
+2. **Sezione "Avanzamento Operativo"**
+   - Frontend: sezione nel deal detail (sotto risorse assegnate)
+   - Barra progresso ore fatte / ore pianificate con %
+   - Costo effettivo vs budget (badge verde/giallo/rosso)
+   - Margine reale EUR e % con trend proiezione
+   - Warning se margine < 15% o ore > 100%
+   - Placeholder se nessun dato
+   - Test: rendering, colors, edge cases
+
+3. **PortalConfig admin page**
+   - Frontend: `/impostazioni/portal` — form URL, JWT Secret (masked), Tenant Code
+   - Backend: modello `PortalConfig` (tenant_id, api_url, jwt_secret_encrypted, portal_tenant)
+   - Bottone "Test Connessione" — chiama Portal e mostra risultato
+   - Statistiche: N clienti, N persone, N commesse, ultimo/prossimo sync
+   - Mapping tenant: AgentFlow tenant -> Portal tenant
+   - Solo admin (middleware + sidebar filter)
+   - Test: config CRUD, test connection, permissions
+
+4. **Gate di uscita sprint:**
+   - `python3 -m pytest tests/` -> tutti i test PASS
+   - Sync testato con staging Portal (1543 timesheet)
+
+---
+
+## Riepilogo Sprint Pivot 10
+
+| Sprint | Settimane | Stories | SP | Focus |
+|--------|:---------:|:-------:|:--:|-------|
+| 42 | 2 | US-230, US-231, US-232, US-233 | 16 | Portal Client + Read |
+| 43 | 2 | US-234, US-235, US-236 | 14 | Create Commessa |
+| 44 | 2 | US-237, US-238 | 11 | Assign Collaborators |
+| 45 | 2 | US-239, US-240, US-241 | 11 | Sync Timesheets + Dashboard |
+| **TOTALE** | **~8** | **12** | **52** | |
+
+---
+
+## Rischi e mitigazioni Pivot 10
+
+| Rischio | Probabilita | Mitigazione |
+|---------|:-----------:|-------------|
+| Portal API non stabile | Media | Staging copiato e testato, graceful degradation |
+| Latenza chiamate Portal | Bassa | Cache in-memory TTL 5min per letture, delta sync per timesheet |
+| JWT Secret rotation | Bassa | PortalConfig admin page per aggiornare senza redeploy |
+| CrmCompany deprecation rompe frontend | Media | Retrocompatibilita: deal legacy mantengono company_id, nuovi usano portal_customer_id |
+| Portal offline durante demo | Media | Fallback campo testo libero per azienda, placeholder sezioni Portal |

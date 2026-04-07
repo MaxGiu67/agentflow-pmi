@@ -111,11 +111,11 @@
 
 ## Modelli DB (50+ tabelle)
 
-### CRM (Pivot 7-9)
-- `CrmCompany` — aziende (name, piva, sector, city, website)
-- `CrmContact` — contatti/referenti (company_id FK, contact_name, contact_role, origin_id)
+### CRM (Pivot 7-10)
+- `CrmCompany` — **DEPRECATO (Pivot 10)**: sostituito da Portal Customer per nuovi deal. Tabella mantenuta per retrocompatibilita deal legacy.
+- `CrmContact` — contatti/referenti (company_id FK legacy, **portal_customer_id** per nuovi deal, contact_name, contact_role, origin_id)
 - `CrmPipelineStage` — stadi pipeline (name, sequence, stage_type, is_won, is_lost)
-- `CrmDeal` — deal (company_id, contact_id, stage_id, pipeline_template_id, deal_type, revenue)
+- `CrmDeal` — deal (company_id legacy, **portal_customer_id**, **portal_project_id**, contact_id, stage_id, pipeline_template_id, deal_type, revenue)
 - `CrmActivity` — attivita (type: call/video_call/meeting/email/task/note, activity_type_id, scheduled_at datetime, outlook_event_id, user_id auto-assigned)
 
 ### Pipeline Templates (Pivot 9)
@@ -200,7 +200,7 @@ BREVO_API_KEY, BREVO_SENDER_EMAIL, BREVO_SENDER_NAME
 OPENAI_API_KEY
 
 # PortalJS.be (gestione operativa — Pivot 10)
-PORTAL_API_URL, PORTAL_SERVICE_EMAIL, PORTAL_SERVICE_PASSWORD
+PORTAL_API_URL, PORTAL_JWT_SECRET, PORTAL_TENANT
 ```
 
 ## MCP Server
