@@ -283,11 +283,49 @@ class CRMService:
 
     async def create_deal(self, tenant_id: uuid.UUID, data: dict) -> dict:
         await self._ensure_default_stages(tenant_id)
-        # Get first stage if not specified
+        # Resolve stage_id: may be a template stage ID, need generic crm_pipeline_stages ID
         stage_id = None
         if data.get("stage_id"):
-            stage_id = uuid.UUID(data["stage_id"])
-        else:
+            candidate_id = uuid.UUID(data["stage_id"])
+            # Check if it's a valid generic stage
+            check = await self.db.execute(
+                select(CrmPipelineStage).where(CrmPipelineStage.id == candidate_id)
+            )
+            if check.scalar_one_or_none():
+                stage_id = candidate_id
+            else:
+                # It's a template stage ID — resolve by name
+                from api.db.models import PipelineTemplateStage
+                tmpl_result = await self.db.execute(
+                    select(PipelineTemplateStage).where(PipelineTemplateStage.id == candidate_id)
+                )
+                tmpl_stage = tmpl_result.scalar_one_or_none()
+                if tmpl_stage:
+                    generic = await self.db.execute(
+                        select(CrmPipelineStage).where(
+                            CrmPipelineStage.tenant_id == tenant_id,
+                            CrmPipelineStage.name == tmpl_stage.name,
+                        )
+                    )
+                    gen_stage = generic.scalar_one_or_none()
+                    if gen_stage:
+                        stage_id = gen_stage.id
+                    else:
+                        # Auto-create generic stage from template
+                        new_stage = CrmPipelineStage(
+                            tenant_id=tenant_id,
+                            name=tmpl_stage.name,
+                            sequence=tmpl_stage.sequence,
+                            probability_default=100.0 if tmpl_stage.is_won else (0.0 if tmpl_stage.is_lost else 50.0),
+                            color='#10B981' if tmpl_stage.is_won else ('#EF4444' if tmpl_stage.is_lost else '#6B7280'),
+                            is_won=tmpl_stage.is_won,
+                            is_lost=tmpl_stage.is_lost,
+                        )
+                        self.db.add(new_stage)
+                        await self.db.flush()
+                        stage_id = new_stage.id
+
+        if not stage_id:
             first = await self.db.execute(
                 select(CrmPipelineStage.id).where(
                     CrmPipelineStage.tenant_id == tenant_id,

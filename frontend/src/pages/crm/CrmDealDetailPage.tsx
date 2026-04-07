@@ -8,6 +8,7 @@ import {
   usePortalProjectTypes, usePortalLocations, usePortalAccountManagers,
   usePortalProtocolByCustomer, useMyPortalAccountManager,
   useDealProject, useAssignPortalEmployee, usePortalPersons, useDealProgress,
+  usePipelineTemplates,
 } from '../../api/hooks'
 import { formatCurrency } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
@@ -55,6 +56,7 @@ export default function CrmDealDetailPage() {
 
   // Portal integration
   const { data: portalStatus } = usePortalStatus()
+  const { data: pipelineTemplates } = usePipelineTemplates()
   const createPortalOffer = useCreatePortalOffer()
   const { data: projectTypes } = usePortalProjectTypes()
   const { data: locations } = usePortalLocations()
@@ -162,11 +164,14 @@ export default function CrmDealDetailPage() {
             {deal.assigned_to_name}
           </span>
         )}
-        {deal.pipeline_template_id && (
-          <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-700">
-            Pipeline: {deal.pipeline_template_id.slice(0, 8)}...
-          </span>
-        )}
+        {deal.pipeline_template_id && (() => {
+          const tmpl = pipelineTemplates?.find((t: any) => t.id === deal.pipeline_template_id)
+          return tmpl ? (
+            <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-700">
+              Pipeline: {tmpl.name}
+            </span>
+          ) : null
+        })()}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
