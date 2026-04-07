@@ -353,6 +353,39 @@ class CRMService:
                 select(CrmPipelineStage).where(CrmPipelineStage.id == deal.stage_id)
             )
             stage = stage_result.scalar_one_or_none()
+
+            # If stage_id is a template stage, resolve to generic or create it
+            if not stage:
+                from api.db.models import PipelineTemplateStage
+                tmpl_result = await self.db.execute(
+                    select(PipelineTemplateStage).where(PipelineTemplateStage.id == deal.stage_id)
+                )
+                tmpl_stage = tmpl_result.scalar_one_or_none()
+                if tmpl_stage:
+                    # Find existing generic stage with same name
+                    generic_result = await self.db.execute(
+                        select(CrmPipelineStage).where(
+                            CrmPipelineStage.tenant_id == tenant_id,
+                            CrmPipelineStage.name == tmpl_stage.name,
+                        )
+                    )
+                    stage = generic_result.scalar_one_or_none()
+                    if not stage:
+                        # Create generic stage from template stage
+                        stage = CrmPipelineStage(
+                            tenant_id=tenant_id,
+                            name=tmpl_stage.name,
+                            sequence=tmpl_stage.sequence,
+                            probability_default=100.0 if tmpl_stage.is_won else (0.0 if tmpl_stage.is_lost else 50.0),
+                            color='#10B981' if tmpl_stage.is_won else ('#EF4444' if tmpl_stage.is_lost else '#6B7280'),
+                            is_won=tmpl_stage.is_won,
+                            is_lost=tmpl_stage.is_lost,
+                        )
+                        self.db.add(stage)
+                        await self.db.flush()
+                    # Update deal to use the generic stage ID
+                    deal.stage_id = stage.id
+
             if stage:
                 deal.probability = stage.probability_default
 

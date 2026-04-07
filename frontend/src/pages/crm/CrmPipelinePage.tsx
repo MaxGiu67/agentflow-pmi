@@ -105,12 +105,19 @@ export default function CrmPipelinePage() {
     if (!dealId) return
 
     const deal = deals?.deals?.find((d: any) => d.id === dealId)
-    if (!deal || deal.stage_id === targetStageId) return
+    if (!deal) return
 
-    // Find stage by ID first, then by name (for template stages)
+    // Resolve to a generic crm_pipeline_stages ID
+    // First try direct match (generic stage ID), then match by name (template stage → generic)
     let toStage = stages?.find((s: any) => s.id === targetStageId)
+    if (!toStage && stageName) {
+      toStage = stages?.find((s: any) => s.name === stageName)
+    }
     const resolvedStageId = toStage?.id || targetStageId
     const resolvedStageName = toStage?.name || stageName || targetStageId
+
+    // Skip if same stage
+    if (deal.stage_id === resolvedStageId) return
 
     // Open dialog to log activity for this stage move
     setMoveDialog({
