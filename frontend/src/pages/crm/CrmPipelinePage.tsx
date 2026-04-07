@@ -9,7 +9,7 @@ import { formatCurrency } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
-import { Briefcase, Plus, Eye, LayoutGrid, List, User, Clock } from 'lucide-react'
+import { Briefcase, Plus, Eye, LayoutGrid, List, User, Clock, Search, X } from 'lucide-react'
 
 const DEAL_TYPE_SHORT: Record<string, string> = {
   'T&M': 'T&M',
@@ -21,13 +21,13 @@ const DEAL_TYPE_SHORT: Record<string, string> = {
 export default function CrmPipelinePage() {
   const navigate = useNavigate()
   const [view, setView] = useState<'kanban' | 'table'>('kanban')
-  const [typeFilter, setTypeFilter] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [pipelineTab, setPipelineTab] = useState('all')
   const [commercialeFilter, setCommercialeFilter] = useState('')
   const dragDealId = useRef<string | null>(null)
 
   const { data: _pipeline } = useCrmPipeline()
-  const { data: deals, isLoading } = useCrmDeals('', typeFilter)
+  const { data: deals, isLoading } = useCrmDeals('', '')
   const { data: stages } = useCrmStages()
   const { data: analytics } = useCrmAnalytics()
   const updateDeal = useUpdateCrmDeal()
@@ -49,13 +49,28 @@ export default function CrmPipelinePage() {
     })
   )
 
+  // Client-side search filter (cliente, nominativo, descrizione deal)
+  const searchLower = searchQuery.toLowerCase().trim()
+  const filteredDeals = (deals?.deals || []).filter((d: any) => {
+    if (!searchLower) return true
+    const fields = [
+      d.name || '',             // descrizione offerta / deal name
+      d.client_name || '',      // nominativo contatto
+      d.company_name || '',     // ragione sociale (if available)
+      d.deal_type || '',
+      d.technology || '',
+      d.assigned_to_name || '',
+    ]
+    return fields.some(f => f.toLowerCase().includes(searchLower))
+  })
+
   // Group deals by stage_id (with optimistic overrides)
   const dealsByStage: Record<string, any[]> = {}
-  if (deals?.deals && stages) {
+  if (filteredDeals.length > 0 && stages) {
     for (const stage of stages) {
       dealsByStage[stage.id] = []
     }
-    for (const deal of deals.deals) {
+    for (const deal of filteredDeals) {
       const effectiveStageId = optimisticMoves[deal.id] || deal.stage_id
       if (effectiveStageId && dealsByStage[effectiveStageId]) {
         dealsByStage[effectiveStageId].push({ ...deal, stage_id: effectiveStageId })
@@ -234,10 +249,10 @@ export default function CrmPipelinePage() {
               pipelineTab === 'all' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            Tutti ({deals?.deals?.length || 0})
+            Tutti ({filteredDeals.length})
           </button>
           {pipelineTemplates.map((tmpl: any) => {
-            const count = deals?.deals?.filter((d: any) => d.pipeline_template_id === tmpl.id).length || 0
+            const count = filteredDeals.filter((d: any) => d.pipeline_template_id === tmpl.id).length || 0
             return (
               <button
                 key={tmpl.id}
@@ -274,9 +289,9 @@ export default function CrmPipelinePage() {
         )
       })()}
 
-      {/* Controls */}
+      {/* Controls: View toggle + Search */}
       <div className="flex flex-wrap items-center gap-3">
-        {/* AC-90.6: Toggle Kanban/Table */}
+        {/* Toggle Kanban/Table */}
         <div className="inline-flex rounded-lg border border-gray-300 bg-white">
           <button
             onClick={() => setView('kanban')}
@@ -296,18 +311,23 @@ export default function CrmPipelinePage() {
           </button>
         </div>
 
-        {/* AC-90.8: Filters */}
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
-        >
-          <option value="">Tutti i tipi</option>
-          <option value="T&M">Time & Material</option>
-          <option value="fixed">Progetto fisso</option>
-          <option value="spot">Spot</option>
-          <option value="hardware">Hardware</option>
-        </select>
+        {/* Search: cliente, nominativo, descrizione */}
+        <div className="relative flex-1 min-w-[250px] max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Cerca per cliente, nominativo o descrizione deal..."
+            className="w-full rounded-lg border border-gray-300 py-1.5 pl-9 pr-8 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {isLoading ? <LoadingSpinner /> : view === 'kanban' ? (
@@ -316,7 +336,7 @@ export default function CrmPipelinePage() {
           {/* Render kanban sections */}
           {(() => {
             // Build list of pipeline sections to render
-            const allDealsList = deals?.deals || []
+            const allDealsList = filteredDeals
             const filteredByComm = commercialeFilter
               ? allDealsList.filter((d: any) => d.assigned_to_name === commercialeFilter)
               : allDealsList
@@ -326,7 +346,7 @@ export default function CrmPipelinePage() {
               const tabDeals = filteredByComm.filter((d: any) => d.pipeline_template_id === pipelineTab)
               return (
                 <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: 400 }}>
-                  {stages?.filter((s: any) => !s.is_lost).map((stage: any) => {
+                  {stages?.map((stage: any) => {
                     const stageDeals = tabDeals.filter((d: any) => d.stage_id === stage.id)
                     const stageTotal = stageDeals.reduce((sum: number, d: any) => sum + (d.expected_revenue || 0), 0)
                     return renderKanbanColumn(stage, stageDeals, stageTotal)
@@ -342,7 +362,7 @@ export default function CrmPipelinePage() {
             if (pipelineTemplates) {
               for (const tmpl of pipelineTemplates) {
                 const tmplDeals = filteredByComm.filter((d: any) => d.pipeline_template_id === tmpl.id)
-                const tmplStages = (tmpl.stages || []).filter((s: any) => !s.is_lost)
+                const tmplStages = (tmpl.stages || [])
                 sections.push({ title: tmpl.name, templateId: tmpl.id, color: '#6366f1', deals: tmplDeals, stagesForSection: tmplStages })
               }
             }
@@ -355,7 +375,7 @@ export default function CrmPipelinePage() {
                 templateId: 'legacy',
                 color: '#6b7280',
                 deals: legacyDeals,
-                stagesForSection: stages.filter((s: any) => !s.is_lost).map((s: any) => ({ ...s, code: s.id, name: s.name })),
+                stagesForSection: stages.map((s: any) => ({ ...s, code: s.id, name: s.name })),
               })
             }
 
@@ -396,8 +416,8 @@ export default function CrmPipelinePage() {
         </>
       ) : (
         /* ============ TABLE VIEW ============ */
-        !deals?.deals?.length ? (
-          <EmptyState icon={<Briefcase className="h-12 w-12" />} title="Nessun deal" description="La pipeline e vuota." />
+        !filteredDeals.length ? (
+          <EmptyState icon={<Briefcase className="h-12 w-12" />} title={searchQuery ? "Nessun risultato" : "Nessun deal"} description={searchQuery ? `Nessun deal trovato per "${searchQuery}"` : "La pipeline e vuota."} />
         ) : (
           <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
             <table className="min-w-full divide-y divide-gray-200">
@@ -413,7 +433,7 @@ export default function CrmPipelinePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {deals.deals.map((deal: any) => (
+                {filteredDeals.map((deal: any) => (
                   <tr key={deal.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">{deal.name}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{deal.client_name}</td>
