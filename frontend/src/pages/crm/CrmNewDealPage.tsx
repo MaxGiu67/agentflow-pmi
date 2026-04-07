@@ -293,6 +293,26 @@ export default function CrmNewDealPage() {
       ) : (
         /* ── Step 2: Dettagli deal ── */
         <div className="space-y-4">
+          {/* Riepilogo cliente/referente selezionato */}
+          {(selectedCompanyName || selectedContactName) && (
+            <div className="rounded-2xl border border-purple-200 bg-purple-50/50 p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100">
+                  <Building className="h-5 w-5 text-purple-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  {selectedCompanyName && (
+                    <p className="text-sm font-semibold text-gray-900">{selectedCompanyName}</p>
+                  )}
+                  {selectedContactName && (
+                    <p className="text-xs text-gray-600">Referente: {selectedContactName}</p>
+                  )}
+                </div>
+                <button onClick={() => setStep(1)} className="text-xs text-purple-600 hover:text-purple-800 font-medium">Modifica</button>
+              </div>
+            </div>
+          )}
+
           <div className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
             <h3 className="font-semibold text-gray-900">Dettagli opportunita</h3>
 
