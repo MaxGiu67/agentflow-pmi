@@ -1,5 +1,10 @@
 import { create } from 'zustand'
+import { QueryClient } from '@tanstack/react-query'
 import api from '../api/client'
+
+// Shared queryClient reference — set from App
+let _queryClient: QueryClient | null = null
+export function setQueryClient(qc: QueryClient) { _queryClient = qc }
 
 interface User {
   id: string
@@ -40,6 +45,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: () => {
     localStorage.removeItem('access_token')
     localStorage.removeItem('refresh_token')
+    // Clear ALL React Query cache — prevents stale data from previous user
+    if (_queryClient) _queryClient.clear()
     set({ token: null, user: null, isAuthenticated: false })
   },
   loadProfile: async () => {

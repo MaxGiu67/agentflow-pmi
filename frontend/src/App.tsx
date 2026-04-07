@@ -88,6 +88,8 @@ const ResourcesPage = lazy(() => import('./pages/resources/ResourcesPage'))
 const EleviaUseCasesPage = lazy(() => import('./pages/elevia/EleviaUseCasesPage'))
 const PipelineTemplatesPage = lazy(() => import('./pages/social/PipelineTemplatesPage'))
 
+import { setQueryClient } from './store/auth'
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -96,6 +98,9 @@ const queryClient = new QueryClient({
     },
   },
 })
+
+// Allow auth store to clear cache on logout
+setQueryClient(queryClient)
 
 export default function App() {
   return (
