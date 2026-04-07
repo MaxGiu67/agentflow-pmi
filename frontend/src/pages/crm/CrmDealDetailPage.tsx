@@ -11,7 +11,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import SendEmailModal from '../../components/email/SendEmailModal'
 import {
   ArrowLeft, FileCheck, CheckCircle, AlertCircle, Mail, Eye, MousePointer,
-  Plus, Phone, Calendar, MessageSquare, Activity, Pencil, ExternalLink,
+  Plus, Phone, Calendar, MessageSquare, Activity, Pencil, ExternalLink, Building2,
 } from 'lucide-react'
 
 const ORDER_TYPES = [
@@ -153,7 +153,7 @@ export default function CrmDealDetailPage() {
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600 shrink-0">
-                <Package className="h-5 w-5" />
+                <Building2 className="h-5 w-5" />
               </div>
               <div>
                 <p className="font-semibold text-gray-900">{deal.client_name || 'Cliente non specificato'}</p>
