@@ -125,6 +125,31 @@ async def lifespan(app: FastAPI):
             except Exception:
                 pass  # Column already exists or table doesn't exist yet
 
+    # Dedup pipeline stages (remove duplicates by name per tenant)
+    async with engine.begin() as conn:
+        try:
+            # Reassign deals to the first stage per name
+            await conn.execute(text("""
+                UPDATE crm_deals SET stage_id = keeper.id
+                FROM crm_pipeline_stages s,
+                     (SELECT DISTINCT ON (tenant_id, name) id, tenant_id, name
+                      FROM crm_pipeline_stages ORDER BY tenant_id, name, id ASC) keeper
+                WHERE crm_deals.stage_id = s.id
+                  AND s.name = keeper.name AND s.tenant_id = keeper.tenant_id
+                  AND crm_deals.stage_id != keeper.id
+            """))
+            # Delete duplicate stages
+            await conn.execute(text("""
+                DELETE FROM crm_pipeline_stages WHERE id IN (
+                    SELECT id FROM (
+                        SELECT id, ROW_NUMBER() OVER (PARTITION BY tenant_id, name ORDER BY id ASC) as rn
+                        FROM crm_pipeline_stages
+                    ) ranked WHERE rn > 1
+                )
+            """))
+        except Exception:
+            pass
+
     # Seed fiscal rules if empty
     from api.modules.fiscal.seed_rules import seed_fiscal_rules
     from api.db.session import async_session_factory
