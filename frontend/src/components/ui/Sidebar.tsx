@@ -9,7 +9,6 @@ import {
   CalendarClock,
   Calculator,
   BarChart3,
-  Settings,
   Users,
   X,
   Upload,

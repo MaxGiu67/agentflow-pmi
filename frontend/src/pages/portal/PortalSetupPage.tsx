@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { usePortalStatus, usePortalAccountManagers, useMyPortalAccountManager } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
-import { Link2, CheckCircle, XCircle, RefreshCw, Users, FileText, Briefcase, Clock, UserCheck } from 'lucide-react'
+import { CheckCircle, XCircle, RefreshCw, Users, FileText, Briefcase, Clock, UserCheck } from 'lucide-react'
 import api from '../../api/client'
 
 export default function PortalSetupPage() {
