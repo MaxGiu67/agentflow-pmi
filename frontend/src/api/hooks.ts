@@ -1348,7 +1348,6 @@ export function useCrmActivities(contactId?: string, dealId?: string) {
       if (dealId) params.set('deal_id', dealId)
       return api.get(`/crm/activities?${params}`).then((r) => r.data)
     },
-    enabled: !!(contactId || dealId),
   })
 }
 
