@@ -169,6 +169,7 @@ async def admin_migrate():
         "ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS company_id UUID",
         "ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS portal_customer_id INTEGER",
         "ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS portal_customer_name VARCHAR(255)",
+        "ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS portal_project_id INTEGER",
         "ALTER TABLE crm_contacts ADD COLUMN IF NOT EXISTS company_id UUID",
         "ALTER TABLE crm_contacts ADD COLUMN IF NOT EXISTS contact_name VARCHAR(255)",
         "ALTER TABLE crm_contacts ADD COLUMN IF NOT EXISTS contact_role VARCHAR(100)",

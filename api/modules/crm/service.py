@@ -836,6 +836,7 @@ class CRMService:
             "company_id": str(d.company_id) if getattr(d, "company_id", None) else "",
             "portal_customer_id": getattr(d, "portal_customer_id", None),
             "portal_customer_name": getattr(d, "portal_customer_name", None) or "",
+            "portal_project_id": getattr(d, "portal_project_id", None),
             "pipeline_template_id": str(d.pipeline_template_id) if getattr(d, "pipeline_template_id", None) else "",
             "assigned_to_name": assigned_to_name,
             "days_in_stage": 0,

@@ -7,6 +7,7 @@ import {
   useCreatePortalOffer, usePortalStatus,
   usePortalProjectTypes, usePortalLocations, usePortalAccountManagers,
   usePortalProtocolByCustomer, useMyPortalAccountManager,
+  useDealProject, useAssignPortalEmployee, usePortalPersons, useDealProgress,
 } from '../../api/hooks'
 import { formatCurrency } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
@@ -60,6 +61,10 @@ export default function CrmDealDetailPage() {
   const { data: accountManagers } = usePortalAccountManagers()
   const { data: myAccountManager } = useMyPortalAccountManager()
   const { data: autoProtocol } = usePortalProtocolByCustomer(deal?.portal_customer_id || undefined)
+  const { data: dealProject } = useDealProject(id, deal?.portal_project_id || undefined)
+  const assignEmployee = useAssignPortalEmployee()
+  const { data: portalPersons } = usePortalPersons('')
+  const { data: dealProgressData } = useDealProgress(id, deal?.portal_project_id || undefined)
 
   // Activities
   const { data: activityTypes } = useActivityTypes(true)
@@ -80,6 +85,8 @@ export default function CrmDealDetailPage() {
     title: '', billing_type: 'Daily', rate: '', days: '', amount: '', description: '',
     project_type_id: '', location_id: '', accountManager_id: '', protocol: '',
   })
+  const [showAssignForm, setShowAssignForm] = useState(false)
+  const [assignForm, setAssignForm] = useState({ activity_id: '', person_id: '' })
 
   if (isLoading) return <LoadingSpinner />
   if (!deal) return <div className="p-8 text-center text-gray-500">Deal non trovato</div>
@@ -490,6 +497,154 @@ export default function CrmDealDetailPage() {
           )}
         </div>
       )}
+
+      {/* ── Portal: Commessa + Risorse Assegnate (US-236/237/238) ── */}
+      {portalStatus?.enabled && deal.portal_project_id && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/30 p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold uppercase text-emerald-600">Commessa Portal</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Progetto #{deal.portal_project_id} su PortalJS.be</p>
+            </div>
+            <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-bold text-emerald-700 uppercase">Attiva</span>
+          </div>
+
+          {/* Project details */}
+          {dealProject?.project && (
+            <div className="grid gap-2 sm:grid-cols-3">
+              <div className="rounded-lg bg-white border border-emerald-100 px-3 py-2">
+                <p className="text-[10px] uppercase text-gray-400">Codice</p>
+                <p className="text-sm font-mono font-medium">{dealProject.project.project_code || dealProject.project.name || '-'}</p>
+              </div>
+              <div className="rounded-lg bg-white border border-emerald-100 px-3 py-2">
+                <p className="text-[10px] uppercase text-gray-400">Tipo Fatturazione</p>
+                <p className="text-sm">{dealProject.project.billing_type || '-'}</p>
+              </div>
+              <div className="rounded-lg bg-white border border-emerald-100 px-3 py-2">
+                <p className="text-[10px] uppercase text-gray-400">Importo</p>
+                <p className="text-sm font-medium">{dealProject.project.amount ? `€ ${Number(dealProject.project.amount).toLocaleString('it-IT')}` : '-'}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Risorse assegnate */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-emerald-700">Risorse Assegnate</p>
+              <button onClick={() => setShowAssignForm(!showAssignForm)}
+                className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 hover:text-emerald-800">
+                <Plus className="h-3 w-3" /> Assegna risorsa
+              </button>
+            </div>
+
+            {showAssignForm && (
+              <div className="mb-3 rounded-lg border border-emerald-200 bg-white p-3 space-y-2">
+                <select value={assignForm.activity_id} onChange={(e) => setAssignForm({ ...assignForm, activity_id: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                  <option value="">Seleziona attività *</option>
+                  {(dealProject?.activities?.data || dealProject?.activities || []).map((act: any) => (
+                    <option key={act.id} value={act.id}>{act.name || act.description || `Attività #${act.id}`}</option>
+                  ))}
+                </select>
+                <select value={assignForm.person_id} onChange={(e) => setAssignForm({ ...assignForm, person_id: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                  <option value="">Seleziona persona *</option>
+                  {(portalPersons?.persons || []).map((p: any) => (
+                    <option key={p.portal_id} value={p.portal_id}>{p.full_name} {p.skills?.length ? `(${p.skills.map((s: any) => s.name).join(', ')})` : ''}</option>
+                  ))}
+                </select>
+                <div className="flex gap-2">
+                  <button onClick={async () => {
+                    if (!assignForm.activity_id || !assignForm.person_id) return
+                    await assignEmployee.mutateAsync({
+                      activity_id: parseInt(assignForm.activity_id),
+                      person_id: parseInt(assignForm.person_id),
+                    })
+                    setAssignForm({ activity_id: '', person_id: '' })
+                    setShowAssignForm(false)
+                  }} disabled={!assignForm.activity_id || !assignForm.person_id || assignEmployee.isPending}
+                    className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
+                    {assignEmployee.isPending ? 'Assegnazione...' : 'Assegna'}
+                  </button>
+                  <button onClick={() => setShowAssignForm(false)}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600">Annulla</button>
+                </div>
+              </div>
+            )}
+
+            {dealProject?.activities && (
+              <div className="space-y-2">
+                {(dealProject.activities.data || dealProject.activities || []).map((act: any) => (
+                  <div key={act.id} className="rounded-lg border border-emerald-100 bg-white px-3 py-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-gray-800">{act.name || act.description || `Attività #${act.id}`}</p>
+                      <span className="text-[10px] text-gray-400">{act.ActivityType?.description || ''}</span>
+                    </div>
+                    {act.PersonActivities && act.PersonActivities.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {act.PersonActivities.map((pa: any) => (
+                          <span key={pa.id} className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-700">
+                            {pa.Person ? `${pa.Person.firstName} ${pa.Person.lastName}` : `Persona #${pa.person_id}`}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Avanzamento Operativo (US-240) ── */}
+      {portalStatus?.enabled && deal.portal_project_id && dealProgressData?.progress && (() => {
+        const p = dealProgressData.progress
+        return (
+          <div className="rounded-2xl border border-blue-200 bg-blue-50/30 p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold uppercase text-blue-600">Avanzamento Operativo</h3>
+              {p.warning && (
+                <span className="rounded-full bg-red-100 px-3 py-1 text-[10px] font-bold text-red-700 uppercase">Margine &lt; 15%</span>
+              )}
+            </div>
+
+            {/* KPI Cards */}
+            <div className="grid gap-2 sm:grid-cols-4">
+              <div className="rounded-lg bg-white border border-blue-100 px-3 py-2 text-center">
+                <p className="text-[10px] uppercase text-gray-400">Valore Deal</p>
+                <p className="text-lg font-bold text-gray-900">€ {Number(p.deal_value).toLocaleString('it-IT')}</p>
+              </div>
+              <div className="rounded-lg bg-white border border-blue-100 px-3 py-2 text-center">
+                <p className="text-[10px] uppercase text-gray-400">Costo Stimato</p>
+                <p className="text-lg font-bold text-gray-700">€ {Number(p.estimated_cost).toLocaleString('it-IT')}</p>
+              </div>
+              <div className={`rounded-lg border px-3 py-2 text-center ${
+                p.margin_pct >= 25 ? 'bg-green-50 border-green-200' :
+                p.margin_pct >= 15 ? 'bg-yellow-50 border-yellow-200' :
+                'bg-red-50 border-red-200'
+              }`}>
+                <p className="text-[10px] uppercase text-gray-400">Margine</p>
+                <p className={`text-lg font-bold ${
+                  p.margin_pct >= 25 ? 'text-green-700' : p.margin_pct >= 15 ? 'text-yellow-700' : 'text-red-700'
+                }`}>€ {Number(p.margin_eur).toLocaleString('it-IT')} ({p.margin_pct}%)</p>
+              </div>
+              <div className="rounded-lg bg-white border border-blue-100 px-3 py-2 text-center">
+                <p className="text-[10px] uppercase text-gray-400">Risorse</p>
+                <p className="text-lg font-bold text-gray-900">{p.assigned_persons}</p>
+                <p className="text-[10px] text-gray-400">costo medio €{p.avg_daily_cost}/gg</p>
+              </div>
+            </div>
+
+            {/* Progress details */}
+            <div className="grid gap-2 sm:grid-cols-3 text-xs text-gray-500">
+              <p>Giorni pianificati: <span className="font-medium text-gray-700">{p.planned_days}</span></p>
+              <p>Tariffa giornaliera: <span className="font-medium text-gray-700">€{p.daily_rate}</span></p>
+              <p>Costo giornaliero totale: <span className="font-medium text-gray-700">€{p.total_daily_cost}</span></p>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ── Activities ── */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6">

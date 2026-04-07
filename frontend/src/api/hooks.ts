@@ -1475,6 +1475,57 @@ export function useMyPortalAccountManager() {
   })
 }
 
+// ── Portal: Project/Commessa (US-236) ──
+
+export function useLinkDealToProject() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { deal_id: string; portal_project_id: number }) =>
+      api.post('/portal/link-project', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-deal'] }),
+  })
+}
+
+export function useDealProject(dealId: string | undefined, portalProjectId: number | undefined) {
+  return useQuery({
+    queryKey: ['portal-deal-project', dealId],
+    queryFn: () => api.get(`/portal/deal-project/${dealId}`).then((r) => r.data),
+    enabled: !!dealId && !!portalProjectId,
+  })
+}
+
+export function usePortalOffers(customerId: number | undefined) {
+  return useQuery({
+    queryKey: ['portal-offers', customerId],
+    queryFn: () => api.get(`/portal/offers?search=`).then((r) => r.data),
+    enabled: !!customerId,
+  })
+}
+
+export function useDealProgress(dealId: string | undefined, portalProjectId: number | undefined) {
+  return useQuery({
+    queryKey: ['portal-deal-progress', dealId],
+    queryFn: () => api.get(`/portal/deal-progress/${dealId}`).then((r) => r.data),
+    enabled: !!dealId && !!portalProjectId,
+  })
+}
+
+// ── Portal: Match Customer (US-235) ──
+
+export function useMatchCustomer() {
+  return useMutation({
+    mutationFn: (piva: string) => api.get(`/portal/match-customer?piva=${encodeURIComponent(piva)}`).then((r) => r.data),
+  })
+}
+
+export function useBatchMatchCustomers() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post('/portal/batch-match').then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['crm-deals'] }),
+  })
+}
+
 export function useUpdateCrmContact() {
   const qc = useQueryClient()
   return useMutation({

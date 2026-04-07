@@ -1006,6 +1006,7 @@ class CrmDeal(Base):
     company_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # FK CrmCompany — LEGACY (Pivot 10: use portal_customer_id)
     portal_customer_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # FK Portal Customer.id (Pivot 10)
     portal_customer_name: Mapped[str | None] = mapped_column(String(255), nullable=True)  # Cached name from Portal
+    portal_project_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # FK Portal Project.id (commessa created from Won deal)
     contact_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # FK CrmContact — main referente
     stage_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     pipeline_template_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # US-201: which pipeline template

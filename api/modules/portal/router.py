@@ -7,9 +7,14 @@ All endpoints are read-only proxies. Writes (create project, assign resource)
 are in separate endpoints that require human confirmation.
 """
 
-from fastapi import APIRouter, Depends, Query
+import uuid
 
-from api.db.models import User
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select, update as sql_update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from api.db.models import User, CrmDeal
+from api.db.session import get_db
 from api.middleware.auth import get_current_user
 from api.adapters.portal_client import portal_client
 
@@ -369,3 +374,188 @@ async def get_activity_persons(
 ):
     """Get employees assigned to an activity."""
     return await portal_client.get_related_person_activities(activity_id)
+
+
+# ── Customer Matching (US-235) ────────────────────
+
+
+@router.get("/match-customer")
+async def match_customer_by_piva(
+    piva: str = Query(..., min_length=5),
+    user: User = Depends(get_current_user),
+):
+    """Match Portal Customer by P.IVA / tax code (US-235).
+
+    Returns: single match (auto), multiple (user choice), or no match.
+    """
+    result = await portal_client.get_customers(search=piva, page=1, page_size=20)
+    customers = result.get("data", [])
+    # Filter by exact or partial VAT/tax match
+    matches = []
+    for c in customers:
+        vat = (c.get("vatNumber") or c.get("taxCode") or "").replace(" ", "")
+        if piva.replace(" ", "") in vat or vat in piva.replace(" ", ""):
+            matches.append({
+                "portal_id": c.get("id"),
+                "name": c.get("name", ""),
+                "vat": vat,
+                "city": c.get("city", {}).get("name", "") if isinstance(c.get("city"), dict) else "",
+            })
+    if len(matches) == 1:
+        return {"status": "single_match", "customer": matches[0]}
+    elif len(matches) > 1:
+        return {"status": "multiple_matches", "customers": matches}
+    else:
+        return {"status": "no_match", "search": piva}
+
+
+@router.post("/batch-match")
+async def batch_match_customers(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Batch-match legacy deals without portal_customer_id by company P.IVA (US-235)."""
+    from api.db.models import CrmCompany
+    # Find deals with company_id but no portal_customer_id
+    result = await db.execute(
+        select(CrmDeal).where(
+            CrmDeal.tenant_id == user.tenant_id,
+            CrmDeal.company_id.isnot(None),
+            CrmDeal.portal_customer_id.is_(None),
+        )
+    )
+    deals = result.scalars().all()
+    matched = 0
+    skipped = 0
+    for deal in deals:
+        if not deal.company_id:
+            skipped += 1
+            continue
+        # Get company P.IVA
+        comp_result = await db.execute(
+            select(CrmCompany).where(CrmCompany.id == deal.company_id)
+        )
+        company = comp_result.scalar_one_or_none()
+        if not company or not company.piva:
+            skipped += 1
+            continue
+        # Search Portal
+        portal_result = await portal_client.get_customers(search=company.piva, page=1, page_size=5)
+        portal_customers = portal_result.get("data", [])
+        for pc in portal_customers:
+            vat = (pc.get("vatNumber") or pc.get("taxCode") or "").replace(" ", "")
+            if company.piva.replace(" ", "") == vat:
+                deal.portal_customer_id = pc.get("id")
+                deal.portal_customer_name = pc.get("name", "")
+                matched += 1
+                break
+        else:
+            skipped += 1
+    await db.commit()
+    return {"matched": matched, "skipped": skipped, "total": len(deals)}
+
+
+# ── Link Deal to Portal Project (US-236) ─────────
+
+
+@router.post("/link-project")
+async def link_deal_to_project(
+    body: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Link a deal to a Portal project (commessa) after offer becomes project (US-236)."""
+    deal_id = body.get("deal_id")
+    portal_project_id = body.get("portal_project_id")
+    if not deal_id or not portal_project_id:
+        return {"error": "deal_id and portal_project_id required"}
+    result = await db.execute(
+        select(CrmDeal).where(CrmDeal.id == uuid.UUID(deal_id), CrmDeal.tenant_id == user.tenant_id)
+    )
+    deal = result.scalar_one_or_none()
+    if not deal:
+        return {"error": "Deal not found"}
+    deal.portal_project_id = portal_project_id
+    await db.commit()
+    return {"ok": True, "deal_id": deal_id, "portal_project_id": portal_project_id}
+
+
+@router.get("/deal-project/{deal_id}")
+async def get_deal_project(
+    deal_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get Portal project linked to a deal, with activities and assigned persons."""
+    result = await db.execute(
+        select(CrmDeal).where(CrmDeal.id == uuid.UUID(deal_id), CrmDeal.tenant_id == user.tenant_id)
+    )
+    deal = result.scalar_one_or_none()
+    if not deal or not deal.portal_project_id:
+        return {"project": None}
+    project = await portal_client.get_project(deal.portal_project_id)
+    activities = await portal_client.get_activities_by_project(deal.portal_project_id)
+    return {"project": project, "activities": activities}
+
+
+# ── Operational Progress (US-239/240) ─────────────
+
+
+@router.get("/deal-progress/{deal_id}")
+async def get_deal_progress(
+    deal_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get operational progress for a deal: hours, cost, margin (US-239/240)."""
+    result = await db.execute(
+        select(CrmDeal).where(CrmDeal.id == uuid.UUID(deal_id), CrmDeal.tenant_id == user.tenant_id)
+    )
+    deal = result.scalar_one_or_none()
+    if not deal or not deal.portal_project_id:
+        return {"progress": None}
+
+    # Fetch project + activities with persons
+    project = await portal_client.get_project(deal.portal_project_id)
+    activities = await portal_client.get_activities_by_project(deal.portal_project_id)
+
+    # Calculate totals from activities and assigned persons
+    total_planned_days = deal.estimated_days or 0
+    deal_value = deal.expected_revenue or 0
+    daily_rate = deal.daily_rate or 0
+
+    # Count assigned persons and their costs
+    total_assigned = 0
+    total_daily_cost = 0.0
+    activity_list = activities.get("data", []) if isinstance(activities, dict) else activities if isinstance(activities, list) else []
+    for act in activity_list:
+        persons = act.get("PersonActivities") or []
+        for pa in persons:
+            total_assigned += 1
+            person = pa.get("Person") or {}
+            contract = person.get("CurrentContract", {}).get("Contract", {}) if person.get("CurrentContract") else {}
+            cost = contract.get("dailyCost") or contract.get("daily_cost") or 0
+            total_daily_cost += float(cost)
+
+    # Calculate margin
+    budget = deal_value
+    estimated_cost = total_daily_cost * total_planned_days if total_planned_days > 0 else 0
+    margin_eur = budget - estimated_cost
+    margin_pct = (margin_eur / budget * 100) if budget > 0 else 0
+
+    return {
+        "progress": {
+            "deal_value": deal_value,
+            "daily_rate": daily_rate,
+            "planned_days": total_planned_days,
+            "assigned_persons": total_assigned,
+            "avg_daily_cost": round(total_daily_cost / total_assigned, 2) if total_assigned > 0 else 0,
+            "total_daily_cost": round(total_daily_cost, 2),
+            "estimated_cost": round(estimated_cost, 2),
+            "budget": budget,
+            "margin_eur": round(margin_eur, 2),
+            "margin_pct": round(margin_pct, 1),
+            "warning": margin_pct < 15,
+            "project_name": project.get("name", "") if isinstance(project, dict) else "",
+        }
+    }
