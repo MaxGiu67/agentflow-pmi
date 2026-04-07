@@ -308,6 +308,23 @@ class PortalClient:
         """Get users that can be account managers."""
         return await self._get("/crud/User", {"pageNum": 0, "pageSize": 100, "include": "true"})
 
+    async def find_account_manager_by_email(self, email: str) -> dict | None:
+        """Find Portal User (account manager) matching an email address."""
+        result = await self.get_account_managers()
+        data = result.get("data", []) if isinstance(result, dict) else result if isinstance(result, list) else []
+        for u in data:
+            portal_email = (u.get("email") or "").lower().strip()
+            if portal_email == email.lower().strip():
+                person = u.get("Person") or u.get("person") or {}
+                first = person.get("firstName") or person.get("first_name") or ""
+                last = person.get("lastName") or person.get("last_name") or ""
+                return {
+                    "id": u.get("id"),
+                    "email": u.get("email", ""),
+                    "name": f"{first} {last}".strip() or u.get("email", ""),
+                }
+        return None
+
     # ── Timesheets ───────────────────────────────────────
 
     async def get_timesheets(self, year: int | None = None, month: int | None = None) -> dict:

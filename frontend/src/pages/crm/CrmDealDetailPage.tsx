@@ -6,7 +6,7 @@ import {
   useDealDocuments, useAddDealDocument, useDeleteDealDocument,
   useCreatePortalOffer, usePortalStatus,
   usePortalProjectTypes, usePortalLocations, usePortalAccountManagers,
-  usePortalProtocolByCustomer,
+  usePortalProtocolByCustomer, useMyPortalAccountManager,
 } from '../../api/hooks'
 import { formatCurrency } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
@@ -58,6 +58,7 @@ export default function CrmDealDetailPage() {
   const { data: projectTypes } = usePortalProjectTypes()
   const { data: locations } = usePortalLocations()
   const { data: accountManagers } = usePortalAccountManagers()
+  const { data: myAccountManager } = useMyPortalAccountManager()
   const { data: autoProtocol } = usePortalProtocolByCustomer(deal?.portal_customer_id || undefined)
 
   // Activities
@@ -353,7 +354,7 @@ export default function CrmDealDetailPage() {
                   description: `Deal AgentFlow: ${deal.name}`,
                   project_type_id: '',
                   location_id: locations?.[0]?.id ? String(locations[0].id) : '',
-                  accountManager_id: accountManagers?.[0]?.id ? String(accountManagers[0].id) : '',
+                  accountManager_id: myAccountManager?.id ? String(myAccountManager.id) : '',
                   protocol: autoProtocol || '',
                 })
                 setShowOfferForm(true)
@@ -404,14 +405,22 @@ export default function CrmDealDetailPage() {
                 </select>
               </div>
 
-              {/* Commerciale */}
-              <select value={offerForm.accountManager_id} onChange={(e) => setOfferForm({ ...offerForm, accountManager_id: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                <option value="">Commerciale di riferimento *</option>
-                {(accountManagers || []).map((am: any) => (
-                  <option key={am.id} value={am.id}>{am.name || am.email}</option>
-                ))}
-              </select>
+              {/* Commerciale (auto-match per email) */}
+              <div>
+                <select value={offerForm.accountManager_id} onChange={(e) => setOfferForm({ ...offerForm, accountManager_id: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                  <option value="">Commerciale di riferimento *</option>
+                  {(accountManagers || []).map((am: any) => (
+                    <option key={am.id} value={am.id}>{am.name || am.email}</option>
+                  ))}
+                </select>
+                {myAccountManager?.id && offerForm.accountManager_id === String(myAccountManager.id) && (
+                  <p className="text-[10px] text-green-600 mt-1">Auto-assegnato: {myAccountManager.name} ({myAccountManager.email})</p>
+                )}
+                {myAccountManager && !myAccountManager.id && (
+                  <p className="text-[10px] text-amber-600 mt-1">Nessun account Portal trovato per {myAccountManager.email}</p>
+                )}
+              </div>
 
               {/* Rate/Days (Daily) or Amount (LumpSum) */}
               {offerForm.billing_type === 'Daily' && (

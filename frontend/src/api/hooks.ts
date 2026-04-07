@@ -1468,6 +1468,13 @@ export function usePortalAccountManagers() {
   })
 }
 
+export function useMyPortalAccountManager() {
+  return useQuery({
+    queryKey: ['portal-my-account-manager'],
+    queryFn: () => api.get('/portal/my-account-manager').then((r) => r.data),
+  })
+}
+
 export function useUpdateCrmContact() {
   const qc = useQueryClient()
   return useMutation({

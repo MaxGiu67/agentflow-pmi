@@ -294,6 +294,17 @@ async def list_account_managers(
     return managers
 
 
+@router.get("/my-account-manager")
+async def get_my_account_manager(
+    user: User = Depends(get_current_user),
+):
+    """Find Portal account manager matching current user's email."""
+    result = await portal_client.find_account_manager_by_email(user.email)
+    if result:
+        return result
+    return {"id": None, "email": user.email, "name": None, "error": "No matching Portal account found"}
+
+
 @router.post("/offers/create")
 async def create_offer(
     body: dict,
