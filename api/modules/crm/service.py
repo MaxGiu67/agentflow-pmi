@@ -84,6 +84,17 @@ class CRMService:
         d["contacts"] = contacts
         return d
 
+    async def delete_company(self, company_id: uuid.UUID, tenant_id: uuid.UUID) -> bool:
+        result = await self.db.execute(
+            select(CrmCompany).where(CrmCompany.id == company_id, CrmCompany.tenant_id == tenant_id)
+        )
+        company = result.scalar_one_or_none()
+        if not company:
+            return False
+        await self.db.delete(company)
+        await self.db.flush()
+        return True
+
     async def update_company(self, company_id: uuid.UUID, tenant_id: uuid.UUID, data: dict) -> dict | None:
         result = await self.db.execute(
             select(CrmCompany).where(CrmCompany.id == company_id, CrmCompany.tenant_id == tenant_id)

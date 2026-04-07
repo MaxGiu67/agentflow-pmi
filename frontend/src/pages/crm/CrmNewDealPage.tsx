@@ -35,7 +35,15 @@ export default function CrmNewDealPage() {
   // Company hooks — load ALL companies, filter client-side
   const { data: companiesData } = useCrmCompanies('')
   const createCompany = useCreateCrmCompany()
-  const allCompanies = (companiesData?.companies || []).sort((a: any, b: any) => a.name.localeCompare(b.name))
+  // Deduplicate companies by name
+  const allCompanies = (() => {
+    const seen = new Map<string, any>()
+    for (const c of (companiesData?.companies || [])) {
+      const key = c.name.toLowerCase().trim()
+      if (!seen.has(key)) seen.set(key, c)
+    }
+    return [...seen.values()].sort((a: any, b: any) => a.name.localeCompare(b.name))
+  })()
   const filteredCompanies = companySearch.length >= 3
     ? allCompanies.filter((c: any) => c.name.toLowerCase().includes(companySearch.toLowerCase()))
     : allCompanies

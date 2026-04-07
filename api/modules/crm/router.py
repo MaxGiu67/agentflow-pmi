@@ -90,6 +90,19 @@ async def update_company(
     return result
 
 
+@router.delete("/companies/{company_id}")
+async def delete_company(
+    company_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    svc: CRMService = Depends(get_service),
+):
+    tid = _require_tenant(user)
+    ok = await svc.delete_company(company_id, tid)
+    if not ok:
+        raise HTTPException(404, "Azienda non trovata")
+    return {"status": "deleted"}
+
+
 # ── Contatti ────────────────────────────────────────────
 
 
