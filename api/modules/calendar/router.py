@@ -36,6 +36,7 @@ async def microsoft_callback(
     db: AsyncSession = Depends(get_db),
 ):
     """AC-153.1: Handle OAuth callback from Microsoft."""
+    import os
     import uuid
     from sqlalchemy import select
 
@@ -53,8 +54,9 @@ async def microsoft_callback(
 
     await db.commit()
 
-    # Redirect back to settings page
-    return {"status": "connected", "message": "Microsoft 365 Calendar collegato con successo"}
+    # Redirect back to frontend profile page
+    frontend_url = os.getenv("FRONTEND_URL", "https://agentflow.iridia.tech")
+    return RedirectResponse(url=f"{frontend_url}/profilo?calendar=connected")
 
 
 @router.get("/microsoft/status")
