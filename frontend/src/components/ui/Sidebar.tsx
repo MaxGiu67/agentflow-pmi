@@ -110,7 +110,6 @@ const navSections: NavSection[] = [
       { to: '/report', label: 'Report', icon: BarChart3, roles: ['owner', 'admin', 'viewer'] },
       { to: '/impostazioni/utenti', label: 'Utenti', icon: Users, roles: ['owner', 'admin'] },
       { to: '/impostazioni/ruoli', label: 'Ruoli', icon: ShieldCheck, roles: ['owner', 'admin'] },
-      { to: '/impostazioni/pipeline', label: 'Stadi Pipeline', icon: Activity, roles: ['owner', 'admin'] },
       { to: '/impostazioni/pipeline-templates', label: 'Pipeline Templates', icon: Target, roles: ['owner', 'admin'] },
       { to: '/impostazioni/origini', label: 'Origini', icon: Globe, roles: ['owner', 'admin'] },
       { to: '/impostazioni/tipi-attivita', label: 'Tipi Attivita', icon: Activity, roles: ['owner', 'admin'] },

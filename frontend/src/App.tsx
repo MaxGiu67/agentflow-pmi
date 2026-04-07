@@ -1,5 +1,5 @@
 import { lazy } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import ProtectedRoute from './components/ui/ProtectedRoute'
@@ -215,7 +215,7 @@ export default function App() {
               <Route path="/email/builder" element={<EmailBuilderPage />} />
 
               {/* Social Selling */}
-              <Route path="/impostazioni/pipeline" element={<PipelineSettingsPage />} />
+              <Route path="/impostazioni/pipeline" element={<Navigate to="/impostazioni/pipeline-templates" replace />} />
               <Route path="/impostazioni/origini" element={<OriginsPage />} />
               <Route path="/impostazioni/tipi-attivita" element={<ActivityTypesPage />} />
               <Route path="/impostazioni/prodotti" element={<ProductsPage />} />
