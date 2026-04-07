@@ -28,6 +28,7 @@ import {
   Trophy,
   DollarSign,
   UserCircle,
+  Link2,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useMyPermissions } from '../../api/hooks'
@@ -114,8 +115,8 @@ const navSections: NavSection[] = [
       { to: '/impostazioni/origini', label: 'Origini', icon: Globe, roles: ['owner', 'admin'] },
       { to: '/impostazioni/tipi-attivita', label: 'Tipi Attivita', icon: Activity, roles: ['owner', 'admin'] },
       { to: '/impostazioni/prodotti', label: 'Prodotti', icon: Package, roles: ['owner', 'admin'] },
+      { to: '/impostazioni/portal', label: 'Portal', icon: Link2, roles: ['owner', 'admin'] },
       { to: '/impostazioni/audit', label: 'Audit Log', icon: FileSearch, roles: ['owner', 'admin'] },
-      { to: '/impostazioni/integrazioni', label: 'Integrazioni', icon: Settings, roles: ['owner', 'admin'] },
     ],
   },
 ]
