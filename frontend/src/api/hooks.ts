@@ -1403,6 +1403,42 @@ export function usePortalStatus() {
   })
 }
 
+export function useCreatePortalOffer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/portal/offers/create', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['portal-offers'] }),
+  })
+}
+
+export function usePortalOfferProtocol(customerCode: string) {
+  return useQuery({
+    queryKey: ['portal-protocol', customerCode],
+    queryFn: () => api.get(`/portal/offers/protocol/${customerCode}`).then((r) => r.data),
+    enabled: !!customerCode,
+  })
+}
+
+export function useCreatePortalActivity() {
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/portal/activities/create', data).then((r) => r.data),
+  })
+}
+
+export function useAssignPortalEmployee() {
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/portal/activities/assign', data).then((r) => r.data),
+  })
+}
+
+export function usePortalPersons(search?: string) {
+  return useQuery({
+    queryKey: ['portal-persons', search],
+    queryFn: () => api.get(`/portal/persons?search=${search || ''}`).then((r) => r.data),
+    enabled: search === undefined || search === '' || search.length >= 2,
+  })
+}
+
 export function useUpdateCrmContact() {
   const qc = useQueryClient()
   return useMutation({

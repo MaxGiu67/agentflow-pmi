@@ -196,3 +196,109 @@ async def list_timesheets(
         month=month if month > 0 else None,
     )
     return result
+
+
+# ── Offers (US-234) ────────────────────────────────
+
+
+@router.get("/offers")
+async def list_offers(
+    search: str = Query(""),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    user: User = Depends(get_current_user),
+):
+    """Proxy: list offers from Portal."""
+    return await portal_client.get_offers(search=search, page=page, page_size=page_size)
+
+
+@router.get("/offers/{offer_id}")
+async def get_offer(
+    offer_id: int,
+    user: User = Depends(get_current_user),
+):
+    """Proxy: get single offer."""
+    return await portal_client.get_offer(offer_id)
+
+
+@router.get("/offers/protocol/{customer_code}")
+async def get_protocol(
+    customer_code: str,
+    user: User = Depends(get_current_user),
+):
+    """Get auto-generated protocol number for a customer."""
+    return await portal_client.get_protocol(customer_code)
+
+
+@router.get("/offers/billing-types")
+async def get_billing_types(
+    user: User = Depends(get_current_user),
+):
+    """Get available billing types."""
+    return await portal_client.get_billing_types()
+
+
+@router.post("/offers/create")
+async def create_offer(
+    body: dict,
+    user: User = Depends(get_current_user),
+):
+    """Create offer on Portal (requires human confirmation)."""
+    return await portal_client.create_offer(body)
+
+
+@router.patch("/offers/{offer_id}")
+async def update_offer(
+    offer_id: int,
+    body: dict,
+    user: User = Depends(get_current_user),
+):
+    """Update offer on Portal."""
+    return await portal_client.update_offer(offer_id, body)
+
+
+# ── Activities & Assignments (US-237) ──────────────
+
+
+@router.get("/activities/types")
+async def get_activity_types(
+    user: User = Depends(get_current_user),
+):
+    """Get available activity types from Portal."""
+    return await portal_client.get_activity_types()
+
+
+@router.get("/activities/by-project/{project_id}")
+async def get_activities_by_project(
+    project_id: int,
+    user: User = Depends(get_current_user),
+):
+    """Get activities for a project."""
+    return await portal_client.get_activities_by_project(project_id)
+
+
+@router.post("/activities/create")
+async def create_portal_activity(
+    body: dict,
+    user: User = Depends(get_current_user),
+):
+    """Create activity in Portal project."""
+    return await portal_client.create_activity(body)
+
+
+@router.post("/activities/assign")
+async def assign_employee(
+    body: dict,
+    user: User = Depends(get_current_user),
+):
+    """Assign employee to activity on Portal."""
+    return await portal_client.add_employee_to_activity(body)
+
+
+@router.get("/activities/{activity_id}/persons")
+async def get_activity_persons(
+    activity_id: int,
+    user: User = Depends(get_current_user),
+):
+    """Get employees assigned to an activity."""
+    return await portal_client.get_related_person_activities(activity_id)

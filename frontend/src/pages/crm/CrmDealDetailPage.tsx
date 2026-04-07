@@ -4,6 +4,7 @@ import {
   useCrmDeal, useRegisterOrder, useConfirmOrder, useEmailSends,
   useActivityTypes, useCrmActivities, useCreateCrmActivity,
   useDealDocuments, useAddDealDocument, useDeleteDealDocument,
+  useCreatePortalOffer, usePortalStatus,
 } from '../../api/hooks'
 import { formatCurrency } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
@@ -12,7 +13,7 @@ import SendEmailModal from '../../components/email/SendEmailModal'
 import {
   ArrowLeft, FileCheck, CheckCircle, AlertCircle, Mail, Eye, MousePointer,
   Plus, Phone, Video, Calendar, MessageSquare, Activity, Pencil, Building2,
-  FileText, Link2, Trash2,
+  FileText, Link2, Trash2, Send, Loader2,
 } from 'lucide-react'
 
 const ORDER_TYPES = [
@@ -49,6 +50,10 @@ export default function CrmDealDetailPage() {
   const addDocument = useAddDealDocument()
   const deleteDocument = useDeleteDealDocument()
 
+  // Portal integration
+  const { data: portalStatus } = usePortalStatus()
+  const createPortalOffer = useCreatePortalOffer()
+
   // Activities
   const { data: activityTypes } = useActivityTypes(true)
   const { data: activities } = useCrmActivities(undefined, deal?.id)
@@ -63,6 +68,8 @@ export default function CrmDealDetailPage() {
   const [actForm, setActForm] = useState({ type: 'call', activity_type_id: '', subject: '', description: '', status: 'completed', scheduled_at: '' })
   const [showDocForm, setShowDocForm] = useState(false)
   const [docForm, setDocForm] = useState({ doc_type: 'offerta', name: '', url: '', notes: '' })
+  const [showOfferForm, setShowOfferForm] = useState(false)
+  const [offerForm, setOfferForm] = useState({ title: '', billing_type: 'Daily', rate: '', days: '', amount: '', description: '' })
 
   if (isLoading) return <LoadingSpinner />
   if (!deal) return <div className="p-8 text-center text-gray-500">Deal non trovato</div>
@@ -317,6 +324,101 @@ export default function CrmDealDetailPage() {
           <p className="text-sm text-gray-400 text-center py-4">Nessun documento allegato</p>
         )}
       </div>
+
+      {/* ── Portal: Crea Offerta / Commessa ── */}
+      {portalStatus?.enabled && (
+        <div className="rounded-2xl border border-indigo-200 bg-indigo-50/30 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-semibold uppercase text-indigo-500">Operativo Portal</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Crea offerta e commessa su PortalJS.be</p>
+            </div>
+            {!showOfferForm && (
+              <button onClick={() => {
+                setOfferForm({
+                  title: deal.name,
+                  billing_type: deal.deal_type === 'T&M' ? 'Daily' : 'LumpSum',
+                  rate: String(deal.daily_rate || ''),
+                  days: String(deal.estimated_days || ''),
+                  amount: String(deal.expected_revenue || ''),
+                  description: `Deal AgentFlow: ${deal.name}`,
+                })
+                setShowOfferForm(true)
+              }}
+                className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">
+                <Send className="h-3 w-3" /> Crea Offerta su Portal
+              </button>
+            )}
+          </div>
+
+          {showOfferForm && (
+            <div className="rounded-lg border border-indigo-200 bg-white p-4 space-y-3">
+              <p className="text-xs font-medium text-indigo-700">Conferma dati offerta per Portal</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input type="text" value={offerForm.title} onChange={(e) => setOfferForm({ ...offerForm, title: e.target.value })}
+                  placeholder="Titolo offerta *" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <select value={offerForm.billing_type} onChange={(e) => setOfferForm({ ...offerForm, billing_type: e.target.value })}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                  <option value="Daily">Giornaliera (T&M)</option>
+                  <option value="LumpSum">A corpo (Fixed)</option>
+                  <option value="None">Nessuna</option>
+                </select>
+              </div>
+              {offerForm.billing_type === 'Daily' && (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <input type="number" value={offerForm.rate} onChange={(e) => setOfferForm({ ...offerForm, rate: e.target.value })}
+                    placeholder="Tariffa giornaliera (EUR)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                  <input type="number" value={offerForm.days} onChange={(e) => setOfferForm({ ...offerForm, days: e.target.value })}
+                    placeholder="Giorni offerti" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                </div>
+              )}
+              {offerForm.billing_type === 'LumpSum' && (
+                <input type="number" value={offerForm.amount} onChange={(e) => setOfferForm({ ...offerForm, amount: e.target.value })}
+                  placeholder="Importo fisso (EUR)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+              )}
+              <textarea value={offerForm.description} onChange={(e) => setOfferForm({ ...offerForm, description: e.target.value })}
+                placeholder="Descrizione" rows={2} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+
+              <div className="flex gap-2">
+                <button onClick={async () => {
+                  const payload: Record<string, unknown> = {
+                    title: offerForm.title,
+                    description: offerForm.description,
+                    billing_type: offerForm.billing_type,
+                    customer_id: deal.portal_customer_id,
+                    rate: offerForm.rate ? parseInt(offerForm.rate) : undefined,
+                    days: offerForm.days ? parseInt(offerForm.days) : undefined,
+                    amount: offerForm.amount ? parseInt(offerForm.amount) : undefined,
+                    outcome_type: 'W',
+                  }
+                  await createPortalOffer.mutateAsync(payload)
+                  setShowOfferForm(false)
+                }} disabled={!offerForm.title.trim() || createPortalOffer.isPending}
+                  className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+                  {createPortalOffer.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
+                  Crea Offerta
+                </button>
+                <button onClick={() => setShowOfferForm(false)}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600">Annulla</button>
+              </div>
+
+              {createPortalOffer.isError && (
+                <p className="text-xs text-red-600">Errore: {String((createPortalOffer.error as any)?.message || 'Errore creazione offerta')}</p>
+              )}
+              {createPortalOffer.isSuccess && (
+                <p className="text-xs text-green-600">Offerta creata su Portal con successo!</p>
+              )}
+            </div>
+          )}
+
+          {deal.portal_customer_id && !showOfferForm && (
+            <p className="text-xs text-gray-400">Cliente Portal: {deal.portal_customer_name || `ID ${deal.portal_customer_id}`}</p>
+          )}
+          {!deal.portal_customer_id && !showOfferForm && (
+            <p className="text-xs text-amber-600">Seleziona un cliente da Portal nel deal per creare l'offerta</p>
+          )}
+        </div>
+      )}
 
       {/* ── Activities ── */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6">
