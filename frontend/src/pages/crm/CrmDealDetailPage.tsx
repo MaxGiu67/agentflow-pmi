@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   useCrmDeal, useRegisterOrder, useConfirmOrder, useEmailSends,
-  useDealProducts, useAddDealProduct, useRemoveDealProduct,
-  useProducts, useActivityTypes, useCrmActivities, useCreateCrmActivity,
+  useActivityTypes, useCrmActivities, useCreateCrmActivity,
   useCalendlyUrl,
 } from '../../api/hooks'
 import { formatCurrency } from '../../lib/utils'
@@ -12,7 +11,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import SendEmailModal from '../../components/email/SendEmailModal'
 import {
   ArrowLeft, FileCheck, CheckCircle, AlertCircle, Mail, Eye, MousePointer,
-  Package, Plus, Trash2, Phone, Calendar, MessageSquare, Activity, Pencil, ExternalLink,
+  Plus, Phone, Calendar, MessageSquare, Activity, Pencil, ExternalLink,
 } from 'lucide-react'
 
 const ORDER_TYPES = [
@@ -45,11 +44,7 @@ export default function CrmDealDetailPage() {
   const { data: emailHistory } = useEmailSends(deal?.client_id || undefined)
   const { data: calendlyData } = useCalendlyUrl()
 
-  // Products
-  const { data: dealProducts } = useDealProducts(deal?.id || '')
-  const { data: catalogProducts } = useProducts(true)
-  const addProduct = useAddDealProduct()
-  const removeProduct = useRemoveDealProduct()
+  // Products section removed — deal type + pipeline template define the product
 
   // Activities
   const { data: activityTypes } = useActivityTypes(true)
@@ -61,8 +56,6 @@ export default function CrmDealDetailPage() {
   const [orderRef, setOrderRef] = useState('')
   const [orderNotes, setOrderNotes] = useState('')
   const [showEmailModal, setShowEmailModal] = useState(false)
-  const [showAddProduct, setShowAddProduct] = useState(false)
-  const [prodForm, setProdForm] = useState({ product_id: '', quantity: '1', price_override: '' })
   const [showActivityForm, setShowActivityForm] = useState(false)
   const [actForm, setActForm] = useState({ type: 'call', activity_type_id: '', subject: '', description: '', status: 'completed', scheduled_at: '' })
 
@@ -78,18 +71,6 @@ export default function CrmDealDetailPage() {
       order_type: orderType, order_reference: orderRef, order_notes: orderNotes,
     })
     setShowOrderForm(false)
-  }
-
-  const handleAddProduct = async () => {
-    if (!prodForm.product_id) return
-    await addProduct.mutateAsync({
-      dealId: deal.id,
-      product_id: prodForm.product_id,
-      quantity: Number(prodForm.quantity) || 1,
-      price_override: prodForm.price_override ? Number(prodForm.price_override) : undefined,
-    })
-    setProdForm({ product_id: '', quantity: '1', price_override: '' })
-    setShowAddProduct(false)
   }
 
   const handleCreateActivity = async () => {
@@ -251,67 +232,7 @@ export default function CrmDealDetailPage() {
         </div>
       </div>
 
-      {/* ── Products ── */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold uppercase text-gray-400">Prodotti / Servizi</h3>
-          <button onClick={() => setShowAddProduct(!showAddProduct)}
-            className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100">
-            <Plus className="h-3 w-3" /> Aggiungi
-          </button>
-        </div>
-
-        {showAddProduct && (
-          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50/30 p-3 space-y-2">
-            <div className="grid gap-2 sm:grid-cols-3">
-              <select value={prodForm.product_id} onChange={(e) => setProdForm({ ...prodForm, product_id: e.target.value })}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                <option value="">-- Seleziona prodotto --</option>
-                {catalogProducts?.map((p: any) => (
-                  <option key={p.id} value={p.id}>{p.name} ({formatCurrency(p.base_price || 0)})</option>
-                ))}
-              </select>
-              <input type="number" value={prodForm.quantity} onChange={(e) => setProdForm({ ...prodForm, quantity: e.target.value })}
-                placeholder="Quantita" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-              <input type="number" value={prodForm.price_override} onChange={(e) => setProdForm({ ...prodForm, price_override: e.target.value })}
-                placeholder="Prezzo override (opz.)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-            </div>
-            <div className="flex gap-2">
-              <button onClick={handleAddProduct} disabled={!prodForm.product_id}
-                className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">Aggiungi</button>
-              <button onClick={() => setShowAddProduct(false)} className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600">Annulla</button>
-            </div>
-          </div>
-        )}
-
-        {dealProducts && dealProducts.length > 0 ? (
-          <div className="space-y-2">
-            {dealProducts.map((dp: any) => (
-              <div key={dp.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-2.5">
-                <div className="flex items-center gap-3 min-w-0">
-                  <Package className="h-4 w-4 text-blue-500 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900">{dp.product_name}</p>
-                    <p className="text-xs text-gray-400">qty {dp.quantity} x {formatCurrency(dp.unit_price || 0)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-sm font-semibold text-gray-900">{formatCurrency(dp.line_total || 0)}</span>
-                  <button onClick={() => removeProduct.mutate({ dealId: deal.id, lineId: dp.id })}
-                    className="text-gray-300 hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button>
-                </div>
-              </div>
-            ))}
-            <div className="flex justify-end pt-2 border-t border-gray-100">
-              <span className="text-sm font-bold text-gray-900">
-                Totale: {formatCurrency(dealProducts.reduce((s: number, dp: any) => s + (dp.line_total || 0), 0))}
-              </span>
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-gray-400 text-center py-4">Nessun prodotto associato</p>
-        )}
-      </div>
+      {/* Products section removed — deal type + pipeline template already define the product */}
 
       {/* ── Activities ── */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6">
