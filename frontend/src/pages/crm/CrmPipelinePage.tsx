@@ -27,7 +27,7 @@ export default function CrmPipelinePage() {
   const dragDealId = useRef<string | null>(null)
 
   const { data: _pipeline } = useCrmPipeline()
-  const { data: deals, isLoading } = useCrmDeals('', '')
+  const { data: deals, isLoading, refetch: refetchDeals } = useCrmDeals('', '')
   const { data: stages } = useCrmStages()
   const { data: analytics } = useCrmAnalytics()
   const updateDeal = useUpdateCrmDeal()
@@ -160,6 +160,8 @@ export default function CrmPipelinePage() {
 
     setMoveDialog(null)
     setShowMoveActivity(false)
+    // Force refetch to show updated stage
+    setTimeout(() => refetchDeals(), 300)
   }
 
   // ── Reusable Kanban column + card renderer ──
