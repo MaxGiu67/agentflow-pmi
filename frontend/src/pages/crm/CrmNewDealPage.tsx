@@ -62,6 +62,12 @@ export default function CrmNewDealPage() {
     arr.findIndex((x: any) => x.name === s.name) === i
   )
 
+  // Use template-specific stages if a pipeline is selected, otherwise generic
+  const templateStages = selectedPipeline?.stages?.length
+    ? [...selectedPipeline.stages].sort((a: any, b: any) => a.sequence - b.sequence)
+    : null
+  const displayStages = templateStages || uniqueStages
+
   // Auto-calc revenue for T&M
   useEffect(() => {
     if (dealType === 'T&M' && dailyRate && estimatedDays) {
@@ -103,7 +109,7 @@ export default function CrmNewDealPage() {
         daily_rate: parseFloat(dailyRate) || 0,
         estimated_days: parseFloat(estimatedDays) || 0,
         technology,
-        stage_id: stageId || uniqueStages.find((s: any) => s.name === 'Nuovo Lead')?.id || undefined,
+        stage_id: stageId || displayStages[0]?.id || undefined,
         pipeline_template_id: selectedPipeline?.id || undefined,
       })
 
@@ -327,7 +333,7 @@ export default function CrmNewDealPage() {
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">Cosa vendi?</label>
               <div className="grid gap-3 sm:grid-cols-4">
-                <button onClick={() => { setDealType('T&M'); setSelectedPipeline(pipelineTemplates?.find((t: any) => t.code === 'vendita_diretta') || null) }}
+                <button onClick={() => { setDealType('T&M'); setSelectedPipeline(pipelineTemplates?.find((t: any) => t.code === 'vendita_diretta') || null); setStageId('') }}
                   className={`rounded-xl border-2 p-4 text-left transition-all ${
                     dealType === 'T&M' ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}>
@@ -337,7 +343,7 @@ export default function CrmNewDealPage() {
                   <p className="text-[10px] text-purple-600 mt-2 font-medium">Pipeline: Vendita Diretta</p>
                 </button>
 
-                <button onClick={() => { setDealType('fixed'); setSelectedPipeline(pipelineTemplates?.find((t: any) => t.code === 'progetto_corpo') || null) }}
+                <button onClick={() => { setDealType('fixed'); setSelectedPipeline(pipelineTemplates?.find((t: any) => t.code === 'progetto_corpo') || null); setStageId('') }}
                   className={`rounded-xl border-2 p-4 text-left transition-all ${
                     dealType === 'fixed' ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}>
@@ -347,7 +353,7 @@ export default function CrmNewDealPage() {
                   <p className="text-[10px] text-purple-600 mt-2 font-medium">Pipeline: Progetto a Corpo</p>
                 </button>
 
-                <button onClick={() => { setDealType('spot'); setSelectedPipeline(pipelineTemplates?.find((t: any) => t.code === 'social_selling') || null) }}
+                <button onClick={() => { setDealType('spot'); setSelectedPipeline(pipelineTemplates?.find((t: any) => t.code === 'social_selling') || null); setStageId('') }}
                   className={`rounded-xl border-2 p-4 text-left transition-all ${
                     dealType === 'spot' ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}>
@@ -357,7 +363,7 @@ export default function CrmNewDealPage() {
                   <p className="text-[10px] text-purple-600 mt-2 font-medium">Pipeline: Social Selling</p>
                 </button>
 
-                <button onClick={() => { setDealType('hardware'); setSelectedPipeline(pipelineTemplates?.find((t: any) => t.code === 'vendita_diretta') || null) }}
+                <button onClick={() => { setDealType('hardware'); setSelectedPipeline(pipelineTemplates?.find((t: any) => t.code === 'vendita_diretta') || null); setStageId('') }}
                   className={`rounded-xl border-2 p-4 text-left transition-all ${
                     dealType === 'hardware' ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}>
@@ -404,14 +410,14 @@ export default function CrmNewDealPage() {
                 className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
             </div>
 
-            {/* Stage selector — dedup by name */}
+            {/* Stage selector — uses template stages if pipeline selected */}
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Fase pipeline</label>
-              <select value={stageId || uniqueStages.find((s: any) => s.name === 'Nuovo Lead')?.id || ''} onChange={(e) => setStageId(e.target.value)}
+              <label className="mb-1 block text-sm font-medium text-gray-700">Fase pipeline{templateStages ? ` (${selectedPipeline.name})` : ''}</label>
+              <select value={stageId || displayStages[0]?.id || ''} onChange={(e) => setStageId(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm">
-                {uniqueStages.map((s: any) => (
+                {displayStages.map((s: any) => (
                   <option key={s.id} value={s.id}>
-                    {s.name} ({s.probability_default}%){s.name === 'Nuovo Lead' ? ' — default' : ''}
+                    {s.name}{s.probability_default != null ? ` (${s.probability_default}%)` : ''}{s.sequence === displayStages[0]?.sequence ? ' — default' : ''}
                   </option>
                 ))}
               </select>

@@ -115,6 +115,10 @@ async def lifespan(app: FastAPI):
             # Pivot 9: Pipeline Templates + Resources + Elevia
             "ALTER TABLE crm_products ADD COLUMN IF NOT EXISTS pipeline_template_id UUID",
             "ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS pipeline_template_id UUID",
+            # Pivot 10: Portal integration
+            "ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS portal_customer_id INTEGER",
+            "ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS portal_customer_name VARCHAR(255)",
+            "ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS portal_project_id INTEGER",
         ]:
             try:
                 await conn.execute(text(stmt))
