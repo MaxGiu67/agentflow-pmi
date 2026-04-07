@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useProducts, useCreateProduct, useUpdateProduct } from '../../api/hooks'
+import { useProducts, useCreateProduct, useUpdateProduct, usePipelineTemplates } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { Plus, Package, ToggleLeft, ToggleRight, Pencil, Trash2, X, Check } from 'lucide-react'
@@ -9,9 +9,10 @@ export default function ProductsPage() {
   const { data: products, isLoading } = useProducts()
   const createProduct = useCreateProduct()
   const updateProduct = useUpdateProduct()
+  const { data: pipelineTemplates } = usePipelineTemplates()
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
-  const [form, setForm] = useState({ name: '', code: '', pricing_model: 'fixed', base_price: '', hourly_rate: '', description: '' })
+  const [form, setForm] = useState({ name: '', code: '', pricing_model: 'fixed', base_price: '', hourly_rate: '', description: '', pipeline_template_id: '' })
   const [editForm, setEditForm] = useState({ name: '', base_price: '', hourly_rate: '', description: '' })
 
   const handleCreate = async () => {
@@ -20,8 +21,9 @@ export default function ProductsPage() {
       ...form,
       base_price: form.base_price ? Number(form.base_price) : undefined,
       hourly_rate: form.hourly_rate ? Number(form.hourly_rate) : undefined,
+      pipeline_template_id: form.pipeline_template_id || undefined,
     })
-    setForm({ name: '', code: '', pricing_model: 'fixed', base_price: '', hourly_rate: '', description: '' })
+    setForm({ name: '', code: '', pricing_model: 'fixed', base_price: '', hourly_rate: '', description: '', pipeline_template_id: '' })
     setShowForm(false)
   }
 
@@ -89,6 +91,13 @@ export default function ProductsPage() {
             )}
             <input type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
               placeholder="Descrizione" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            <select value={form.pipeline_template_id} onChange={(e) => setForm({ ...form, pipeline_template_id: e.target.value })}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+              <option value="">Pipeline Template</option>
+              {(pipelineTemplates || []).map((t: any) => (
+                <option key={t.id} value={t.id}>{t.name} ({t.stage_count} stadi)</option>
+              ))}
+            </select>
           </div>
           <div className="flex gap-2">
             <button onClick={handleCreate} disabled={createProduct.isPending || !form.code.trim() || !form.name.trim()}
@@ -140,6 +149,10 @@ export default function ProductsPage() {
                   {p.base_price != null && p.base_price > 0 && <p className="mt-2 text-lg font-semibold text-gray-900">{formatCurrency(p.base_price)}</p>}
                   {p.hourly_rate != null && p.hourly_rate > 0 && <p className="text-sm text-amber-600">{formatCurrency(p.hourly_rate)}/h</p>}
                   {p.description && <p className="mt-1 text-xs text-gray-500 line-clamp-2">{p.description}</p>}
+                  {p.pipeline_template_id && (() => {
+                    const tpl = (pipelineTemplates || []).find((t: any) => t.id === p.pipeline_template_id)
+                    return tpl ? <p className="mt-1 text-[10px] text-purple-600 font-medium">Pipeline: {tpl.name}</p> : null
+                  })()}
                   <div className="mt-3 flex items-center justify-between">
                     <button onClick={() => updateProduct.mutate({ id: p.id, is_active: !p.is_active })}
                       className={`inline-flex items-center gap-1 text-xs font-medium ${p.is_active ? 'text-green-600' : 'text-gray-400'}`}>

@@ -80,3 +80,76 @@ async def update_template(
     if not result:
         raise HTTPException(404, "Template non trovato")
     return result
+
+
+@router.delete("/{template_id}")
+async def delete_template(
+    template_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete pipeline template and its stages (admin only)."""
+    if user.role not in ("owner", "admin"):
+        raise HTTPException(403, "Solo admin puo eliminare pipeline template")
+    tid = _require_tenant(user)
+    svc = PipelineTemplateService(db)
+    deleted = await svc.delete_template(template_id, tid)
+    if not deleted:
+        raise HTTPException(404, "Template non trovato")
+    return {"ok": True}
+
+
+# ── Stage CRUD ─────────────────────────────────────
+
+
+@router.post("/{template_id}/stages", status_code=201)
+async def add_stage(
+    template_id: uuid.UUID,
+    body: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Add a stage to a pipeline template."""
+    if user.role not in ("owner", "admin"):
+        raise HTTPException(403, "Solo admin")
+    tid = _require_tenant(user)
+    svc = PipelineTemplateService(db)
+    result = await svc.add_stage(template_id, tid, body)
+    if not result:
+        raise HTTPException(404, "Template non trovato")
+    return result
+
+
+@router.patch("/stages/{stage_id}")
+async def update_stage(
+    stage_id: uuid.UUID,
+    body: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a template stage."""
+    if user.role not in ("owner", "admin"):
+        raise HTTPException(403, "Solo admin")
+    _require_tenant(user)
+    svc = PipelineTemplateService(db)
+    result = await svc.update_stage(stage_id, body)
+    if not result:
+        raise HTTPException(404, "Stage non trovato")
+    return result
+
+
+@router.delete("/stages/{stage_id}")
+async def delete_stage(
+    stage_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a template stage."""
+    if user.role not in ("owner", "admin"):
+        raise HTTPException(403, "Solo admin")
+    _require_tenant(user)
+    svc = PipelineTemplateService(db)
+    deleted = await svc.delete_stage(stage_id)
+    if not deleted:
+        raise HTTPException(404, "Stage non trovato")
+    return {"ok": True}

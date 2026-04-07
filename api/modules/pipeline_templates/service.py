@@ -208,6 +208,69 @@ class PipelineTemplateService:
         stages = await self._get_stages(t.id)
         return self._to_dict(t, stages)
 
+    async def delete_template(self, template_id: uuid.UUID, tenant_id: uuid.UUID) -> bool:
+        """Delete template and its stages."""
+        from sqlalchemy import delete as sql_delete
+        result = await self.db.execute(
+            select(PipelineTemplate).where(
+                PipelineTemplate.id == template_id,
+                PipelineTemplate.tenant_id == tenant_id,
+            )
+        )
+        t = result.scalar_one_or_none()
+        if not t:
+            return False
+        await self.db.execute(sql_delete(PipelineTemplateStage).where(PipelineTemplateStage.template_id == template_id))
+        await self.db.delete(t)
+        await self.db.flush()
+        return True
+
+    # ── Stage CRUD ────────────────────────────────────
+
+    async def add_stage(self, template_id: uuid.UUID, tenant_id: uuid.UUID, data: dict) -> dict | None:
+        """Add a stage to a template."""
+        result = await self.db.execute(
+            select(PipelineTemplate).where(PipelineTemplate.id == template_id, PipelineTemplate.tenant_id == tenant_id)
+        )
+        if not result.scalar_one_or_none():
+            return None
+        stage = PipelineTemplateStage(
+            template_id=template_id,
+            code=data.get("code", "").strip().lower().replace(" ", "_"),
+            name=data.get("name", ""),
+            sequence=data.get("sequence", 0),
+            required_fields=data.get("required_fields"),
+            sla_days=data.get("sla_days", 7),
+            is_won=data.get("is_won", False),
+            is_lost=data.get("is_lost", False),
+            is_optional=data.get("is_optional", False),
+        )
+        self.db.add(stage)
+        await self.db.flush()
+        return self._stage_to_dict(stage)
+
+    async def update_stage(self, stage_id: uuid.UUID, data: dict) -> dict | None:
+        """Update a template stage."""
+        result = await self.db.execute(select(PipelineTemplateStage).where(PipelineTemplateStage.id == stage_id))
+        stage = result.scalar_one_or_none()
+        if not stage:
+            return None
+        for key in ("name", "code", "sequence", "sla_days", "is_won", "is_lost", "is_optional", "required_fields"):
+            if key in data:
+                setattr(stage, key, data[key])
+        await self.db.flush()
+        return self._stage_to_dict(stage)
+
+    async def delete_stage(self, stage_id: uuid.UUID) -> bool:
+        """Delete a template stage."""
+        result = await self.db.execute(select(PipelineTemplateStage).where(PipelineTemplateStage.id == stage_id))
+        stage = result.scalar_one_or_none()
+        if not stage:
+            return False
+        await self.db.delete(stage)
+        await self.db.flush()
+        return True
+
     # ── Helpers ────────────────────────────────────────
 
     async def _get_stages(self, template_id: uuid.UUID) -> list[dict]:
