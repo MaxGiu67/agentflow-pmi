@@ -428,6 +428,7 @@ class ProductCreate(BaseModel):
     description: str | None = None
     category_name: str | None = None
     category_id: str | None = None
+    pipeline_template_id: str | None = None
 
 
 class ProductUpdate(BaseModel):
@@ -438,6 +439,7 @@ class ProductUpdate(BaseModel):
     technology_type: str | None = None
     target_margin_percent: float | None = None
     description: str | None = None
+    pipeline_template_id: str | None = None
     is_active: bool | None = None
 
 

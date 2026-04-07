@@ -69,6 +69,7 @@ class ProductsService:
             technology_type=data.get("technology_type"),
             target_margin_percent=data.get("target_margin_percent"),
             description=data.get("description"),
+            pipeline_template_id=uuid.UUID(data["pipeline_template_id"]) if data.get("pipeline_template_id") else None,
             is_active=True,
         )
         self.db.add(product)
@@ -85,6 +86,10 @@ class ProductsService:
         product = result.scalar_one_or_none()
         if not product:
             return None
+
+        if "pipeline_template_id" in data:
+            val = data["pipeline_template_id"]
+            product.pipeline_template_id = uuid.UUID(val) if val else None
 
         for key in ("name", "base_price", "hourly_rate", "estimated_duration_days",
                      "technology_type", "target_margin_percent", "description", "is_active"):
@@ -222,6 +227,7 @@ class ProductsService:
             "technology_type": p.technology_type,
             "target_margin_percent": p.target_margin_percent,
             "description": p.description,
+            "pipeline_template_id": str(p.pipeline_template_id) if getattr(p, "pipeline_template_id", None) else None,
             "is_active": p.is_active,
         }
 

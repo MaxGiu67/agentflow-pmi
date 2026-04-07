@@ -5,6 +5,8 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { Plus, Package, ToggleLeft, ToggleRight, Pencil, Trash2, X, Check } from 'lucide-react'
 import { formatCurrency } from '../../lib/utils'
 
+const EMPTY_FORM = { name: '', code: '', pricing_model: 'fixed', base_price: '', hourly_rate: '', description: '', pipeline_template_id: '' }
+
 export default function ProductsPage() {
   const { data: products, isLoading } = useProducts()
   const createProduct = useCreateProduct()
@@ -12,8 +14,8 @@ export default function ProductsPage() {
   const { data: pipelineTemplates } = usePipelineTemplates()
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
-  const [form, setForm] = useState({ name: '', code: '', pricing_model: 'fixed', base_price: '', hourly_rate: '', description: '', pipeline_template_id: '' })
-  const [editForm, setEditForm] = useState({ name: '', base_price: '', hourly_rate: '', description: '' })
+  const [form, setForm] = useState({ ...EMPTY_FORM })
+  const [editForm, setEditForm] = useState({ ...EMPTY_FORM })
 
   const handleCreate = async () => {
     if (!form.code.trim() || !form.name.trim()) return
@@ -23,7 +25,7 @@ export default function ProductsPage() {
       hourly_rate: form.hourly_rate ? Number(form.hourly_rate) : undefined,
       pipeline_template_id: form.pipeline_template_id || undefined,
     })
-    setForm({ name: '', code: '', pricing_model: 'fixed', base_price: '', hourly_rate: '', description: '', pipeline_template_id: '' })
+    setForm({ ...EMPTY_FORM })
     setShowForm(false)
   }
 
@@ -31,9 +33,12 @@ export default function ProductsPage() {
     setEditId(p.id)
     setEditForm({
       name: p.name || '',
+      code: p.code || '',
+      pricing_model: p.pricing_model || 'fixed',
       base_price: p.base_price ? String(p.base_price) : '',
       hourly_rate: p.hourly_rate ? String(p.hourly_rate) : '',
       description: p.description || '',
+      pipeline_template_id: p.pipeline_template_id || '',
     })
   }
 
@@ -44,19 +49,19 @@ export default function ProductsPage() {
       base_price: editForm.base_price ? Number(editForm.base_price) : undefined,
       hourly_rate: editForm.hourly_rate ? Number(editForm.hourly_rate) : undefined,
       description: editForm.description || undefined,
+      pipeline_template_id: editForm.pipeline_template_id || undefined,
     })
     setEditId(null)
-  }
-
-  const handleDelete = async (id: string) => {
-    // Products use soft-delete (deactivate), hard delete returns 409
-    // So we deactivate instead
-    await updateProduct.mutateAsync({ id, is_active: false })
   }
 
   const pricingBadge = (model: string) => {
     const map: Record<string, string> = { fixed: 'bg-blue-100 text-blue-700', hourly: 'bg-amber-100 text-amber-700', custom: 'bg-gray-100 text-gray-600' }
     return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${map[model] || map.custom}`}>{model}</span>
+  }
+
+  const getPipelineName = (templateId: string | null) => {
+    if (!templateId) return null
+    return (pipelineTemplates || []).find((t: any) => t.id === templateId)?.name || null
   }
 
   return (
@@ -93,7 +98,7 @@ export default function ProductsPage() {
               placeholder="Descrizione" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
             <select value={form.pipeline_template_id} onChange={(e) => setForm({ ...form, pipeline_template_id: e.target.value })}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
-              <option value="">Pipeline Template</option>
+              <option value="">-- Pipeline Template --</option>
               {(pipelineTemplates || []).map((t: any) => (
                 <option key={t.id} value={t.id}>{t.name} ({t.stage_count} stadi)</option>
               ))}
@@ -112,18 +117,25 @@ export default function ProductsPage() {
           {products?.map((p: any) => (
             <div key={p.id} className={`rounded-xl border bg-white p-4 transition-shadow hover:shadow-md ${!p.is_active ? 'opacity-50' : ''}`}>
               {editId === p.id ? (
-                /* ── Edit mode ── */
+                /* ── Edit mode — tutti i campi ── */
                 <div className="space-y-2">
                   <input type="text" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                     placeholder="Nome" className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
+                  <input type="text" value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                    placeholder="Descrizione" className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
                   <div className="grid grid-cols-2 gap-2">
                     <input type="number" value={editForm.base_price} onChange={(e) => setEditForm({ ...editForm, base_price: e.target.value })}
                       placeholder="Prezzo base" className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
                     <input type="number" value={editForm.hourly_rate} onChange={(e) => setEditForm({ ...editForm, hourly_rate: e.target.value })}
                       placeholder="Tariffa oraria" className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
                   </div>
-                  <input type="text" value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                    placeholder="Descrizione" className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
+                  <select value={editForm.pipeline_template_id} onChange={(e) => setEditForm({ ...editForm, pipeline_template_id: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm">
+                    <option value="">-- Pipeline Template --</option>
+                    {(pipelineTemplates || []).map((t: any) => (
+                      <option key={t.id} value={t.id}>{t.name} ({t.stage_count} stadi)</option>
+                    ))}
+                  </select>
                   <div className="flex gap-2">
                     <button onClick={() => handleSaveEdit(p.id)}
                       className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700">
@@ -149,25 +161,20 @@ export default function ProductsPage() {
                   {p.base_price != null && p.base_price > 0 && <p className="mt-2 text-lg font-semibold text-gray-900">{formatCurrency(p.base_price)}</p>}
                   {p.hourly_rate != null && p.hourly_rate > 0 && <p className="text-sm text-amber-600">{formatCurrency(p.hourly_rate)}/h</p>}
                   {p.description && <p className="mt-1 text-xs text-gray-500 line-clamp-2">{p.description}</p>}
-                  {p.pipeline_template_id && (() => {
-                    const tpl = (pipelineTemplates || []).find((t: any) => t.id === p.pipeline_template_id)
-                    return tpl ? <p className="mt-1 text-[10px] text-purple-600 font-medium">Pipeline: {tpl.name}</p> : null
-                  })()}
+                  {getPipelineName(p.pipeline_template_id) ? (
+                    <p className="mt-1 text-[11px] text-purple-600 font-medium">Pipeline: {getPipelineName(p.pipeline_template_id)}</p>
+                  ) : (
+                    <p className="mt-1 text-[11px] text-amber-500">Nessuna pipeline collegata</p>
+                  )}
                   <div className="mt-3 flex items-center justify-between">
                     <button onClick={() => updateProduct.mutate({ id: p.id, is_active: !p.is_active })}
                       className={`inline-flex items-center gap-1 text-xs font-medium ${p.is_active ? 'text-green-600' : 'text-gray-400'}`}>
                       {p.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
-                      {p.is_active ? 'Attivo' : 'Disattivato'}
+                      {p.is_active ? 'Attivo' : 'Inattivo'}
                     </button>
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => startEdit(p)} title="Modifica"
-                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-blue-600">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button onClick={() => handleDelete(p.id)} title="Disattiva"
-                        className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                    <div className="flex gap-1">
+                      <button onClick={() => startEdit(p)} className="text-gray-400 hover:text-blue-600"><Pencil className="h-4 w-4" /></button>
+                      <button onClick={() => updateProduct.mutate({ id: p.id, is_active: false })} className="text-gray-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   </div>
                 </>
