@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useCrmContacts, useCreateCrmDeal, useCreateCrmContact, useCrmStages, useActivityTypes, useCreateCrmActivity, usePipelineTemplates, usePortalCustomers } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import PageMeta from '../../components/ui/PageMeta'
-import { ArrowLeft, Search, Building } from 'lucide-react'
+import { ArrowLeft, Search, Building, PlusCircle } from 'lucide-react'
 
 export default function CrmNewDealPage() {
   const navigate = useNavigate()
