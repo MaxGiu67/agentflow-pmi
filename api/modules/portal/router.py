@@ -75,24 +75,58 @@ async def list_persons(
     page_size: int = Query(50, ge=1, le=200),
     user: User = Depends(get_current_user),
 ):
-    """Proxy: list persons from Portal."""
+    """Proxy: list persons from Portal with contracts and skills (US-232)."""
     result = await portal_client.get_persons(search=search, page=page, page_size=page_size)
     persons = result.get("data", [])
     return {
-        "persons": [
-            {
-                "portal_id": p.get("id"),
-                "first_name": p.get("firstName", ""),
-                "last_name": p.get("lastName", ""),
-                "full_name": f"{p.get('firstName', '')} {p.get('lastName', '')}".strip(),
-                "email": p.get("privateEmail", ""),
-                "fiscal_code": p.get("taxCode", ""),
-                "employee_id": p.get("employee_id", ""),
-            }
-            for p in persons
-        ],
+        "persons": [_map_person(p) for p in persons],
         "total": result.get("total", len(persons)),
         "source": "portal",
+    }
+
+
+def _map_person(p: dict) -> dict:
+    """Map Portal Person to AgentFlow format with contracts and skills."""
+    # Extract active contract
+    contracts = p.get("EmploymentContracts") or p.get("employmentContracts") or []
+    active_contract = None
+    for c in contracts:
+        end = c.get("end_date") or c.get("endDate") or c.get("effectiveEndDate")
+        if not end:  # No end date = still active
+            active_contract = c
+            break
+    if not active_contract and contracts:
+        active_contract = contracts[-1]  # Last contract as fallback
+
+    # Extract skills
+    skill_areas = p.get("PersonSkillAreas") or p.get("personSkillAreas") or []
+    skills = []
+    for sa in skill_areas:
+        skill = sa.get("SkillArea") or sa.get("skillArea") or {}
+        skills.append({
+            "name": skill.get("name", ""),
+            "seniority": sa.get("seniority", ""),
+        })
+
+    return {
+        "portal_id": p.get("id"),
+        "first_name": p.get("firstName") or p.get("first_name") or "",
+        "last_name": p.get("lastName") or p.get("last_name") or "",
+        "full_name": f"{p.get('firstName') or p.get('first_name') or ''} {p.get('lastName') or p.get('last_name') or ''}".strip(),
+        "email": p.get("privateEmail") or p.get("private_email") or "",
+        "fiscal_code": p.get("taxCode") or p.get("tax_code") or "",
+        "employee_id": p.get("employee_id", ""),
+        "seniority": p.get("Seniority") or p.get("seniority") or "",
+        "location": (p.get("Location") or p.get("location") or {}).get("description", ""),
+        "skills": skills,
+        "contract": {
+            "type": (active_contract.get("ContractType") or active_contract.get("contractType") or {}).get("description", "") if active_contract else "",
+            "company": (active_contract.get("Company") or active_contract.get("company") or {}).get("name", "") if active_contract else "",
+            "start_date": active_contract.get("startDate") or active_contract.get("start_date") or "" if active_contract else "",
+            "end_date": active_contract.get("endDate") or active_contract.get("end_date") or active_contract.get("effectiveEndDate") or "" if active_contract else "",
+            "daily_cost": active_contract.get("dailyCost") or active_contract.get("daily_cost") or 0 if active_contract else 0,
+            "sales_rate": active_contract.get("salesRate") or active_contract.get("sales_rate") or 0 if active_contract else 0,
+        } if active_contract else None,
     }
 
 
