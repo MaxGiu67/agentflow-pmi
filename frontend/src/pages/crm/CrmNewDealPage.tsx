@@ -65,15 +65,15 @@ export default function CrmNewDealPage() {
   }, [dealType, dailyRate, estimatedDays])
 
   const filteredContacts = (contactsData?.contacts || []).filter((c: any) => {
-    // Se azienda selezionata, mostra SOLO referenti di quell'azienda
+    // Se azienda selezionata da Portal, filtra referenti il cui name (company name) matcha
     if (selectedCompanyId) {
-      if (c.company_id !== selectedCompanyId) return false
-      // Dentro l'azienda: se c'e search, filtra per nome
+      const companyMatch = (c.name || '').toLowerCase() === (selectedCompanyName || '').toLowerCase()
+      if (!companyMatch) return false
       if (contactSearch.length >= 2) {
         const q = contactSearch.toLowerCase()
         return (c.contact_name || c.name || '').toLowerCase().includes(q)
       }
-      return true // Mostra tutti i referenti dell'azienda
+      return true
     }
     // Senza azienda: cerca tra tutti (solo se 2+ char)
     if (contactSearch.length >= 2) {
@@ -250,7 +250,6 @@ export default function CrmNewDealPage() {
                           if (!newContact.name) return
                           const result = await createContact.mutateAsync({
                             name: selectedCompanyName || newContact.name,
-                            company_id: selectedCompanyId || undefined,
                             contact_name: newContact.name,
                             contact_role: newContact.contact_role,
                             email: newContact.email,
