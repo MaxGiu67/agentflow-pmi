@@ -21,6 +21,7 @@ Ultimo aggiornamento: 2026-04-07
 | **7** | **2026-04** | **CRM Sales interno + Brevo email marketing + Kanban** |
 | **8** | **2026-04** | **Social Selling configurabile + Ruoli fractional + Catalogo prodotti + Analytics multi-canale** |
 | **9** | **2026-04** | **v3.0: Dual pipeline (T&M+Corpo+Elevia), Sales Agent AI, Resource Matching, ATECO Engine, Cross-sell** |
+| **10** | **2026-04** | **Integrazione PortalJS.be: commesse, rapportini, dipendenti, margine reale (ADR-011)** |
 
 ## Numeri del Progetto
 

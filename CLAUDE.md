@@ -23,6 +23,7 @@
 - ADR-008: Odoo 18 CRM (SOSTITUITA da ADR-009 — resta opzione bundle)
 - **ADR-009**: CRM interno + Brevo email — zero dipendenza Odoo, 300 EUR/anno
 - **ADR-010**: Coordinator con Sales Agent unico product-aware — prodotto determina pipeline, tool filtrati per pipeline_type
+- **ADR-011**: Integrazione PortalJS.be — commesse, rapportini, dipendenti. Conferma umana per scritture. Portal master operativo, AgentFlow master commerciale
 
 ## Agent Architecture (ADR-010)
 
@@ -94,6 +95,14 @@
 - `api/modules/elevia/` — Use case catalog + ATECO scoring + ROI + discovery brief
 - `api/modules/sales_tools/` — LinkedIn messages + warmth + cadence + cross-sell detection
 - `api/modules/calendar/` — Microsoft 365 OAuth + push + Calendly URL
+
+### Integrazione PortalJS.be (Pivot 10 — ADR-011)
+- `api/adapters/portal_client.py` — Client async per PortalJS.be API (NestJS + Prisma + PostgreSQL)
+- Lettura: dipendenti, contratti, commesse, rapportini, timesheet
+- Scrittura (con conferma umana): crea commessa da deal Won, assegna collaboratori
+- Sync: rapportini finalizzati → margine reale su AgentFlow
+- Endpoint proxy: `/api/v1/portal/*`
+- Config: `PortalConfig` (URL, service account) + `PortalMapping` (entity mapping AF↔Portal)
 
 ### Sistema
 - `api/modules/chat/` — chatbot AI con orchestratore → agent dispatch (ADR-010)
@@ -174,6 +183,7 @@ Nuovo Lead → Qualificato → Proposta Inviata → Ordine Ricevuto → Conferma
 | ~~Salt Edge~~ | ~~Open Banking~~ — rimosso, A-Cube gestisce | Disabilitato |
 | ~~FiscoAPI~~ | ~~Cassetto fiscale~~ — rimosso, A-Cube gestisce | Disabilitato |
 | Odoo 18 | CRM opzionale per bundle clienti | Opzionale |
+| **PortalJS.be** | Gestione operativa: commesse, rapportini, dipendenti (NestJS + Prisma) | **Pivot 10** |
 
 ## Config .env
 ```env
@@ -188,6 +198,9 @@ BREVO_API_KEY, BREVO_SENDER_EMAIL, BREVO_SENDER_NAME
 
 # OpenAI (chatbot + extraction)
 OPENAI_API_KEY
+
+# PortalJS.be (gestione operativa — Pivot 10)
+PORTAL_API_URL, PORTAL_SERVICE_EMAIL, PORTAL_SERVICE_PASSWORD
 ```
 
 ## MCP Server

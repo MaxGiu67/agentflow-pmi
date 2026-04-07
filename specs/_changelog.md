@@ -8,6 +8,16 @@
 
 ---
 
+## 2026-04-07 — PIVOT 10: Integrazione AgentFlow ↔ PortalJS.be
+
+- **Causa**: AgentFlow gestisce il ciclo commerciale fino all'ordine, PortalJS.be gestisce l'operativo (commesse, rapportini, dipendenti). Serve ponte tra i due sistemi.
+- **ADR-011**: `specs/technical/portal-integration.md` — architettura, mapping dati, 12 stories (US-230→US-241)
+- **Impatto**: 5 file da aggiornare, 0 da rifare
+- **Stories nuove**: US-230→US-241 (50 SP, Sprint 42-45)
+- **Principio**: Conferma umana obbligatoria per ogni scrittura su Portal. Lettura automatica.
+- **Fasi**: Light (read + manual create) → Auto-Sync (timesheet→margini) → AI Agent (suggerimenti)
+- **Azioni**: aggiornare vision, sprint plan, status, CLAUDE.md
+
 ## 2026-04-07 (PM) — PIVOT: Documenti Deal + Kanban stage fix + Default stage + Pulizia DB
 
 - **Causa**: Il commerciale ha bisogno di allegare offerte/ordini al deal. Stage mismatch tra generic e template. DB inquinato da test E2E.
