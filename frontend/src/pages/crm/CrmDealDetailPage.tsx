@@ -11,7 +11,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import SendEmailModal from '../../components/email/SendEmailModal'
 import {
   ArrowLeft, FileCheck, CheckCircle, AlertCircle, Mail, Eye, MousePointer,
-  Plus, Phone, Calendar, MessageSquare, Activity, Pencil, ExternalLink, Building2,
+  Plus, Phone, Video, Calendar, MessageSquare, Activity, Pencil, ExternalLink, Building2,
 } from 'lucide-react'
 
 const ORDER_TYPES = [
@@ -30,7 +30,7 @@ const STATUS_ICONS: Record<string, { icon: typeof Mail; color: string; label: st
 }
 
 const ACTIVITY_ICONS: Record<string, typeof Phone> = {
-  call: Phone, meeting: Calendar, email: Mail, note: MessageSquare, task: Activity,
+  call: Phone, video_call: Video, meeting: Calendar, email: Mail, note: MessageSquare, task: Activity,
 }
 
 export default function CrmDealDetailPage() {
@@ -245,44 +245,63 @@ export default function CrmDealDetailPage() {
         </div>
 
         {showActivityForm && (
-          <div className="mb-4 rounded-lg border border-green-200 bg-green-50/30 p-3 space-y-2">
-            <div className="grid gap-2 sm:grid-cols-2">
-              <select value={actForm.type} onChange={(e) => setActForm({ ...actForm, type: e.target.value })}
+          <div className="mb-4 rounded-lg border border-green-200 bg-green-50/30 p-4 space-y-3">
+            {/* Activity type — big buttons */}
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+              {[
+                { value: 'call', label: 'Chiamata', emoji: '📞' },
+                { value: 'video_call', label: 'Video', emoji: '📹' },
+                { value: 'meeting', label: 'Riunione', emoji: '🤝' },
+                { value: 'email', label: 'Email', emoji: '📧' },
+                { value: 'task', label: 'Task', emoji: '✅' },
+                { value: 'note', label: 'Nota', emoji: '📝' },
+              ].map(({ value, label, emoji }) => (
+                <button key={value}
+                  onClick={() => setActForm({ ...actForm, type: value, status: value === 'note' ? 'completed' : 'planned' })}
+                  className={`flex flex-col items-center gap-0.5 rounded-lg border-2 p-2 text-xs font-medium transition-all ${
+                    actForm.type === value ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}>
+                  <span className="text-base">{emoji}</span>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <input type="text" value={actForm.subject} onChange={(e) => setActForm({ ...actForm, subject: e.target.value })}
+              placeholder="Oggetto (es. Chiamata qualifica con Mario Rossi) *" className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
+
+            <div className="grid gap-2 sm:grid-cols-3">
+              <select value={actForm.status} onChange={(e) => setActForm({ ...actForm, status: e.target.value })}
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                <option value="call">Chiamata</option>
-                <option value="meeting">Incontro</option>
-                <option value="email">Email</option>
-                <option value="note">Nota</option>
-                <option value="task">Task</option>
+                <option value="planned">Pianificata</option>
+                <option value="completed">Completata</option>
               </select>
+              <input type="datetime-local" value={actForm.scheduled_at}
+                onChange={(e) => setActForm({ ...actForm, scheduled_at: e.target.value })}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                placeholder="Data e ora" />
               <select value={actForm.activity_type_id} onChange={(e) => setActForm({ ...actForm, activity_type_id: e.target.value })}
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                <option value="">-- Tipo custom (opz.) --</option>
+                <option value="">-- Tipo specifico (opz.) --</option>
                 {activityTypes?.map((t: any) => (
-                  <option key={t.id} value={t.id}>{t.label} ({t.category})</option>
+                  <option key={t.id} value={t.id}>{t.label}</option>
                 ))}
               </select>
             </div>
-            <input type="text" value={actForm.subject} onChange={(e) => setActForm({ ...actForm, subject: e.target.value })}
-              placeholder="Oggetto attivita *" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+
             <textarea value={actForm.description} onChange={(e) => setActForm({ ...actForm, description: e.target.value })}
-              placeholder="Descrizione / note" rows={2} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-            <div className="flex flex-wrap items-center gap-3">
-              <select value={actForm.status} onChange={(e) => setActForm({ ...actForm, status: e.target.value })}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                <option value="completed">Completata</option>
-                <option value="planned">Pianificata</option>
-              </select>
-              {actForm.status === 'planned' && (
-                <input type="datetime-local" value={actForm.scheduled_at}
-                  onChange={(e) => setActForm({ ...actForm, scheduled_at: e.target.value })}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-              )}
+              placeholder="Note / descrizione" rows={2} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+
+            {actForm.status === 'planned' && actForm.scheduled_at && (
+              <p className="text-xs text-green-600">Verra sincronizzata automaticamente con Outlook Calendar</p>
+            )}
+
+            <div className="flex gap-2">
               <button onClick={handleCreateActivity} disabled={!actForm.subject.trim() || createActivity.isPending}
-                className="rounded-lg bg-green-600 px-3 py-2 text-xs font-medium text-white disabled:opacity-50">
-                {createActivity.isPending ? 'Salvataggio...' : actForm.status === 'planned' ? 'Pianifica' : 'Salva Attivita'}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:bg-blue-700">
+                {createActivity.isPending ? 'Salvataggio...' : actForm.status === 'planned' ? 'Pianifica' : 'Salva'}
               </button>
-              <button onClick={() => setShowActivityForm(false)} className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600">Annulla</button>
+              <button onClick={() => setShowActivityForm(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600">Annulla</button>
             </div>
           </div>
         )}
