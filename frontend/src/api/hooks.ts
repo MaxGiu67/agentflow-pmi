@@ -1439,6 +1439,35 @@ export function usePortalPersons(search?: string) {
   })
 }
 
+export function usePortalProtocolByCustomer(customerId: number | undefined) {
+  return useQuery({
+    queryKey: ['portal-protocol-customer', customerId],
+    queryFn: () => api.get(`/portal/offers/protocol-by-customer/${customerId}`).then((r) => r.data),
+    enabled: !!customerId,
+  })
+}
+
+export function usePortalProjectTypes() {
+  return useQuery({
+    queryKey: ['portal-project-types'],
+    queryFn: () => api.get('/portal/project-types').then((r) => r.data),
+  })
+}
+
+export function usePortalLocations() {
+  return useQuery({
+    queryKey: ['portal-locations'],
+    queryFn: () => api.get('/portal/locations').then((r) => r.data),
+  })
+}
+
+export function usePortalAccountManagers() {
+  return useQuery({
+    queryKey: ['portal-account-managers'],
+    queryFn: () => api.get('/portal/account-managers').then((r) => r.data),
+  })
+}
+
 export function useUpdateCrmContact() {
   const qc = useQueryClient()
   return useMutation({

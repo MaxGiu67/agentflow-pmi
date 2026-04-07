@@ -230,12 +230,68 @@ async def get_protocol(
     return await portal_client.get_protocol(customer_code)
 
 
+@router.get("/offers/protocol-by-customer/{customer_id}")
+async def get_protocol_by_customer(
+    customer_id: int,
+    user: User = Depends(get_current_user),
+):
+    """Get auto-generated protocol number by customer ID."""
+    return await portal_client.get_protocol_by_customer_id(customer_id)
+
+
 @router.get("/offers/billing-types")
 async def get_billing_types(
     user: User = Depends(get_current_user),
 ):
     """Get available billing types."""
     return await portal_client.get_billing_types()
+
+
+@router.get("/project-types")
+async def list_project_types(
+    search: str = Query(""),
+    user: User = Depends(get_current_user),
+):
+    """Get available project types for offers."""
+    result = await portal_client.get_project_types(search=search)
+    data = result.get("data", []) if isinstance(result, dict) else result if isinstance(result, list) else []
+    return [
+        {"id": pt.get("id"), "code": pt.get("code", ""), "description": pt.get("description", ""), "billing_type": pt.get("billing_type", "")}
+        for pt in data
+    ]
+
+
+@router.get("/locations")
+async def list_locations(
+    user: User = Depends(get_current_user),
+):
+    """Get available locations (sedi)."""
+    result = await portal_client.get_locations()
+    data = result.get("data", []) if isinstance(result, dict) else result if isinstance(result, list) else []
+    return [
+        {"id": loc.get("id"), "code": loc.get("code", ""), "description": loc.get("description", "")}
+        for loc in data
+    ]
+
+
+@router.get("/account-managers")
+async def list_account_managers(
+    user: User = Depends(get_current_user),
+):
+    """Get users that can be account managers."""
+    result = await portal_client.get_account_managers()
+    data = result.get("data", []) if isinstance(result, dict) else result if isinstance(result, list) else []
+    managers = []
+    for u in data:
+        person = u.get("Person") or u.get("person") or {}
+        first = person.get("firstName") or person.get("first_name") or ""
+        last = person.get("lastName") or person.get("last_name") or ""
+        managers.append({
+            "id": u.get("id"),
+            "email": u.get("email", ""),
+            "name": f"{first} {last}".strip() or u.get("email", ""),
+        })
+    return managers
 
 
 @router.post("/offers/create")

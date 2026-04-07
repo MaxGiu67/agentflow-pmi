@@ -5,6 +5,8 @@ import {
   useActivityTypes, useCrmActivities, useCreateCrmActivity,
   useDealDocuments, useAddDealDocument, useDeleteDealDocument,
   useCreatePortalOffer, usePortalStatus,
+  usePortalProjectTypes, usePortalLocations, usePortalAccountManagers,
+  usePortalProtocolByCustomer,
 } from '../../api/hooks'
 import { formatCurrency } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
@@ -53,6 +55,10 @@ export default function CrmDealDetailPage() {
   // Portal integration
   const { data: portalStatus } = usePortalStatus()
   const createPortalOffer = useCreatePortalOffer()
+  const { data: projectTypes } = usePortalProjectTypes()
+  const { data: locations } = usePortalLocations()
+  const { data: accountManagers } = usePortalAccountManagers()
+  const { data: autoProtocol } = usePortalProtocolByCustomer(deal?.portal_customer_id || undefined)
 
   // Activities
   const { data: activityTypes } = useActivityTypes(true)
@@ -69,7 +75,10 @@ export default function CrmDealDetailPage() {
   const [showDocForm, setShowDocForm] = useState(false)
   const [docForm, setDocForm] = useState({ doc_type: 'offerta', name: '', url: '', notes: '' })
   const [showOfferForm, setShowOfferForm] = useState(false)
-  const [offerForm, setOfferForm] = useState({ title: '', billing_type: 'Daily', rate: '', days: '', amount: '', description: '' })
+  const [offerForm, setOfferForm] = useState({
+    title: '', billing_type: 'Daily', rate: '', days: '', amount: '', description: '',
+    project_type_id: '', location_id: '', accountManager_id: '', protocol: '',
+  })
 
   if (isLoading) return <LoadingSpinner />
   if (!deal) return <div className="p-8 text-center text-gray-500">Deal non trovato</div>
@@ -333,7 +342,7 @@ export default function CrmDealDetailPage() {
               <h3 className="text-sm font-semibold uppercase text-indigo-500">Operativo Portal</h3>
               <p className="text-xs text-gray-400 mt-0.5">Crea offerta e commessa su PortalJS.be</p>
             </div>
-            {!showOfferForm && (
+            {!showOfferForm && deal.portal_customer_id && (
               <button onClick={() => {
                 setOfferForm({
                   title: deal.name,
@@ -342,6 +351,10 @@ export default function CrmDealDetailPage() {
                   days: String(deal.estimated_days || ''),
                   amount: String(deal.expected_revenue || ''),
                   description: `Deal AgentFlow: ${deal.name}`,
+                  project_type_id: '',
+                  location_id: locations?.[0]?.id ? String(locations[0].id) : '',
+                  accountManager_id: accountManagers?.[0]?.id ? String(accountManagers[0].id) : '',
+                  protocol: autoProtocol || '',
                 })
                 setShowOfferForm(true)
               }}
@@ -354,6 +367,14 @@ export default function CrmDealDetailPage() {
           {showOfferForm && (
             <div className="rounded-lg border border-indigo-200 bg-white p-4 space-y-3">
               <p className="text-xs font-medium text-indigo-700">Conferma dati offerta per Portal</p>
+
+              {/* Protocollo (auto-generated) */}
+              <div className="rounded-lg bg-indigo-50 px-3 py-2">
+                <p className="text-[10px] uppercase text-indigo-400 font-medium">Protocollo (auto)</p>
+                <p className="text-sm font-mono text-indigo-700">{offerForm.protocol || autoProtocol || 'Caricamento...'}</p>
+              </div>
+
+              {/* Titolo + Tipo fatturazione */}
               <div className="grid gap-2 sm:grid-cols-2">
                 <input type="text" value={offerForm.title} onChange={(e) => setOfferForm({ ...offerForm, title: e.target.value })}
                   placeholder="Titolo offerta *" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
@@ -364,6 +385,35 @@ export default function CrmDealDetailPage() {
                   <option value="None">Nessuna</option>
                 </select>
               </div>
+
+              {/* Tipo offerta + Sede */}
+              <div className="grid gap-2 sm:grid-cols-2">
+                <select value={offerForm.project_type_id} onChange={(e) => setOfferForm({ ...offerForm, project_type_id: e.target.value })}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                  <option value="">Tipo offerta *</option>
+                  {(projectTypes || []).map((pt: any) => (
+                    <option key={pt.id} value={pt.id}>{pt.description || pt.code}</option>
+                  ))}
+                </select>
+                <select value={offerForm.location_id} onChange={(e) => setOfferForm({ ...offerForm, location_id: e.target.value })}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                  <option value="">Sede *</option>
+                  {(locations || []).map((loc: any) => (
+                    <option key={loc.id} value={loc.id}>{loc.description || loc.code}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Commerciale */}
+              <select value={offerForm.accountManager_id} onChange={(e) => setOfferForm({ ...offerForm, accountManager_id: e.target.value })}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                <option value="">Commerciale di riferimento *</option>
+                {(accountManagers || []).map((am: any) => (
+                  <option key={am.id} value={am.id}>{am.name || am.email}</option>
+                ))}
+              </select>
+
+              {/* Rate/Days (Daily) or Amount (LumpSum) */}
               {offerForm.billing_type === 'Daily' && (
                 <div className="grid gap-2 sm:grid-cols-2">
                   <input type="number" value={offerForm.rate} onChange={(e) => setOfferForm({ ...offerForm, rate: e.target.value })}
@@ -376,24 +426,36 @@ export default function CrmDealDetailPage() {
                 <input type="number" value={offerForm.amount} onChange={(e) => setOfferForm({ ...offerForm, amount: e.target.value })}
                   placeholder="Importo fisso (EUR)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
               )}
+
+              {/* Descrizione */}
               <textarea value={offerForm.description} onChange={(e) => setOfferForm({ ...offerForm, description: e.target.value })}
                 placeholder="Descrizione" rows={2} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
 
+              {/* Actions */}
               <div className="flex gap-2">
                 <button onClick={async () => {
+                  const protocol = offerForm.protocol || autoProtocol || ''
                   const payload: Record<string, unknown> = {
-                    title: offerForm.title,
-                    description: offerForm.description,
+                    project_code: protocol,
+                    name: offerForm.title,
+                    other_details: offerForm.description,
                     billing_type: offerForm.billing_type,
                     customer_id: deal.portal_customer_id,
-                    rate: offerForm.rate ? parseInt(offerForm.rate) : undefined,
+                    accountManager_id: parseInt(offerForm.accountManager_id),
+                    project_type_id: parseInt(offerForm.project_type_id),
+                    location_id: parseInt(offerForm.location_id),
+                    rate: offerForm.rate ? parseFloat(offerForm.rate) : undefined,
                     days: offerForm.days ? parseInt(offerForm.days) : undefined,
-                    amount: offerForm.amount ? parseInt(offerForm.amount) : undefined,
-                    outcome_type: 'W',
+                    amount: offerForm.amount ? parseFloat(offerForm.amount) : undefined,
+                    OutcomeType: 'W',
+                    year: new Date().getFullYear(),
                   }
                   await createPortalOffer.mutateAsync(payload)
                   setShowOfferForm(false)
-                }} disabled={!offerForm.title.trim() || createPortalOffer.isPending}
+                }} disabled={
+                  !offerForm.title.trim() || !offerForm.project_type_id || !offerForm.location_id ||
+                  !offerForm.accountManager_id || createPortalOffer.isPending
+                }
                   className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
                   {createPortalOffer.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
                   Crea Offerta

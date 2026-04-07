@@ -266,6 +266,15 @@ class PortalClient:
         """Get auto-generated protocol number for a customer."""
         return await self._get(f"/offers/getProtocol", {"customer_code": customer_code}, use_cache=False)
 
+    async def get_protocol_by_customer_id(self, customer_id: int) -> Any:
+        """Get protocol by fetching customer first, then generating protocol."""
+        customer = await self.get_customer(customer_id)
+        if isinstance(customer, dict) and "error" not in customer:
+            code = customer.get("code") or customer.get("customer_code") or ""
+            if code:
+                return await self.get_protocol(code)
+        return {"error": "Customer code not found"}
+
     async def get_billing_types(self) -> Any:
         """Get available billing types (Daily, LumpSum, None)."""
         return await self._get("/offers/billingTypes")
@@ -281,6 +290,23 @@ class PortalClient:
     async def update_offer(self, offer_id: int, data: dict) -> dict:
         """Update offer on Portal."""
         return await self._patch(f"/offers/update/{offer_id}", data)
+
+    # ── Project Types & Locations ─────────────────────────
+
+    async def get_project_types(self, search: str = "") -> Any:
+        """Get available project types (Offer types)."""
+        params: dict[str, Any] = {"pageNum": 0, "pageSize": 100}
+        if search:
+            params["term"] = search
+        return await self._get("/crud/projecttype", params)
+
+    async def get_locations(self) -> Any:
+        """Get available locations (sedi)."""
+        return await self._get("/crud/Location", {"pageNum": 0, "pageSize": 100})
+
+    async def get_account_managers(self) -> Any:
+        """Get users that can be account managers."""
+        return await self._get("/crud/User", {"pageNum": 0, "pageSize": 100, "include": "true"})
 
     # ── Timesheets ───────────────────────────────────────
 
