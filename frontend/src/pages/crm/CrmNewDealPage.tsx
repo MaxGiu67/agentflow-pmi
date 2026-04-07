@@ -57,6 +57,11 @@ export default function CrmNewDealPage() {
   const [actTypeId, setActTypeId] = useState('')
   const [error, setError] = useState('')
 
+  // Dedup stages by name (DB may have duplicates)
+  const uniqueStages = (stages || []).filter((s: any, i: number, arr: any[]) =>
+    arr.findIndex((x: any) => x.name === s.name) === i
+  )
+
   // Auto-calc revenue for T&M
   useEffect(() => {
     if (dealType === 'T&M' && dailyRate && estimatedDays) {
@@ -98,7 +103,7 @@ export default function CrmNewDealPage() {
         daily_rate: parseFloat(dailyRate) || 0,
         estimated_days: parseFloat(estimatedDays) || 0,
         technology,
-        stage_id: stageId || stages?.find((s: any) => s.name === 'Nuovo Lead')?.id || undefined,
+        stage_id: stageId || uniqueStages.find((s: any) => s.name === 'Nuovo Lead')?.id || undefined,
         pipeline_template_id: selectedPipeline?.id || undefined,
       })
 
@@ -379,18 +384,17 @@ export default function CrmNewDealPage() {
                 className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
             </div>
 
-            {/* Stage selector */}
+            {/* Stage selector — dedup by name */}
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Fase pipeline</label>
-              <select value={stageId || stages?.find((s: any) => s.name === 'Nuovo Lead')?.id || ''} onChange={(e) => setStageId(e.target.value)}
+              <select value={stageId || uniqueStages.find((s: any) => s.name === 'Nuovo Lead')?.id || ''} onChange={(e) => setStageId(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm">
-                {stages?.map((s: any) => (
+                {uniqueStages.map((s: any) => (
                   <option key={s.id} value={s.id}>
                     {s.name} ({s.probability_default}%){s.name === 'Nuovo Lead' ? ' — default' : ''}
                   </option>
                 ))}
               </select>
-              <p className="mt-1 text-xs text-gray-400">Scegli "Prospect" se e un contatto freddo, "Nuovo Lead" se ha gia mostrato interesse</p>
             </div>
           </div>
 

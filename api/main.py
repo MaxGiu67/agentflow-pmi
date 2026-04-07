@@ -193,6 +193,42 @@ async def admin_migrate():
             except Exception as e:
                 results.append(f"ALTER: {stmt[:50]}... SKIP ({e})")
 
+    # Step 3: Dedup pipeline stages (keep first per name+tenant, reassign deals)
+    dedup_sql = """
+    WITH ranked AS (
+        SELECT id, name, tenant_id,
+               ROW_NUMBER() OVER (PARTITION BY tenant_id, name ORDER BY created_at ASC, id ASC) as rn
+        FROM crm_pipeline_stages
+    ),
+    dupes AS (
+        SELECT id FROM ranked WHERE rn > 1
+    ),
+    keeper AS (
+        SELECT DISTINCT ON (tenant_id, name) id, tenant_id, name
+        FROM crm_pipeline_stages ORDER BY tenant_id, name, created_at ASC, id ASC
+    )
+    UPDATE crm_deals SET stage_id = keeper.id
+    FROM crm_pipeline_stages s, keeper
+    WHERE crm_deals.stage_id = s.id
+      AND s.name = keeper.name AND s.tenant_id = keeper.tenant_id
+      AND crm_deals.stage_id != keeper.id;
+    """
+    dedup_delete = """
+    DELETE FROM crm_pipeline_stages WHERE id IN (
+        SELECT id FROM (
+            SELECT id, ROW_NUMBER() OVER (PARTITION BY tenant_id, name ORDER BY created_at ASC, id ASC) as rn
+            FROM crm_pipeline_stages
+        ) ranked WHERE rn > 1
+    );
+    """
+    async with engine.begin() as conn:
+        try:
+            await conn.execute(text(dedup_sql))
+            result_del = await conn.execute(text(dedup_delete))
+            results.append(f"Dedup stages: deleted {result_del.rowcount} duplicates")
+        except Exception as e:
+            results.append(f"Dedup stages: SKIP ({e})")
+
     return {"status": "migration_complete", "results": results}
 
 frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
