@@ -372,17 +372,24 @@ async def approve_offer(
             project_id = result.get("project_id") or result.get("projectId")
 
     # If we got a project_id but not from the result, try fetching the offer
+    # Portal creates the Project asynchronously, so we may need to wait and retry
     if not project_id:
-        try:
-            offer = await portal_client.get_offer(offer_id)
-            if isinstance(offer, dict):
-                project_id = offer.get("project_id") or offer.get("projectId")
-                if not project_id:
-                    proj = offer.get("Project") or offer.get("project")
-                    if isinstance(proj, dict):
-                        project_id = proj.get("id")
-        except Exception:
-            pass
+        import asyncio
+        portal_client.clear_cache()  # Ensure fresh data
+        for _attempt in range(3):
+            await asyncio.sleep(0.5)
+            try:
+                offer = await portal_client.get_offer(offer_id)
+                if isinstance(offer, dict):
+                    project_id = offer.get("project_id") or offer.get("projectId")
+                    if not project_id:
+                        proj = offer.get("Project") or offer.get("project")
+                        if isinstance(proj, dict):
+                            project_id = proj.get("id")
+                    if project_id:
+                        break
+            except Exception:
+                pass
 
     # Update deal's portal_project_id if deal_id provided
     if body.get("deal_id") and project_id:
@@ -430,8 +437,25 @@ async def create_portal_activity(
     body: dict,
     user: User = Depends(get_current_user),
 ):
-    """Create activity in Portal project."""
-    return await portal_client.create_activity(body)
+    """Create activity in Portal project.
+
+    Accepts AgentFlow field names and maps to Portal DTO:
+      name -> description, activity_type_id -> activityType_id,
+      activity_manager_id -> activityManager_id
+    Falls back to Portal field names if already provided.
+    """
+    # Map AgentFlow field names to Portal field names
+    portal_body = dict(body)
+    if "name" in portal_body and "description" not in portal_body:
+        portal_body["description"] = portal_body.pop("name")
+    if "activity_type_id" in portal_body and "activityType_id" not in portal_body:
+        portal_body["activityType_id"] = portal_body.pop("activity_type_id")
+    if "activity_manager_id" in portal_body and "activityManager_id" not in portal_body:
+        portal_body["activityManager_id"] = portal_body.pop("activity_manager_id")
+    # Default activityManager_id to AM 17 if not provided
+    if "activityManager_id" not in portal_body:
+        portal_body["activityManager_id"] = 17
+    return await portal_client.create_activity(portal_body)
 
 
 @router.post("/activities/assign")
@@ -439,8 +463,15 @@ async def assign_employee(
     body: dict,
     user: User = Depends(get_current_user),
 ):
-    """Assign employee to activity on Portal."""
-    return await portal_client.add_employee_to_activity(body)
+    """Assign employee to activity on Portal.
+
+    Accepts AgentFlow field names and maps to Portal DTO:
+      planned_days -> expectedDays
+    """
+    portal_body = dict(body)
+    if "planned_days" in portal_body and "expectedDays" not in portal_body:
+        portal_body["expectedDays"] = portal_body.pop("planned_days")
+    return await portal_client.add_employee_to_activity(portal_body)
 
 
 @router.get("/activities/{activity_id}/persons")
