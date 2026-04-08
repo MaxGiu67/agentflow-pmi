@@ -227,7 +227,6 @@ export default function CrmPipelinePage() {
     </div>
     )
   }
-  )
 
   return (
     <div className="space-y-4">
