@@ -28,13 +28,13 @@ import type { WidgetDef } from '../components/dashboard/WidgetRenderer'
 import PageHeader from '../components/ui/PageHeader'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import AIResultsPanel from '../components/dashboard/AIResultsPanel'
-import { useUIHighlights, AIHighlightTooltip } from '../context/UIHighlightContext'
+import { useUIHighlights } from '../context/UIHighlightContext'
 
 export default function DashboardPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const currentYear = new Date().getFullYear()
-  const { getHighlight, clearHighlights } = useUIHighlights()
+  const _highlights = useUIHighlights(); void _highlights
 
   // Read year from URL params (set by chatbot action) or default to current year
   const urlYear = searchParams.get('year')

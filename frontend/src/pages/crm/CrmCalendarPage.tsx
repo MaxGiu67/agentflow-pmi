@@ -24,7 +24,7 @@ const TYPE_DURATION: Record<string, number> = Object.fromEntries(ACTIVITY_TYPES.
 export default function CrmCalendarPage() {
   const { data: activities, isLoading } = useCrmActivities()
   const { data: msStatus } = useMicrosoftCalendarStatus()
-  const { getHighlight } = useUIHighlights()
+  const _hl = useUIHighlights(); void _hl
   const createActivity = useCreateCrmActivity()
   const updateActivity = useUpdateCrmActivity()
   const { data: dealsData } = useCrmDeals('', '')
