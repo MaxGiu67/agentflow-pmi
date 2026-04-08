@@ -46,7 +46,7 @@ const orbVariants = {
     transition: {
       duration: 3,
       repeat: Infinity,
-      ease: 'easeInOut',
+      ease: 'easeInOut' as const,
     },
   },
   thinking: {
@@ -55,7 +55,7 @@ const orbVariants = {
     transition: {
       duration: 0.8,
       repeat: Infinity,
-      ease: 'easeInOut',
+      ease: 'easeInOut' as const,
     },
   },
   responding: {
@@ -64,7 +64,7 @@ const orbVariants = {
     transition: {
       duration: 1.8,
       repeat: Infinity,
-      ease: 'easeInOut',
+      ease: 'easeInOut' as const,
     },
   },
   error: {
@@ -73,7 +73,7 @@ const orbVariants = {
     transition: {
       duration: 1,
       repeat: Infinity,
-      ease: 'easeInOut',
+      ease: 'easeInOut' as const,
     },
   },
 }
@@ -85,7 +85,7 @@ const ringVariants = {
     transition: {
       duration: 3,
       repeat: Infinity,
-      ease: 'easeInOut',
+      ease: 'easeInOut' as const,
     },
   },
   thinking: {
@@ -94,7 +94,7 @@ const ringVariants = {
     transition: {
       duration: 0.8,
       repeat: Infinity,
-      ease: 'easeInOut',
+      ease: 'easeInOut' as const,
     },
   },
   responding: {
@@ -103,7 +103,7 @@ const ringVariants = {
     transition: {
       duration: 1.5,
       repeat: Infinity,
-      ease: 'easeOut',
+      ease: 'easeOut' as const,
     },
   },
   error: {
@@ -112,7 +112,7 @@ const ringVariants = {
     transition: {
       duration: 1,
       repeat: Infinity,
-      ease: 'easeInOut',
+      ease: 'easeInOut' as const,
     },
   },
 }
@@ -236,7 +236,7 @@ export default function JarvisOrb({ state, size = 40, className }: JarvisOrbProp
         transition={{
           duration: rotDuration,
           repeat: Infinity,
-          ease: 'linear',
+          ease: 'linear' as const,
         }}
       >
         {DOT_OFFSETS.map((deg) => {

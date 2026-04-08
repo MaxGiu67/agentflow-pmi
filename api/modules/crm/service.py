@@ -713,7 +713,7 @@ class CRMService:
         for key, val in data.items():
             if key in allowed_fields and val is not None:
                 if key == "scheduled_at" and isinstance(val, str):
-                    val = datetime.fromisoformat(val)
+                    val = datetime.fromisoformat(val.replace('Z', '+00:00'))
                 if key == "status" and val == "completed" and activity.status != "completed":
                     activity.completed_at = datetime.utcnow()
                 setattr(activity, key, val)
