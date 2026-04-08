@@ -317,7 +317,13 @@ async def create_offer(
     user: User = Depends(get_current_user),
 ):
     """Create offer on Portal (requires human confirmation)."""
-    return await portal_client.create_offer(body)
+    try:
+        result = await portal_client.create_offer(body)
+        return result
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error("Create offer error: %s", e)
+        return {"error": str(e)}
 
 
 @router.patch("/offers/{offer_id}")

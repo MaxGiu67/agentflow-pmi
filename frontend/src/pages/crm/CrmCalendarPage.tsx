@@ -3,7 +3,7 @@ import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
-import { useCrmActivities, useCreateCrmActivity, useCrmDeals, useCrmContacts, useMicrosoftCalendarStatus } from '../../api/hooks'
+import { useCrmActivities, useCreateCrmActivity, useUpdateCrmActivity, useCrmDeals, useCrmContacts, useMicrosoftCalendarStatus } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { Link2, Phone, Video, Users, Mail, MessageSquare, ClipboardList, X, ExternalLink, Check } from 'lucide-react'
@@ -24,6 +24,7 @@ export default function CrmCalendarPage() {
   const { data: activities, isLoading } = useCrmActivities()
   const { data: msStatus } = useMicrosoftCalendarStatus()
   const createActivity = useCreateCrmActivity()
+  const updateActivity = useUpdateCrmActivity()
   const { data: dealsData } = useCrmDeals('', '')
   const { data: contactsData } = useCrmContacts('')
 
@@ -73,9 +74,28 @@ export default function CrmCalendarPage() {
     setShowCreateForm(true)
   }
 
-  // Drag to resize/move (future: update activity)
-  const handleEventDrop = (_info: any) => {
-    // TODO: update activity scheduled_at via API
+  // Drag to move — update scheduled_at directly
+  const handleEventDrop = (info: any) => {
+    const activityId = info.event.extendedProps?.id
+    if (!activityId) { info.revert(); return }
+    const newDate = info.event.start?.toISOString()
+    if (!newDate) { info.revert(); return }
+    updateActivity.mutate(
+      { activityId, scheduled_at: newDate },
+      { onError: () => info.revert() }
+    )
+  }
+
+  // Drag to resize — update scheduled_at to new start
+  const handleEventResize = (info: any) => {
+    const activityId = info.event.extendedProps?.id
+    if (!activityId) { info.revert(); return }
+    const newDate = info.event.start?.toISOString()
+    if (!newDate) { info.revert(); return }
+    updateActivity.mutate(
+      { activityId, scheduled_at: newDate },
+      { onError: () => info.revert() }
+    )
   }
 
   const handleCreate = async () => {
@@ -155,6 +175,7 @@ export default function CrmCalendarPage() {
           events={events}
           dateClick={handleDateClick}
           eventDrop={handleEventDrop}
+          eventResize={handleEventResize}
           eventClick={(info) => setSelectedEvent(info.event.extendedProps)}
           height="auto"
           allDaySlot={false}
