@@ -61,7 +61,7 @@ class ReconciliationService:
         tx_result = await self.db.execute(
             select(BankTransaction).where(
                 BankTransaction.bank_account_id.in_(account_ids),
-                not BankTransaction.reconciled,
+                BankTransaction.reconciled.is_(False),
             ).order_by(BankTransaction.date.desc())
         )
         transactions = tx_result.scalars().all()

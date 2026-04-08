@@ -151,7 +151,7 @@ class TestUS153MicrosoftOAuth:
     async def test_ac_153_3_expired_token_cleared(
         self, db_session: AsyncSession, commerciale: User,
     ):
-        """AC-153.3: Expired token with no refresh = cleared."""
+        """AC-153.3: Expired token with no refresh = returns None (reconnect needed)."""
         commerciale.microsoft_token = json.dumps({
             "access_token": "expired",
             "expires_at": (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
@@ -163,7 +163,8 @@ class TestUS153MicrosoftOAuth:
         token = await svc._get_valid_token(commerciale)
 
         assert token is None
-        assert commerciale.microsoft_token is None  # Cleared
+        # Token is NOT cleared — user can still reconnect via OAuth
+        assert commerciale.microsoft_token is not None
 
 
 # ============================================================

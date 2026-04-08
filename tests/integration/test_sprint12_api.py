@@ -205,7 +205,7 @@ MOCK_LLM_BILANCIO = [
 
 @pytest.mark.asyncio
 async def test_ac_52_1_pdf_llm_extraction(client: AsyncClient, verified_user):
-    """AC-52.1: Upload PDF bilancio → estrazione con LLM."""
+    """AC-52.1: Upload PDF bilancio → async processing returns job_id."""
     token = await get_auth_token(client, "mario.rossi@example.com", "Password1")
 
     with (
@@ -221,9 +221,9 @@ async def test_ac_52_1_pdf_llm_extraction(client: AsyncClient, verified_user):
 
     assert resp.status_code == 200
     data = resp.json()
-    assert data["extraction_method"] == "llm"
-    assert data["lines_count"] == 4
-    assert data["totale_dare"] > 0
+    # PDF imports are now async — returns job_id for polling
+    assert "job_id" in data
+    assert data["status"] == "processing"
 
 
 # ═══════════════════════════════════════════════

@@ -36,7 +36,7 @@ class TestAC211CompilaFatturaInviaSDI:
             "descrizione": "Consulenza informatica",
         }
         response = await client.post(
-            "/api/v1/invoices/active",
+            "/api/v1/invoices/active/legacy",
             json=payload,
             headers=auth_headers,
         )
@@ -58,7 +58,7 @@ class TestAC211CompilaFatturaInviaSDI:
         ALLORA stato cambia a 'sent' con sdi_id."""
         # Create invoice
         create_resp = await client.post(
-            "/api/v1/invoices/active",
+            "/api/v1/invoices/active/legacy",
             json={
                 "cliente_piva": "IT11223344556",
                 "cliente_nome": "Altro Cliente SRL",
@@ -88,7 +88,7 @@ class TestAC211CompilaFatturaInviaSDI:
         ALLORA vedo stato aggiornato in real-time."""
         # Create and send
         create_resp = await client.post(
-            "/api/v1/invoices/active",
+            "/api/v1/invoices/active/legacy",
             json={
                 "cliente_piva": "IT55566677788",
                 "cliente_nome": "Status Test SRL",
@@ -118,7 +118,7 @@ class TestAC211CompilaFatturaInviaSDI:
     ):
         """AC-21.1: L'XML generato contiene gli elementi FatturaPA obbligatori."""
         resp = await client.post(
-            "/api/v1/invoices/active",
+            "/api/v1/invoices/active/legacy",
             json={
                 "cliente_piva": "IT99887766554",
                 "cliente_nome": "XML Test SRL",
@@ -247,7 +247,7 @@ class TestAC213NumeroFatturaDuplicato:
         }
 
         resp1 = await client.post(
-            "/api/v1/invoices/active",
+            "/api/v1/invoices/active/legacy",
             json=base_payload,
             headers=auth_headers,
         )
@@ -255,7 +255,7 @@ class TestAC213NumeroFatturaDuplicato:
         num1 = resp1.json()["numero_fattura"]
 
         resp2 = await client.post(
-            "/api/v1/invoices/active",
+            "/api/v1/invoices/active/legacy",
             json={**base_payload, "importo_netto": 200.0},
             headers=auth_headers,
         )
@@ -295,7 +295,7 @@ class TestAC213NumeroFatturaDuplicato:
 
         # Create new invoice for same year
         resp = await client.post(
-            "/api/v1/invoices/active",
+            "/api/v1/invoices/active/legacy",
             json={
                 "cliente_piva": "IT55566677788",
                 "cliente_nome": "New SRL",
@@ -325,7 +325,7 @@ class TestAC214ImportoZeroNegativo:
         """AC-21.4: DATO importo zero, QUANDO creo fattura,
         ALLORA errore con suggerimento nota di credito."""
         resp = await client.post(
-            "/api/v1/invoices/active",
+            "/api/v1/invoices/active/legacy",
             json={
                 "cliente_piva": "IT00000000001",
                 "cliente_nome": "Zero Test",
@@ -346,7 +346,7 @@ class TestAC214ImportoZeroNegativo:
         """AC-21.4: DATO importo negativo, QUANDO creo fattura,
         ALLORA errore con suggerimento nota di credito."""
         resp = await client.post(
-            "/api/v1/invoices/active",
+            "/api/v1/invoices/active/legacy",
             json={
                 "cliente_piva": "IT00000000002",
                 "cliente_nome": "Negative Test",
@@ -376,7 +376,7 @@ class TestAC215NotaDiCredito:
         ALLORA XML con TD04 e riferimento fattura originale."""
         # First create the original invoice
         orig_resp = await client.post(
-            "/api/v1/invoices/active",
+            "/api/v1/invoices/active/legacy",
             json={
                 "cliente_piva": "IT77788899900",
                 "cliente_nome": "NC Test SRL",
@@ -391,7 +391,7 @@ class TestAC215NotaDiCredito:
 
         # Create credit note referencing original
         nc_resp = await client.post(
-            "/api/v1/invoices/active",
+            "/api/v1/invoices/active/legacy",
             json={
                 "cliente_piva": "IT77788899900",
                 "cliente_nome": "NC Test SRL",
@@ -421,7 +421,7 @@ class TestAC215NotaDiCredito:
     ):
         """AC-21.5: Le note di credito hanno numerazione separata (NC-)."""
         nc_resp = await client.post(
-            "/api/v1/invoices/active",
+            "/api/v1/invoices/active/legacy",
             json={
                 "cliente_piva": "IT88899900011",
                 "cliente_nome": "NC Numbering SRL",

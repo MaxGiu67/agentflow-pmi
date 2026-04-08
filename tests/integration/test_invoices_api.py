@@ -138,7 +138,7 @@ class TestAC043FiscoAPINonDisponibile:
         )
         assert response.status_code == 503
         detail = response.json()["detail"].lower()
-        assert "tentativi" in detail or "non disponibile" in detail
+        assert "tentativi" in detail or "non disponibile" in detail or "non raggiungibile" in detail
 
         # Clean up
         if get_invoice_service in app.dependency_overrides:

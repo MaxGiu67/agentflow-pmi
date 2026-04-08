@@ -142,7 +142,71 @@ class InvoiceService:
                 logger.error("FiscoAPI real sync failed: %s", e)
                 raise ValueError(f"Errore sync cassetto fiscale: {e}") from e
 
-        raise ValueError("FiscoAPI non configurato. Contatta il supporto.")
+        # Fallback to mock FiscoAPI client (dev/test mode)
+        if not self.fiscoapi:
+            raise ValueError("FiscoAPI non configurato. Contatta il supporto.")
+
+        try:
+            raw_invoices = await self.fiscoapi.sync_invoices(
+                token=user.spid_token,
+                from_date=from_date,
+            )
+        except ConnectionError:
+            raise
+        except ValueError:
+            raise
+
+        new_count = 0
+        dup_count = 0
+        for raw in raw_invoices:
+            # Dedup check
+            existing = await self.db.execute(
+                select(Invoice).where(
+                    and_(
+                        Invoice.tenant_id == user.tenant_id,
+                        Invoice.numero_fattura == raw.get("numero_fattura", ""),
+                        Invoice.emittente_piva == raw.get("emittente_piva", ""),
+                    )
+                )
+            )
+            if existing.scalar_one_or_none():
+                dup_count += 1
+                continue
+
+            raw_date = raw.get("data_fattura")
+            if isinstance(raw_date, str):
+                raw_date = date.fromisoformat(raw_date)
+
+            invoice = Invoice(
+                tenant_id=user.tenant_id,
+                type="passiva",
+                document_type=raw.get("document_type", raw.get("tipo_documento", "TD01")),
+                source="cassetto_fiscale",
+                numero_fattura=raw.get("numero_fattura", ""),
+                emittente_piva=raw.get("emittente_piva", ""),
+                emittente_nome=raw.get("emittente_nome", ""),
+                data_fattura=raw_date,
+                importo_netto=raw.get("importo_netto"),
+                importo_iva=raw.get("importo_iva"),
+                importo_totale=raw.get("importo_totale"),
+                raw_xml=raw.get("raw_xml"),
+                processing_status="pending",
+            )
+            self.db.add(invoice)
+            new_count += 1
+
+        await self.db.flush()
+
+        total = new_count + dup_count
+        return {
+            "downloaded": total,
+            "new": new_count,
+            "duplicates": dup_count,
+            "errors": 0,
+            "message": f"Sync completato: {new_count} nuove fatture da cassetto fiscale."
+            if new_count
+            else "Nessuna nuova fattura trovata.",
+        }
 
     async def get_invoices(
         self,

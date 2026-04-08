@@ -469,7 +469,7 @@ class ActiveInvoiceService:
             dettaglio_xml += f"""
       <DettaglioLinee>
         <NumeroLinea>{i}</NumeroLinea>
-        <Descrizione>{escape(linea['descrizione'][:1000])}</Descrizione>
+        <Descrizione>{escape((linea.get('descrizione') or 'Prestazione')[:1000])}</Descrizione>
         <Quantita>{qta:.2f}</Quantita>{um_xml}
         <PrezzoUnitario>{prezzo:.2f}</PrezzoUnitario>
         <PrezzoTotale>{prezzo_totale:.2f}</PrezzoTotale>

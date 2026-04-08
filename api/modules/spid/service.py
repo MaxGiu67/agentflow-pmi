@@ -111,7 +111,13 @@ class SpidService:
         token_valid = await self.fiscoapi.check_token_validity(user.spid_token)
 
         # Check expiration
-        if user.spid_token_expires_at and user.spid_token_expires_at < datetime.now(UTC).replace(tzinfo=None):
+        expires = user.spid_token_expires_at
+        now_utc = datetime.now(UTC)
+        # Normalize both to naive for comparison (SQLite stores naive)
+        if expires and expires.tzinfo is not None:
+            expires = expires.replace(tzinfo=None)
+        now_naive = now_utc.replace(tzinfo=None)
+        if expires and expires < now_naive:
             token_valid = False
 
         if not token_valid:
