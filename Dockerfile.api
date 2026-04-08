@@ -8,7 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends poppler-utils &
 RUN pip install --no-cache-dir fastapi uvicorn[standard] sqlalchemy[asyncio] asyncpg \
     alembic pydantic pydantic-settings python-jose[cryptography] passlib[bcrypt] \
     redis celery httpx python-multipart itsdangerous email-validator resend \
-    langgraph langchain-core langchain-anthropic openai reportlab PyJWT
+    langgraph langchain-core langchain-anthropic openai reportlab PyJWT \
+    boto3 python-docx
 
 COPY api/ ./api/
 COPY pyproject.toml ./

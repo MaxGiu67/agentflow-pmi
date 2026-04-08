@@ -7,7 +7,7 @@ import {
   useCreatePortalOffer, usePortalStatus,
   usePortalProjectTypes, usePortalLocations, usePortalAccountManagers,
   usePortalProtocolByCustomer, useMyPortalAccountManager,
-  useDealProject, useAssignPortalEmployee, usePortalPersons, useDealProgress,
+  useDealProject, usePortalPersons, useDealProgress,
   usePipelineTemplates, useUpdateCrmDeal,
   useDealResources, useAddDealResource, useUpdateDealResource, useRemoveDealResource,
   useDealRequiresResources,
@@ -23,6 +23,7 @@ import {
   Plus, Phone, Video, Calendar, MessageSquare, Activity, Pencil, Building2,
   FileText, Trash2, Send, Loader2, Upload, Users, X, Download, Save, ChevronUp,
 } from 'lucide-react'
+import { useUIHighlights, AIHighlightTooltip } from '../../context/UIHighlightContext'
 
 const ORDER_TYPES = [
   { value: 'po', label: 'Purchase Order (PO)' },
@@ -68,8 +69,6 @@ export default function CrmDealDetailPage() {
   const { data: myAccountManager } = useMyPortalAccountManager()
   const { data: autoProtocol } = usePortalProtocolByCustomer(deal?.portal_customer_id || undefined)
   const { data: dealProject } = useDealProject(id, deal?.portal_project_id || undefined)
-  const assignEmployee = useAssignPortalEmployee()
-  const { data: portalPersons } = usePortalPersons('')
   const { data: dealProgressData } = useDealProgress(id, deal?.portal_project_id || undefined)
 
   // New workflow hooks
@@ -92,6 +91,15 @@ export default function CrmDealDetailPage() {
   const updateDealResource = useUpdateDealResource()
   const removeDealResource = useRemoveDealResource()
   const [personSearch, setPersonSearch] = useState('')
+
+  // Sprint 46-47: AI highlights
+  const { getHighlight, clearHighlights } = useUIHighlights()
+  const dealHL = getHighlight('deal', id)
+  const offerSectionHL = getHighlight('section', 'offer')
+  const resourcesSectionHL = getHighlight('section', 'resources')
+  const activitiesSectionHL = getHighlight('section', 'activities')
+  const createOfferBtnHL = getHighlight('button', 'create-offer')
+  const stageHL = deal?.stage ? getHighlight('stage', deal.stage) : undefined
   const { data: searchedPersons } = usePortalPersons(personSearch)
 
   const [showOrderForm, setShowOrderForm] = useState(false)
@@ -121,8 +129,6 @@ export default function CrmDealDetailPage() {
     project_type_id: '', location_id: '', accountManager_id: '', protocol: '',
     outcome_type: 'W', deadline_date: '', noCollective: false,
   })
-  const [showAssignForm, setShowAssignForm] = useState(false)
-  const [assignForm, setAssignForm] = useState({ activity_id: '', person_id: '' })
 
   // Workflow: Approve Offer -> Commessa
   const [showApproveForm, setShowApproveForm] = useState(false)
@@ -385,7 +391,9 @@ export default function CrmDealDetailPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-teal-600" />
-              <h3 className="text-sm font-semibold uppercase text-teal-600">Risorse</h3>
+              <h3 className={`text-sm font-semibold uppercase text-teal-600 ${resourcesSectionHL ? 'ai-highlight-badge' : ''}`}
+                style={resourcesSectionHL ? { '--ai-color': resourcesSectionHL.color } as React.CSSProperties : undefined}>Risorse</h3>
+              {resourcesSectionHL && <AIHighlightTooltip highlight={resourcesSectionHL} onDismiss={clearHighlights} />}
             </div>
             <button onClick={() => { setShowResourceForm(!showResourceForm); setPersonSearch('') }}
               className="inline-flex items-center gap-1 rounded-lg bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 hover:bg-teal-100">
@@ -713,7 +721,8 @@ export default function CrmDealDetailPage() {
 
       {/* ── OPERATIVO PORTAL: Full Workflow (Offerta -> Commessa -> Attivita -> Dipendente) ── */}
       {portalStatus?.enabled && (
-        <div className="rounded-2xl border border-indigo-200 bg-indigo-50/30 p-6 space-y-5">
+        <div className={`rounded-2xl border border-indigo-200 bg-indigo-50/30 p-6 space-y-5 ${offerSectionHL ? (offerSectionHL.style === 'glow' ? 'ai-highlight-glow' : 'ai-highlight-pulse') : ''}`}
+          style={offerSectionHL ? { '--ai-color': offerSectionHL.color } as React.CSSProperties : undefined}>
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-semibold uppercase text-indigo-500">Operativo Portal</h3>
@@ -745,9 +754,11 @@ export default function CrmDealDetailPage() {
                   })
                   setShowOfferForm(true)
                 }}
-                  className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">
+                  className={`inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 ${createOfferBtnHL ? 'ai-highlight-glow' : ''}`}
+                  style={createOfferBtnHL ? { '--ai-color': createOfferBtnHL.color } as React.CSSProperties : undefined}>
                   <Send className="h-3 w-3" /> Crea Offerta
                 </button>
+                {createOfferBtnHL && <AIHighlightTooltip highlight={createOfferBtnHL} onDismiss={clearHighlights} />}
               </div>
             </div>
           )}
