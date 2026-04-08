@@ -10,6 +10,7 @@ import PageHeader from '../../components/ui/PageHeader'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
 import { Briefcase, Plus, Eye, LayoutGrid, List, User, Clock, Search, X } from 'lucide-react'
+import { useUIHighlights, AIHighlightTooltip } from '../../context/UIHighlightContext'
 
 const DEAL_TYPE_SHORT: Record<string, string> = {
   'T&M': 'T&M',
@@ -34,6 +35,7 @@ export default function CrmPipelinePage() {
   const { data: activityTypes } = useActivityTypes(true)
   const createActivity = useCreateCrmActivity()
   const { data: pipelineTemplates } = usePipelineTemplates()
+  const { getHighlight, clearHighlights } = useUIHighlights()
 
   // Stage move dialog
   const [moveDialog, setMoveDialog] = useState<{ dealId: string; dealName: string; contactId?: string; fromStage: string; toStageId: string; toStageName: string } | null>(null)
@@ -163,10 +165,18 @@ export default function CrmPipelinePage() {
   }
 
   // ── Reusable Kanban column + card renderer ──
-  const renderKanbanColumn = (stage: any, stageDeals: any[], stageTotal: number) => (
+  const renderKanbanColumn = (stage: any, stageDeals: any[], stageTotal: number) => {
+    const stageHL = getHighlight('stage', stage.name)
+    const stageClass = stageHL
+      ? `flex w-64 flex-none flex-col rounded-xl bg-gray-50 ${stageHL.style === 'glow' ? 'ai-highlight-glow' : 'ai-highlight-pulse'}`
+      : 'flex w-64 flex-none flex-col rounded-xl bg-gray-50'
+    const stageStyle = stageHL ? { '--ai-color': stageHL.color } as React.CSSProperties : undefined
+
+    return (
     <div
       key={stage.id}
-      className="flex w-64 flex-none flex-col rounded-xl bg-gray-50"
+      className={stageClass}
+      style={stageStyle}
       onDragOver={handleDragOver}
       onDrop={(e) => handleDrop(e, stage.id, stage.name)}
     >
@@ -179,10 +189,18 @@ export default function CrmPipelinePage() {
           {stageDeals.length}
         </span>
       </div>
+      {stageHL && <AIHighlightTooltip highlight={stageHL} onDismiss={clearHighlights} />}
       <div className="flex-1 space-y-1.5 overflow-y-auto px-1.5 py-1.5" style={{ maxHeight: 400 }}>
-        {stageDeals.map((deal: any) => (
+        {stageDeals.map((deal: any) => {
+          const dealHL = getHighlight('deal', deal.id)
+          const dealClass = dealHL
+            ? `cursor-grab rounded-lg border bg-white p-2.5 shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing ${dealHL.style === 'glow' ? 'ai-highlight-glow' : 'ai-highlight-pulse'}`
+            : 'cursor-grab rounded-lg border border-gray-200 bg-white p-2.5 shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing'
+          const dealStyle = dealHL ? { '--ai-color': dealHL.color } as React.CSSProperties : undefined
+
+          return (
           <div key={deal.id} draggable onDragStart={(e) => handleDragStart(e, deal.id)} onDragEnd={handleDragEnd}
-            className="cursor-grab rounded-lg border border-gray-200 bg-white p-2.5 shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing">
+            className={dealClass} style={dealStyle}>
             <button onClick={() => navigate(`/crm/deals/${deal.id}`)}
               className="text-left text-xs font-medium text-gray-900 hover:text-blue-600 line-clamp-2">{deal.name}</button>
             {deal.client_name && <p className="mt-0.5 text-[10px] text-gray-500">{deal.client_name}</p>}
@@ -194,6 +212,7 @@ export default function CrmPipelinePage() {
               {deal.assigned_to_name && <span className="flex items-center gap-0.5"><User className="h-2.5 w-2.5" /> {deal.assigned_to_name}</span>}
               {deal.days_in_stage != null && <span className="flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {deal.days_in_stage}gg</span>}
             </div>
+            {dealHL && <AIHighlightTooltip highlight={dealHL} onDismiss={clearHighlights} />}
             <div className="mt-1.5">
               <button onClick={() => navigate(`/crm/deals/${deal.id}`)}
                 className="inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-medium text-blue-700 hover:bg-blue-100">
@@ -201,10 +220,13 @@ export default function CrmPipelinePage() {
               </button>
             </div>
           </div>
-        ))}
+          )
+        })}
         {stageDeals.length === 0 && <div className="py-6 text-center text-[10px] text-gray-300">Trascina qui un deal</div>}
       </div>
     </div>
+    )
+  }
   )
 
   return (

@@ -6,6 +6,7 @@ import ProtectedRoute from './components/ui/ProtectedRoute'
 import AppLayout from './components/layout/AppLayout'
 import InstallPrompt from './components/pwa/InstallPrompt'
 import OfflineIndicator from './components/pwa/OfflineIndicator'
+import { UIHighlightProvider } from './context/UIHighlightContext'
 
 // Public pages (eagerly loaded)
 import LandingPage from './pages/LandingPage'
@@ -105,6 +106,7 @@ setQueryClient(queryClient)
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <UIHighlightProvider>
       <OfflineIndicator />
       <InstallPrompt />
       <BrowserRouter>
@@ -236,6 +238,7 @@ export default function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      </UIHighlightProvider>
     </QueryClientProvider>
   )
 }

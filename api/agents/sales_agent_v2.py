@@ -46,6 +46,14 @@ from api.agents.tools.offer_generator import (
     list_placeholders,
 )
 
+# Sprint 46-47: Import real wired tools
+from api.agents.tools.crm_tools import (
+    CRM_TOOLS as WIRED_CRM_TOOLS,
+    set_tool_context,
+)
+from api.agents.tools.portal_tools import PORTAL_TOOLS as WIRED_PORTAL_TOOLS
+from api.agents.tools.offer_tools import OFFER_TOOLS as WIRED_OFFER_TOOLS
+
 logger = logging.getLogger(__name__)
 
 # ── Models ──────────────────────────────────────────────
@@ -81,6 +89,19 @@ class RiskLevel(str, Enum):
     HIGH = "high"
 
 
+class UIAction(BaseModel):
+    """A UI highlight action — instructs the frontend to visually guide the user.
+
+    Sprint 46-47: The agent can "point at" elements in the UI.
+    """
+    type: str = "highlight"  # highlight, navigate, scroll
+    target: str = ""  # deal, stage, contact, activity, section, button, kpi
+    id: str = ""  # entity UUID or section name
+    style: str = "pulse-border"  # pulse-border, glow, badge
+    color: str = "#8b5cf6"  # purple by default
+    tooltip: str = ""  # explanatory text shown on hover
+
+
 class AgentState(BaseModel):
     """State passed through the LangGraph nodes."""
 
@@ -97,205 +118,35 @@ class AgentState(BaseModel):
     needs_human_confirmation: bool = False
     human_confirmed: bool = False
     needs_offer_writing: bool = False
+    # Sprint 46-47: UI highlight actions
+    ui_actions: list[dict[str, Any]] = Field(default_factory=list)
     # Output
     offer_output_path: str = ""
     final_response: str = ""
 
 
 # ── Tool Definitions (25+ tools in 4 categories) ───────
+#
+# Sprint 46-47: CRM Core, Portal, and Offer tools are now wired to real
+# services via dedicated modules. Only Search/Intelligence tools remain
+# defined here (they use portal_client directly and need no DB session).
+#
 
+# ---- Category 1: CRM Core (8 tools) — WIRED via crm_tools.py ----
+# Imported from api.agents.tools.crm_tools: crm_get_deal, crm_list_deals,
+# crm_update_deal, crm_move_stage, crm_pipeline_summary, crm_list_contacts,
+# crm_create_activity, crm_get_activities
 
-# ---- Category 1: CRM Core (8 tools) ----
+# ---- Category 2: Portal Integration (10 tools) — WIRED via portal_tools.py ----
+# Imported from api.agents.tools.portal_tools: portal_search_persons,
+# portal_get_projects, portal_get_project_detail, portal_get_customers,
+# portal_get_offers, portal_get_timesheets, portal_create_offer,
+# portal_approve_offer, portal_create_activity, portal_assign_employee
 
-@tool
-async def crm_get_deal_summary(deal_id: str) -> dict:
-    """Get full summary of a CRM deal: company, product, stage, activities, missing info."""
-    # Delegates to CRM service (injected at runtime via db session)
-    return {"tool": "crm_get_deal_summary", "deal_id": deal_id, "status": "pending_integration"}
+# ---- Category 3: Offer Generation (2 tools) — WIRED via offer_tools.py ----
+# Imported from api.agents.tools.offer_tools: generate_offer_doc, calc_margin
 
-
-@tool
-async def crm_list_deals(stage: str = "", pipeline_type: str = "", limit: int = 20) -> dict:
-    """List CRM deals with optional filtering by stage or pipeline type."""
-    return {"tool": "crm_list_deals", "stage": stage, "pipeline_type": pipeline_type, "limit": limit}
-
-
-@tool
-async def crm_move_deal_stage(deal_id: str, target_stage: str) -> dict:
-    """Move a deal to a new pipeline stage. HIGH RISK: requires human confirmation."""
-    return {"tool": "crm_move_deal_stage", "deal_id": deal_id, "target_stage": target_stage, "risk": "high"}
-
-
-@tool
-async def crm_log_activity(
-    deal_id: str,
-    activity_type: str,
-    subject: str,
-    notes: str = "",
-) -> dict:
-    """Log an activity (call, meeting, email, task, note) on a deal."""
-    return {
-        "tool": "crm_log_activity",
-        "deal_id": deal_id,
-        "type": activity_type,
-        "subject": subject,
-        "notes": notes,
-    }
-
-
-@tool
-async def crm_pipeline_summary(pipeline_type: str = "") -> dict:
-    """Get weighted pipeline summary: deals per stage, total value, conversion rates."""
-    return {"tool": "crm_pipeline_summary", "pipeline_type": pipeline_type}
-
-
-@tool
-async def crm_list_contacts(search: str = "", company_id: str = "") -> dict:
-    """Search CRM contacts by name, email, or company."""
-    return {"tool": "crm_list_contacts", "search": search, "company_id": company_id}
-
-
-@tool
-async def crm_ask_missing_info(deal_id: str, current_stage: str) -> dict:
-    """Given the deal's current stage, identify required fields still missing."""
-    return {"tool": "crm_ask_missing_info", "deal_id": deal_id, "stage": current_stage}
-
-
-@tool
-async def crm_classify_loss(deal_id: str, reason: str, notes: str = "") -> dict:
-    """Classify a lost deal with reason (price, timing, competitor, no-fit, other)."""
-    return {"tool": "crm_classify_loss", "deal_id": deal_id, "reason": reason, "notes": notes}
-
-
-# ---- Category 2: Portal Integration (8 tools) ----
-
-@tool
-async def portal_search_resources(
-    skill: str = "",
-    seniority: str = "",
-    available_only: bool = True,
-) -> dict:
-    """Search Portal for resources by skill, seniority, and availability.
-    Returns matching persons with employment contracts and project assignments."""
-    persons = await portal_client.get_persons(search=skill)
-    data = persons.get("data", []) if isinstance(persons, dict) else []
-    results = []
-    for p in data:
-        person_info = {
-            "id": p.get("id"),
-            "name": f"{p.get('firstName', '')} {p.get('lastName', '')}".strip(),
-            "email": p.get("email", ""),
-            "contracts": p.get("EmploymentContracts", []),
-        }
-        if seniority:
-            # Filter by seniority in contract title or role
-            person_info["seniority_filter"] = seniority
-        results.append(person_info)
-    return {"tool": "portal_search_resources", "results": results[:20], "total": len(data)}
-
-
-@tool
-async def portal_get_projects(search: str = "") -> dict:
-    """List Portal projects (commesse), optionally filtered by name."""
-    projects = await portal_client.get_projects(search=search)
-    return {"tool": "portal_get_projects", "data": projects}
-
-
-@tool
-async def portal_get_project_detail(project_id: int) -> dict:
-    """Get detailed info on a Portal project including activities and assigned resources."""
-    project = await portal_client.get_project(project_id)
-    return {"tool": "portal_get_project_detail", "data": project}
-
-
-@tool
-async def portal_get_customers(search: str = "") -> dict:
-    """Search Portal customers by name or code."""
-    customers = await portal_client.get_customers(search=search)
-    return {"tool": "portal_get_customers", "data": customers}
-
-
-@tool
-async def portal_create_offer(
-    customer_id: int,
-    project_name: str,
-    billing_type: str = "Daily",
-    account_manager_email: str = "",
-) -> dict:
-    """Create an offer on Portal. HIGH RISK: requires human confirmation.
-    Billing types: Daily (T&M), LumpSum (corpo), None."""
-    # Get auto-generated protocol
-    protocol = await portal_client.get_protocol_by_customer_id(customer_id)
-    # Find account manager
-    am = None
-    if account_manager_email:
-        am = await portal_client.find_account_manager_by_email(account_manager_email)
-    return {
-        "tool": "portal_create_offer",
-        "customer_id": customer_id,
-        "project_name": project_name,
-        "billing_type": billing_type,
-        "protocol": protocol,
-        "account_manager": am,
-        "risk": "high",
-    }
-
-
-@tool
-async def portal_get_offers(search: str = "") -> dict:
-    """List offers from Portal, optionally filtered by search term."""
-    offers = await portal_client.get_offers(search=search)
-    return {"tool": "portal_get_offers", "data": offers}
-
-
-@tool
-async def portal_assign_resource(
-    activity_id: int,
-    person_id: int,
-) -> dict:
-    """Assign a resource (person) to a project activity. HIGH RISK: requires human confirmation."""
-    return {
-        "tool": "portal_assign_resource",
-        "activity_id": activity_id,
-        "person_id": person_id,
-        "risk": "high",
-    }
-
-
-@tool
-async def portal_get_timesheets(project_id: int | None = None) -> dict:
-    """Get timesheets, optionally for a specific project, to check resource utilization."""
-    timesheets = await portal_client.get_timesheets()
-    return {"tool": "portal_get_timesheets", "data": timesheets}
-
-
-# ---- Category 3: Offer Generation (4 tools) ----
-
-@tool
-async def generate_offer_doc(
-    offer_type: str,
-    replacements: dict[str, str],
-    output_filename: str = "",
-) -> dict:
-    """Generate a Word (.docx) offer document from template. HIGH RISK: requires confirmation.
-
-    offer_type: 'tm' for Time & Material, 'corpo' for fixed-price project.
-    replacements: dict of placeholder name -> value. See KNOWN_PLACEHOLDERS.
-    output_filename: optional custom filename (default: auto-generated from protocol).
-    """
-    if not output_filename:
-        proto = replacements.get("PROTOCOLLO", "draft")
-        output_filename = f"Offerta_{proto.replace('.', '_')}.docx"
-
-    output_dir = Path("generated_offers")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / output_filename
-
-    result = generate_offer_document(replacements, output_path)
-    result["offer_type"] = offer_type
-    result["risk"] = "high"
-    return result
-
+# Additional offer tools that don't need DB (kept inline)
 
 @tool
 async def list_offer_placeholders() -> dict:
@@ -309,26 +160,6 @@ async def list_offer_placeholders() -> dict:
 
 
 @tool
-async def calc_margin(daily_rate: float, daily_cost: float) -> dict:
-    """Calculate margin for a T&M resource. Warns if margin < 15%."""
-    if daily_rate <= 0:
-        return {"error": "daily_rate must be positive"}
-    margin = (daily_rate - daily_cost) / daily_rate
-    margin_pct = round(margin * 100, 1)
-    warning = None
-    if margin_pct < 15:
-        warning = f"Margine sotto soglia ({margin_pct}%). Rivedi la tariffa o chiedi approvazione."
-    return {
-        "tool": "calc_margin",
-        "daily_rate": daily_rate,
-        "daily_cost": daily_cost,
-        "margin_pct": margin_pct,
-        "margin_abs": round(daily_rate - daily_cost, 2),
-        "warning": warning,
-    }
-
-
-@tool
 async def estimate_effort(
     scope_description: str,
     team_size: int = 2,
@@ -336,15 +167,13 @@ async def estimate_effort(
 ) -> dict:
     """Estimate effort in person-days for a fixed-price project scope.
     complexity: low, medium, high. Returns estimate range."""
-    # Heuristic base, refined by LLM in responder
     multipliers = {"low": 0.7, "medium": 1.0, "high": 1.5}
     mult = multipliers.get(complexity, 1.0)
-    # Base estimate from description length as rough proxy
     words = len(scope_description.split())
     base_days = max(10, min(words // 3, 200))
     low_est = int(base_days * mult * 0.8)
     high_est = int(base_days * mult * 1.3)
-    duration_months = round(high_est / (team_size * 20), 1)  # 20 working days/month
+    duration_months = round(high_est / (team_size * 20), 1)
     return {
         "tool": "estimate_effort",
         "low_days": low_est,
@@ -514,33 +343,13 @@ async def check_bench() -> dict:
 
 # ── Tool Registry ───────────────────────────────────────
 
-# Tools organized by category with risk level
-CRM_CORE_TOOLS = [
-    crm_get_deal_summary,
-    crm_list_deals,
-    crm_move_deal_stage,
-    crm_log_activity,
-    crm_pipeline_summary,
-    crm_list_contacts,
-    crm_ask_missing_info,
-    crm_classify_loss,
-]
+# Sprint 46-47: CRM, Portal, and Offer tools are now wired to real services
+CRM_CORE_TOOLS = WIRED_CRM_TOOLS
 
-PORTAL_TOOLS = [
-    portal_search_resources,
-    portal_get_projects,
-    portal_get_project_detail,
-    portal_get_customers,
-    portal_create_offer,
-    portal_get_offers,
-    portal_assign_resource,
-    portal_get_timesheets,
-]
+PORTAL_TOOLS = WIRED_PORTAL_TOOLS
 
-OFFER_TOOLS = [
-    generate_offer_doc,
+OFFER_TOOLS = WIRED_OFFER_TOOLS + [
     list_offer_placeholders,
-    calc_margin,
     estimate_effort,
 ]
 
@@ -556,28 +365,32 @@ ALL_TOOLS = CRM_CORE_TOOLS + PORTAL_TOOLS + OFFER_TOOLS + SEARCH_TOOLS
 
 # Risk classification for human-in-the-loop
 HIGH_RISK_TOOLS = {
-    "crm_move_deal_stage",
+    "crm_move_stage",
+    "crm_update_deal",
     "portal_create_offer",
-    "portal_assign_resource",
+    "portal_approve_offer",
+    "portal_assign_employee",
     "generate_offer_doc",
 }
 
 MEDIUM_RISK_TOOLS = {
     "generate_email_draft",
-    "crm_log_activity",
+    "crm_create_activity",
+    "portal_create_activity",
 }
 
 # Pipeline-specific tool filtering
 PIPELINE_TOOL_FILTER: dict[str, set[str]] = {
     "vendita_diretta": {
         "match_resources", "calc_margin", "generate_offer_doc",
-        "check_bench", "portal_search_resources", "portal_assign_resource",
+        "check_bench", "portal_search_persons", "portal_assign_employee",
     },
     "progetto_corpo": {
         "estimate_effort", "generate_offer_doc", "portal_create_offer",
+        "portal_approve_offer",
     },
     "social_selling": {
-        "detect_cross_sell", "portal_search_resources",
+        "detect_cross_sell", "portal_search_persons",
         "generate_email_draft", "suggest_next_action",
     },
 }
@@ -821,10 +634,135 @@ async def human_gate_node(state: AgentState) -> dict:
     return {}
 
 
+def _extract_ui_actions(state: AgentState) -> list[dict[str, Any]]:
+    """Extract UI highlight actions from tool results in messages.
+
+    Sprint 46-47: Auto-generate highlight actions when the agent mentions
+    deals, contacts, stages, resources so the frontend can visually guide
+    the user.
+    """
+    actions: list[dict[str, Any]] = []
+
+    for msg in state.messages:
+        if not isinstance(msg, ToolMessage):
+            continue
+
+        content = msg.content if isinstance(msg.content, str) else str(msg.content)
+
+        # Parse tool result if it looks like a dict string
+        try:
+            import ast
+            data = ast.literal_eval(content)
+        except (ValueError, SyntaxError):
+            continue
+
+        if not isinstance(data, dict):
+            continue
+
+        # Pipeline summary → highlight stages with deals
+        if "by_stage" in data:
+            for stage_name, info in data.get("by_stage", {}).items():
+                count = info.get("count", 0) if isinstance(info, dict) else 0
+                if count > 0:
+                    actions.append({
+                        "type": "highlight",
+                        "target": "stage",
+                        "id": stage_name,
+                        "style": "glow",
+                        "color": "#3b82f6",
+                        "tooltip": f"{count} deal, EUR {info.get('value', 0):,.0f}",
+                    })
+
+        # Deal list → highlight each deal
+        if "deals" in data and isinstance(data["deals"], list):
+            for deal in data["deals"][:5]:
+                if isinstance(deal, dict) and deal.get("id"):
+                    actions.append({
+                        "type": "highlight",
+                        "target": "deal",
+                        "id": deal["id"],
+                        "style": "pulse-border",
+                        "color": "#8b5cf6",
+                        "tooltip": f"{deal.get('name', '')} — {deal.get('stage', '')}",
+                    })
+
+        # Single deal → highlight sections
+        deal_id = data.get("deal_id") or data.get("id")
+        if deal_id and data.get("name") and "expected_revenue" in data:
+            # It's a deal detail
+            if data.get("warning"):
+                actions.append({
+                    "type": "highlight",
+                    "target": "deal",
+                    "id": str(deal_id),
+                    "style": "pulse-border",
+                    "color": "#ef4444",
+                    "tooltip": data["warning"],
+                })
+
+        # Offer creation → highlight create-offer button
+        if data.get("action") == "create_offer" or data.get("requires_confirmation"):
+            actions.append({
+                "type": "highlight",
+                "target": "button",
+                "id": "create-offer",
+                "style": "glow",
+                "color": "#10b981",
+                "tooltip": "Pronto per creare l'offerta",
+            })
+
+        # Resource search → highlight resources section
+        if "results" in data and data.get("search_query"):
+            for person in (data.get("results") or [])[:3]:
+                if isinstance(person, dict) and person.get("id"):
+                    actions.append({
+                        "type": "highlight",
+                        "target": "contact",
+                        "id": str(person["id"]),
+                        "style": "pulse-border",
+                        "color": "#8b5cf6",
+                        "tooltip": f"{person.get('name', '')}",
+                    })
+            if state.deal_context.get("deal_id"):
+                actions.append({
+                    "type": "highlight",
+                    "target": "section",
+                    "id": "resources",
+                    "style": "glow",
+                    "color": "#8b5cf6",
+                    "tooltip": f"Risorse trovate per '{data['search_query']}'",
+                })
+
+        # Margin warning → highlight KPI
+        if data.get("margin_pct") is not None and data.get("warning"):
+            actions.append({
+                "type": "highlight",
+                "target": "kpi",
+                "id": "margin",
+                "style": "pulse-border",
+                "color": "#ef4444",
+                "tooltip": data["warning"],
+            })
+
+        # Stage move → highlight the new stage
+        if data.get("status") == "moved" and data.get("new_stage"):
+            actions.append({
+                "type": "highlight",
+                "target": "stage",
+                "id": data["new_stage"],
+                "style": "glow",
+                "color": "#10b981",
+                "tooltip": f"Deal spostato in {data['new_stage']}",
+            })
+
+    return actions
+
+
 async def responder_node(state: AgentState) -> dict:
     """Synthesize tool results into a final user-facing response.
 
     Uses Claude Sonnet 4 to format results conversationally.
+    Also extracts UI highlight actions from tool results.
     """
     llm = _get_router_llm()
 
@@ -838,7 +776,14 @@ async def responder_node(state: AgentState) -> dict:
     messages = [SystemMessage(content=system)] + list(state.messages)
     response = await llm.ainvoke(messages)
 
-    return {"messages": [response], "final_response": response.content}
+    # Sprint 46-47: Extract UI highlight actions from tool results
+    ui_actions = _extract_ui_actions(state)
+
+    return {
+        "messages": [response],
+        "final_response": response.content,
+        "ui_actions": ui_actions,
+    }
 
 
 # ── Routing Logic ───────────────────────────────────────
@@ -936,6 +881,10 @@ async def invoke_sales_agent_v2(
     Returns:
         dict with "response" (str) and "state" (full AgentState for inspection)
     """
+    # Sprint 46-47: Set tool context so CRM tools know the tenant
+    if tenant_id:
+        set_tool_context(tenant_id=tenant_id, user_name=user_name)
+
     messages: list[BaseMessage] = list(history or [])
     messages.append(HumanMessage(content=message))
 
@@ -957,7 +906,11 @@ async def invoke_sales_agent_v2(
                 final = msg.content
                 break
 
+    # Sprint 46-47: Extract UI actions from state
+    ui_actions = result.get("ui_actions", [])
+
     return {
         "response": final,
         "state": result,
+        "ui_actions": ui_actions,
     }

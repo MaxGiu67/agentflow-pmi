@@ -7,6 +7,7 @@ import { useCrmActivities, useCreateCrmActivity, useUpdateCrmActivity, useCrmDea
 import PageHeader from '../../components/ui/PageHeader'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { Link2, Phone, Video, Users, Mail, MessageSquare, ClipboardList, X, ExternalLink, Check } from 'lucide-react'
+import { useUIHighlights } from '../../context/UIHighlightContext'
 
 const ACTIVITY_TYPES = [
   { value: 'call', label: 'Chiamata', icon: Phone, color: '#3b82f6', duration: 30 },
@@ -23,6 +24,7 @@ const TYPE_DURATION: Record<string, number> = Object.fromEntries(ACTIVITY_TYPES.
 export default function CrmCalendarPage() {
   const { data: activities, isLoading } = useCrmActivities()
   const { data: msStatus } = useMicrosoftCalendarStatus()
+  const { getHighlight } = useUIHighlights()
   const createActivity = useCreateCrmActivity()
   const updateActivity = useUpdateCrmActivity()
   const { data: dealsData } = useCrmDeals('', '')

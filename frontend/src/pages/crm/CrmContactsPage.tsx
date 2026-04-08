@@ -5,6 +5,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
 import { Users, Plus, Search, Building, Mail, PlusCircle, Pencil, Trash2, X, Check } from 'lucide-react'
 import SendEmailModal from '../../components/email/SendEmailModal'
+import { useUIHighlights, AIHighlightTooltip } from '../../context/UIHighlightContext'
 
 export default function CrmContactsPage() {
   const [search, setSearch] = useState('')
@@ -23,6 +24,7 @@ export default function CrmContactsPage() {
 
   // Contact form
   const [form, setForm] = useState({ name: '', email: '', phone: '', contact_role: '' })
+  const { getHighlight, clearHighlights } = useUIHighlights()
 
   const { data, isLoading } = useCrmContacts(search)
   const { data: companiesData } = useCrmCompanies('')
@@ -236,8 +238,12 @@ export default function CrmContactsPage() {
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {data.contacts.map((c: any) => (
-            <div key={c.id} className="rounded-xl border border-gray-200 bg-white p-4 hover:shadow-md transition-shadow">
+          {data.contacts.map((c: any) => {
+            const contactHL = getHighlight('contact', c.id)
+            return (
+            <div key={c.id}
+              className={`rounded-xl border border-gray-200 bg-white p-4 hover:shadow-md transition-shadow ${contactHL ? (contactHL.style === 'glow' ? 'ai-highlight-glow' : 'ai-highlight-pulse') : ''}`}
+              style={contactHL ? { '--ai-color': contactHL.color } as React.CSSProperties : undefined}>
               {editingId === c.id ? (
                 /* Inline edit mode */
                 <div className="space-y-2">
@@ -295,8 +301,10 @@ export default function CrmContactsPage() {
                   </div>
                 </div>
               )}
+              {contactHL && <AIHighlightTooltip highlight={contactHL} onDismiss={clearHighlights} />}
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
 

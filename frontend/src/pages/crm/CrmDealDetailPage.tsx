@@ -94,12 +94,13 @@ export default function CrmDealDetailPage() {
 
   // Sprint 46-47: AI highlights
   const { getHighlight, clearHighlights } = useUIHighlights()
-  const dealHL = getHighlight('deal', id)
+  const _dealHL = getHighlight('deal', id)
   const offerSectionHL = getHighlight('section', 'offer')
   const resourcesSectionHL = getHighlight('section', 'resources')
-  const activitiesSectionHL = getHighlight('section', 'activities')
+  const _activitiesSectionHL = getHighlight('section', 'activities')
   const createOfferBtnHL = getHighlight('button', 'create-offer')
-  const stageHL = deal?.stage ? getHighlight('stage', deal.stage) : undefined
+  const _stageHL = deal?.stage ? getHighlight('stage', deal.stage) : undefined
+  void _dealHL; void _activitiesSectionHL; void _stageHL
   const { data: searchedPersons } = usePortalPersons(personSearch)
 
   const [showOrderForm, setShowOrderForm] = useState(false)
