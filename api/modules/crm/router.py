@@ -7,9 +7,10 @@ Migrato da Odoo (ADR-008) a DB interno (ADR-009).
 Flusso: Pipeline -> Offerta -> Ordine Cliente -> Conferma -> Commessa (sistema Nexa Data)
 """
 
+import base64
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import User
@@ -361,6 +362,20 @@ async def complete_activity(
     return result
 
 
+@router.patch("/activities/{activity_id}")
+async def update_activity(
+    activity_id: uuid.UUID,
+    body: dict,
+    user: User = Depends(get_current_user),
+    svc: CRMService = Depends(get_service),
+):
+    _require_tenant(user)
+    result = await svc.update_activity(activity_id, body)
+    if not result:
+        raise HTTPException(404, "Attivita non trovata")
+    return result
+
+
 # ── Documents ─────────────────────────────────────────
 
 
@@ -396,6 +411,68 @@ async def delete_deal_document(
     if not ok:
         raise HTTPException(404, "Documento non trovato")
     return {"status": "deleted"}
+
+
+@router.post("/deals/{deal_id}/documents/upload", status_code=201)
+async def upload_deal_document(
+    deal_id: uuid.UUID,
+    file: UploadFile = File(...),
+    doc_type: str = Form("altro"),
+    name: str = Form(""),
+    notes: str = Form(""),
+    user: User = Depends(get_current_user),
+    svc: CRMService = Depends(get_service),
+):
+    """Upload a file as deal document. Stores as base64 data URL or uploads to R2 if configured."""
+    import os
+
+    tid = _require_tenant(user)
+    file_content = await file.read()
+    content_type = file.content_type or "application/octet-stream"
+    file_name = name.strip() or file.filename or "documento"
+
+    # Try Cloudflare R2 if configured
+    r2_account = os.getenv("R2_ACCOUNT_ID")
+    r2_access_key = os.getenv("R2_ACCESS_KEY_ID")
+    r2_secret_key = os.getenv("R2_SECRET_ACCESS_KEY")
+    r2_bucket = os.getenv("R2_BUCKET_NAME")
+    r2_public_url = os.getenv("R2_PUBLIC_URL")
+
+    if r2_account and r2_access_key and r2_secret_key and r2_bucket:
+        try:
+            import boto3
+            s3 = boto3.client(
+                "s3",
+                endpoint_url=f"https://{r2_account}.r2.cloudflarestorage.com",
+                aws_access_key_id=r2_access_key,
+                aws_secret_access_key=r2_secret_key,
+                region_name="auto",
+            )
+            object_key = f"deals/{deal_id}/{uuid.uuid4()}_{file.filename}"
+            s3.put_object(
+                Bucket=r2_bucket,
+                Key=object_key,
+                Body=file_content,
+                ContentType=content_type,
+            )
+            if r2_public_url:
+                file_url = f"{r2_public_url.rstrip('/')}/{object_key}"
+            else:
+                file_url = f"https://{r2_bucket}.r2.cloudflarestorage.com/{object_key}"
+        except Exception as e:
+            raise HTTPException(500, f"Errore upload R2: {e}")
+    else:
+        # Fallback: store as base64 data URL
+        b64 = base64.b64encode(file_content).decode("utf-8")
+        file_url = f"data:{content_type};base64,{b64}"
+
+    doc_data = {
+        "doc_type": doc_type,
+        "name": file_name,
+        "url": file_url,
+        "notes": notes,
+    }
+    return await svc.add_deal_document(tid, deal_id, doc_data, user.id)
 
 
 # ── Deal Resources ─────────────────────────────────

@@ -700,6 +700,27 @@ class CRMService:
         await self.db.flush()
         return self._activity_to_dict(activity)
 
+    async def update_activity(self, activity_id: uuid.UUID, data: dict) -> dict | None:
+        """Update an existing activity (subject, description, type, status)."""
+        result = await self.db.execute(
+            select(CrmActivity).where(CrmActivity.id == activity_id)
+        )
+        activity = result.scalar_one_or_none()
+        if not activity:
+            return None
+
+        allowed_fields = {"subject", "description", "type", "status", "scheduled_at"}
+        for key, val in data.items():
+            if key in allowed_fields and val is not None:
+                if key == "scheduled_at" and isinstance(val, str):
+                    val = datetime.fromisoformat(val)
+                if key == "status" and val == "completed" and activity.status != "completed":
+                    activity.completed_at = datetime.utcnow()
+                setattr(activity, key, val)
+
+        await self.db.flush()
+        return self._activity_to_dict(activity)
+
     # ── Analytics (US-91) ────────────────────────────────
 
     async def get_pipeline_analytics(

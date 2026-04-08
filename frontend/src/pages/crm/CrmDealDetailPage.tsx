@@ -1,14 +1,16 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   useCrmDeal, useRegisterOrder, useConfirmOrder, useEmailSends,
-  useActivityTypes, useCrmActivities, useCreateCrmActivity,
-  useDealDocuments, useAddDealDocument, useDeleteDealDocument,
+  useActivityTypes, useCrmActivities, useCreateCrmActivity, useUpdateCrmActivity,
+  useDealDocuments, useDeleteDealDocument, useUploadDealDocument,
   useCreatePortalOffer, usePortalStatus,
   usePortalProjectTypes, usePortalLocations, usePortalAccountManagers,
   usePortalProtocolByCustomer, useMyPortalAccountManager,
   useDealProject, useAssignPortalEmployee, usePortalPersons, useDealProgress,
   usePipelineTemplates, useUpdateCrmDeal,
+  useDealResources, useAddDealResource, useUpdateDealResource, useRemoveDealResource,
+  useDealRequiresResources,
 } from '../../api/hooks'
 import { formatCurrency } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
@@ -17,7 +19,7 @@ import SendEmailModal from '../../components/email/SendEmailModal'
 import {
   ArrowLeft, FileCheck, CheckCircle, AlertCircle, Mail, Eye, MousePointer,
   Plus, Phone, Video, Calendar, MessageSquare, Activity, Pencil, Building2,
-  FileText, Link2, Trash2, Send, Loader2,
+  FileText, Link2, Trash2, Send, Loader2, Upload, Users, X, Download, Save, ChevronDown, ChevronUp,
 } from 'lucide-react'
 
 const ORDER_TYPES = [
@@ -51,8 +53,8 @@ export default function CrmDealDetailPage() {
 
   // Documents
   const { data: documents } = useDealDocuments(id)
-  const addDocument = useAddDealDocument()
   const deleteDocument = useDeleteDealDocument()
+  const uploadDocument = useUploadDealDocument()
 
   // Portal integration
   const { data: portalStatus } = usePortalStatus()
@@ -72,6 +74,16 @@ export default function CrmDealDetailPage() {
   const { data: activityTypes } = useActivityTypes(true)
   const { data: activities } = useCrmActivities(undefined, deal?.id)
   const createActivity = useCreateCrmActivity()
+  const updateActivity = useUpdateCrmActivity()
+
+  // Resources
+  const { data: dealResources } = useDealResources(id)
+  const { data: requiresResourcesData } = useDealRequiresResources(id)
+  const addDealResource = useAddDealResource()
+  const updateDealResource = useUpdateDealResource()
+  const removeDealResource = useRemoveDealResource()
+  const [personSearch, setPersonSearch] = useState('')
+  const { data: searchedPersons } = usePortalPersons(personSearch)
 
   const [showOrderForm, setShowOrderForm] = useState(false)
   const [orderType, setOrderType] = useState('po')
@@ -81,7 +93,19 @@ export default function CrmDealDetailPage() {
   const [showActivityForm, setShowActivityForm] = useState(false)
   const [actForm, setActForm] = useState({ type: 'call', activity_type_id: '', subject: '', description: '', status: 'completed', scheduled_at: '' })
   const [showDocForm, setShowDocForm] = useState(false)
-  const [docForm, setDocForm] = useState({ doc_type: 'offerta', name: '', url: '', notes: '' })
+  const [docForm, setDocForm] = useState({ doc_type: 'offerta', name: '', notes: '' })
+  const [docFile, setDocFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Activity editing
+  const [editingActivityId, setEditingActivityId] = useState<string | null>(null)
+  const [editActForm, setEditActForm] = useState({ subject: '', description: '', type: '', status: '' })
+
+  // Resource form
+  const [showResourceForm, setShowResourceForm] = useState(false)
+  const [resourceForm, setResourceForm] = useState({ portal_person_id: '', person_name: '', role: '', start_date: '', end_date: '' })
+  const [editingResourceId, setEditingResourceId] = useState<string | null>(null)
+  const [editResForm, setEditResForm] = useState({ role: '', start_date: '', end_date: '', status: '' })
   const [showOfferForm, setShowOfferForm] = useState(false)
   const [offerForm, setOfferForm] = useState({
     title: '', billing_type: 'Daily', rate: '', days: '', amount: '', description: '',
@@ -326,6 +350,218 @@ export default function CrmDealDetailPage() {
         </div>
       </div>
 
+      {/* ── RISORSE (Deal Resources) ── */}
+      {portalStatus?.enabled && (requiresResourcesData?.requires_resources || (dealResources && dealResources.length > 0)) && (
+        <div className="rounded-2xl border border-teal-200 bg-teal-50/20 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-teal-600" />
+              <h3 className="text-sm font-semibold uppercase text-teal-600">Risorse</h3>
+            </div>
+            <button onClick={() => { setShowResourceForm(!showResourceForm); setPersonSearch('') }}
+              className="inline-flex items-center gap-1 rounded-lg bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 hover:bg-teal-100">
+              <Plus className="h-3 w-3" /> Aggiungi Risorsa
+            </button>
+          </div>
+
+          {/* Add resource form */}
+          {showResourceForm && (
+            <div className="mb-4 rounded-lg border border-teal-200 bg-white p-4 space-y-3">
+              <div>
+                <input type="text" value={personSearch} onChange={(e) => setPersonSearch(e.target.value)}
+                  placeholder="Cerca persona per nome..." className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                {personSearch.length >= 2 && searchedPersons?.persons && searchedPersons.persons.length > 0 && (
+                  <div className="mt-1 max-h-40 overflow-y-auto rounded-lg border border-gray-200 bg-white">
+                    {searchedPersons.persons.map((p: any) => (
+                      <button key={p.portal_id} onClick={() => {
+                        setResourceForm({
+                          ...resourceForm,
+                          portal_person_id: String(p.portal_id),
+                          person_name: p.full_name || `${p.firstName || ''} ${p.lastName || ''}`.trim(),
+                        })
+                        setPersonSearch('')
+                      }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-teal-50 border-b border-gray-100 last:border-0">
+                        <span className="font-medium">{p.full_name || `${p.firstName || ''} ${p.lastName || ''}`.trim()}</span>
+                        {p.seniority && <span className="text-xs text-gray-400 ml-2">{typeof p.seniority === 'object' ? p.seniority.description : p.seniority}</span>}
+                        {p.skills?.length > 0 && <span className="text-xs text-gray-400 ml-2">({p.skills.map((s: any) => s.name).join(', ')})</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {resourceForm.portal_person_id && (
+                <div className="flex items-center gap-2 rounded-lg bg-teal-50 px-3 py-2">
+                  <span className="text-sm font-medium text-teal-800">{resourceForm.person_name}</span>
+                  <button onClick={() => setResourceForm({ ...resourceForm, portal_person_id: '', person_name: '' })}
+                    className="text-teal-400 hover:text-red-500"><X className="h-3.5 w-3.5" /></button>
+                </div>
+              )}
+              <input type="text" value={resourceForm.role} onChange={(e) => setResourceForm({ ...resourceForm, role: e.target.value })}
+                placeholder="Ruolo (es. Frontend Developer, PM, ...)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div>
+                  <label className="block text-[10px] text-gray-400 mb-0.5">Data inizio</label>
+                  <input type="date" value={resourceForm.start_date} onChange={(e) => setResourceForm({ ...resourceForm, start_date: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-gray-400 mb-0.5">Data fine</label>
+                  <input type="date" value={resourceForm.end_date} onChange={(e) => setResourceForm({ ...resourceForm, end_date: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={async () => {
+                  if (!resourceForm.portal_person_id) return
+                  await addDealResource.mutateAsync({
+                    dealId: id,
+                    portal_person_id: parseInt(resourceForm.portal_person_id),
+                    person_name: resourceForm.person_name,
+                    role: resourceForm.role || undefined,
+                    start_date: resourceForm.start_date || undefined,
+                    end_date: resourceForm.end_date || undefined,
+                  })
+                  setResourceForm({ portal_person_id: '', person_name: '', role: '', start_date: '', end_date: '' })
+                  setShowResourceForm(false)
+                }} disabled={!resourceForm.portal_person_id || addDealResource.isPending}
+                  className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+                  {addDealResource.isPending ? 'Aggiunta...' : 'Aggiungi'}
+                </button>
+                <button onClick={() => setShowResourceForm(false)}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600">Annulla</button>
+              </div>
+            </div>
+          )}
+
+          {/* Resource list */}
+          {dealResources && dealResources.length > 0 ? (
+            <div className="space-y-2">
+              {dealResources.map((res: any) => {
+                const isEditingRes = editingResourceId === res.id
+                const statusColors: Record<string, string> = {
+                  assigned: 'bg-blue-100 text-blue-700',
+                  active: 'bg-green-100 text-green-700',
+                  released: 'bg-gray-100 text-gray-500',
+                }
+                return (
+                  <div key={res.id} className="rounded-lg border border-teal-100 bg-white px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-100 text-teal-600 text-xs font-bold shrink-0">
+                          {(res.person_name || '?').charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-gray-900">{res.person_name || `Person #${res.portal_person_id}`}</p>
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[res.status] || statusColors.assigned}`}>
+                              {res.status === 'assigned' ? 'Assegnato' : res.status === 'active' ? 'Attivo' : 'Rilasciato'}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500 mt-0.5">
+                            {res.role && <span>{res.role}</span>}
+                            {res.seniority && <span>{res.seniority}</span>}
+                            {res.daily_cost != null && <span>{formatCurrency(res.daily_cost)}/gg</span>}
+                            {res.start_date && <span>dal {new Date(res.start_date).toLocaleDateString('it-IT')}</span>}
+                            {res.end_date && <span>al {new Date(res.end_date).toLocaleDateString('it-IT')}</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button onClick={() => {
+                          if (isEditingRes) {
+                            setEditingResourceId(null)
+                          } else {
+                            setEditingResourceId(res.id)
+                            setEditResForm({
+                              role: res.role || '',
+                              start_date: res.start_date || '',
+                              end_date: res.end_date || '',
+                              status: res.status || 'assigned',
+                            })
+                          }
+                        }}
+                          className={`rounded px-2 py-1 text-[10px] font-medium ${isEditingRes ? 'bg-teal-100 text-teal-700' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
+                          {isEditingRes ? <ChevronUp className="h-3 w-3" /> : <Pencil className="h-3 w-3" />}
+                        </button>
+                        <button onClick={() => {
+                          if (confirm(`Rimuovere ${res.person_name || 'questa risorsa'}?`))
+                            removeDealResource.mutate({ dealId: id, resourceId: res.id })
+                        }}
+                          className="text-gray-300 hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button>
+                      </div>
+                    </div>
+
+                    {/* Inline edit for resource */}
+                    {isEditingRes && (
+                      <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+                        <input type="text" value={editResForm.role} onChange={(e) => setEditResForm({ ...editResForm, role: e.target.value })}
+                          placeholder="Ruolo" className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
+                        <div className="grid gap-2 sm:grid-cols-3">
+                          <div>
+                            <label className="block text-[10px] text-gray-400 mb-0.5">Data inizio</label>
+                            <input type="date" value={editResForm.start_date} onChange={(e) => setEditResForm({ ...editResForm, start_date: e.target.value })}
+                              className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-gray-400 mb-0.5">Data fine</label>
+                            <input type="date" value={editResForm.end_date} onChange={(e) => setEditResForm({ ...editResForm, end_date: e.target.value })}
+                              className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-gray-400 mb-0.5">Stato</label>
+                            <select value={editResForm.status} onChange={(e) => setEditResForm({ ...editResForm, status: e.target.value })}
+                              className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm">
+                              <option value="assigned">Assegnato</option>
+                              <option value="active">Attivo</option>
+                              <option value="released">Rilasciato</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={async () => {
+                            await updateDealResource.mutateAsync({
+                              dealId: id,
+                              resourceId: res.id,
+                              role: editResForm.role || undefined,
+                              start_date: editResForm.start_date || undefined,
+                              end_date: editResForm.end_date || undefined,
+                              status: editResForm.status,
+                            })
+                            setEditingResourceId(null)
+                          }} disabled={updateDealResource.isPending}
+                            className="inline-flex items-center gap-1 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
+                            <Save className="h-3 w-3" /> {updateDealResource.isPending ? 'Salvataggio...' : 'Salva'}
+                          </button>
+                          <button onClick={() => setEditingResourceId(null)}
+                            className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600">Annulla</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+
+              {/* Total daily cost */}
+              {(() => {
+                const totalCost = dealResources.reduce((sum: number, r: any) => sum + (r.daily_cost || 0), 0)
+                if (totalCost > 0) {
+                  return (
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-teal-100">
+                      <span className="text-xs text-gray-400">Costo giornaliero totale:</span>
+                      <span className="text-sm font-bold text-teal-700">{formatCurrency(totalCost)}/gg</span>
+                    </div>
+                  )
+                }
+                return null
+              })()}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400 text-center py-4">Nessuna risorsa assegnata</p>
+          )}
+        </div>
+      )}
+
       {/* ── Documents (Offerta, Ordine, Contratto) ── */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6">
         <div className="flex items-center justify-between mb-4">
@@ -348,23 +584,50 @@ export default function CrmDealDetailPage() {
                 <option value="altro">Altro</option>
               </select>
               <input type="text" value={docForm.name} onChange={(e) => setDocForm({ ...docForm, name: e.target.value })}
-                placeholder="Nome documento *" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                placeholder="Nome documento (opzionale)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
             </div>
-            <input type="url" value={docForm.url} onChange={(e) => setDocForm({ ...docForm, url: e.target.value })}
-              placeholder="Link (Google Drive, SharePoint, Dropbox...)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            {/* File upload */}
+            <div>
+              <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => {
+                const f = e.target.files?.[0] || null
+                setDocFile(f)
+                if (f && !docForm.name.trim()) setDocForm({ ...docForm, name: f.name })
+              }} />
+              <button type="button" onClick={() => fileInputRef.current?.click()}
+                className={`w-full flex items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-3 text-sm transition-colors ${
+                  docFile ? 'border-green-300 bg-green-50 text-green-700' : 'border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600'
+                }`}>
+                <Upload className="h-4 w-4" />
+                {docFile ? docFile.name : 'Seleziona file da caricare'}
+              </button>
+              {docFile && (
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className="text-xs text-gray-400">{(docFile.size / 1024).toFixed(1)} KB</span>
+                  <button onClick={() => { setDocFile(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
+                    className="text-xs text-red-500 hover:text-red-700">Rimuovi</button>
+                </div>
+              )}
+            </div>
             <input type="text" value={docForm.notes} onChange={(e) => setDocForm({ ...docForm, notes: e.target.value })}
               placeholder="Note (opzionale)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
             <div className="flex gap-2">
               <button onClick={async () => {
-                if (!docForm.name.trim()) return
-                await addDocument.mutateAsync({ dealId: deal.id, ...docForm })
-                setDocForm({ doc_type: 'offerta', name: '', url: '', notes: '' })
+                if (!docFile) return
+                const formData = new FormData()
+                formData.append('file', docFile)
+                formData.append('doc_type', docForm.doc_type)
+                formData.append('name', docForm.name || docFile.name)
+                formData.append('notes', docForm.notes)
+                await uploadDocument.mutateAsync({ dealId: deal.id, formData })
+                setDocForm({ doc_type: 'offerta', name: '', notes: '' })
+                setDocFile(null)
+                if (fileInputRef.current) fileInputRef.current.value = ''
                 setShowDocForm(false)
-              }} disabled={!docForm.name.trim() || addDocument.isPending}
+              }} disabled={!docFile || uploadDocument.isPending}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
-                {addDocument.isPending ? 'Salvataggio...' : 'Salva'}
+                {uploadDocument.isPending ? 'Caricamento...' : 'Carica'}
               </button>
-              <button onClick={() => setShowDocForm(false)}
+              <button onClick={() => { setShowDocForm(false); setDocFile(null) }}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600">Annulla</button>
             </div>
           </div>
@@ -381,6 +644,7 @@ export default function CrmDealDetailPage() {
                 altro: { label: 'Altro', color: 'bg-gray-100 text-gray-700' },
               }
               const typeInfo = typeLabels[doc.doc_type] || typeLabels.altro
+              const isDataUrl = doc.url?.startsWith('data:')
               return (
                 <div key={doc.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3">
                   <div className="flex items-center gap-3 min-w-0">
@@ -396,9 +660,10 @@ export default function CrmDealDetailPage() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {doc.url && (
-                      <a href={doc.url} target="_blank" rel="noopener noreferrer"
+                      <a href={isDataUrl ? doc.url : doc.url} download={isDataUrl ? doc.name : undefined}
+                        target={isDataUrl ? undefined : '_blank'} rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 rounded bg-gray-50 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50">
-                        <Link2 className="h-3 w-3" /> Apri
+                        <Download className="h-3 w-3" /> {isDataUrl ? 'Scarica' : 'Apri'}
                       </a>
                     )}
                     <button onClick={() => { if (confirm(`Eliminare "${doc.name}"?`)) deleteDocument.mutate(doc.id) }}
@@ -794,29 +1059,93 @@ export default function CrmDealDetailPage() {
             {activities.map((a: any) => {
               const AIcon = ACTIVITY_ICONS[a.type] || Activity
               const isPlanned = a.status === 'planned'
+              const isEditing = editingActivityId === a.id
               return (
-                <div key={a.id} className={`flex items-start gap-3 rounded-lg border px-4 py-2.5 ${isPlanned ? 'border-amber-200 bg-amber-50/50' : 'border-gray-100'}`}>
-                  <AIcon className={`h-4 w-4 mt-0.5 shrink-0 ${isPlanned ? 'text-amber-500' : 'text-gray-400'}`} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-gray-900">{a.subject}</p>
-                      {isPlanned && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">Pianificata</span>}
+                <div key={a.id} className={`rounded-lg border px-4 py-2.5 ${isPlanned ? 'border-amber-200 bg-amber-50/50' : 'border-gray-100'}`}>
+                  <div className="flex items-start gap-3">
+                    <AIcon className={`h-4 w-4 mt-0.5 shrink-0 ${isPlanned ? 'text-amber-500' : 'text-gray-400'}`} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-gray-900">{a.subject}</p>
+                        {isPlanned && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">Pianificata</span>}
+                        {a.status === 'cancelled' && <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700">Annullata</span>}
+                      </div>
+                      {a.description && <p className="text-xs text-gray-500 mt-0.5">{a.description}</p>}
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        {a.type} - {a.status}
+                        {a.scheduled_at && ` - ${a.scheduled_at.split('T')[0]} ${a.scheduled_at.split('T')[1]?.slice(0, 5) || ''}`}
+                        {!a.scheduled_at && a.created_at && ` - ${a.created_at.split('T')[0]}`}
+                      </p>
                     </div>
-                    {a.description && <p className="text-xs text-gray-500 mt-0.5">{a.description}</p>}
-                    <p className="text-[10px] text-gray-400 mt-1">
-                      {a.type} - {a.status}
-                      {a.scheduled_at && ` - ${a.scheduled_at.split('T')[0]} ${a.scheduled_at.split('T')[1]?.slice(0, 5) || ''}`}
-                      {!a.scheduled_at && a.created_at && ` - ${a.created_at.split('T')[0]}`}
-                    </p>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {isPlanned && (
+                        <button onClick={() => updateActivity.mutateAsync({ activityId: a.id, status: 'completed' })}
+                          className="rounded bg-green-50 px-2 py-1 text-[10px] font-medium text-green-700 hover:bg-green-100">
+                          Completa
+                        </button>
+                      )}
+                      <button onClick={() => {
+                        if (isEditing) {
+                          setEditingActivityId(null)
+                        } else {
+                          setEditingActivityId(a.id)
+                          setEditActForm({
+                            subject: a.subject || '',
+                            description: a.description || '',
+                            type: a.type || 'call',
+                            status: a.status || 'planned',
+                          })
+                        }
+                      }}
+                        className={`rounded px-2 py-1 text-[10px] font-medium ${isEditing ? 'bg-purple-100 text-purple-700' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
+                        {isEditing ? <ChevronUp className="h-3 w-3" /> : <Pencil className="h-3 w-3" />}
+                      </button>
+                    </div>
                   </div>
-                  {isPlanned && (
-                    <button onClick={() => createActivity.mutateAsync({
-                      deal_id: deal.id, contact_id: deal.client_id || undefined,
-                      type: a.type, subject: `${a.subject} (completata)`, status: 'completed',
-                    })}
-                      className="shrink-0 rounded bg-green-50 px-2 py-1 text-[10px] font-medium text-green-700 hover:bg-green-100">
-                      Completa
-                    </button>
+
+                  {/* Inline edit form */}
+                  {isEditing && (
+                    <div className="mt-3 ml-7 space-y-2 border-t border-gray-100 pt-3">
+                      <input type="text" value={editActForm.subject} onChange={(e) => setEditActForm({ ...editActForm, subject: e.target.value })}
+                        placeholder="Oggetto *" className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
+                      <textarea value={editActForm.description} onChange={(e) => setEditActForm({ ...editActForm, description: e.target.value })}
+                        placeholder="Descrizione" rows={2} className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <select value={editActForm.type} onChange={(e) => setEditActForm({ ...editActForm, type: e.target.value })}
+                          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm">
+                          <option value="call">Chiamata</option>
+                          <option value="video_call">Video Call</option>
+                          <option value="meeting">Riunione</option>
+                          <option value="email">Email</option>
+                          <option value="task">Task</option>
+                          <option value="note">Nota</option>
+                        </select>
+                        <select value={editActForm.status} onChange={(e) => setEditActForm({ ...editActForm, status: e.target.value })}
+                          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm">
+                          <option value="planned">Pianificata</option>
+                          <option value="completed">Completata</option>
+                          <option value="cancelled">Annullata</option>
+                        </select>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={async () => {
+                          if (!editActForm.subject.trim()) return
+                          await updateActivity.mutateAsync({
+                            activityId: a.id,
+                            subject: editActForm.subject,
+                            description: editActForm.description || undefined,
+                            type: editActForm.type,
+                            status: editActForm.status,
+                          })
+                          setEditingActivityId(null)
+                        }} disabled={!editActForm.subject.trim() || updateActivity.isPending}
+                          className="inline-flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
+                          <Save className="h-3 w-3" /> {updateActivity.isPending ? 'Salvataggio...' : 'Salva'}
+                        </button>
+                        <button onClick={() => setEditingActivityId(null)}
+                          className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600">Annulla</button>
+                      </div>
+                    </div>
                   )}
                 </div>
               )

@@ -1363,6 +1363,18 @@ export function useCreateCrmActivity() {
   })
 }
 
+export function useUpdateCrmActivity() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ activityId, ...data }: any) =>
+      api.patch(`/crm/activities/${activityId}`, data).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm-activities'] })
+      qc.invalidateQueries({ queryKey: ['crm-stats'] })
+    },
+  })
+}
+
 // ── Deal Documents ──
 export function useDealDocuments(dealId: string) {
   return useQuery({
@@ -1384,6 +1396,17 @@ export function useDeleteDealDocument() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (docId: string) => api.delete(`/crm/documents/${docId}`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['deal-documents'] }),
+  })
+}
+
+export function useUploadDealDocument() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ dealId, formData }: { dealId: string; formData: FormData }) =>
+      api.post(`/crm/deals/${dealId}/documents/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['deal-documents'] }),
   })
 }
