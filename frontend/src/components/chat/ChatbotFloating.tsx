@@ -1,12 +1,15 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, Send, X, ArrowRight } from 'lucide-react'
+import { Send, X, ArrowRight } from 'lucide-react'
 import { useSendMessage } from '../../api/hooks'
 import { useActionExecutor, type ActionCommand } from '../../hooks/useActionExecutor'
 import Toast from '../ui/Toast'
 import ContentBlockRenderer from './ContentBlockRenderer'
 import { useAIBlocksStore } from '../../store/aiBlocks'
+import JarvisOrb, { type OrbState } from './JarvisOrb'
+
+/* ── Placeholder per pagina ──────────────────────────────────────── */
 
 const getPlaceholder = (page: string): string => {
   switch (page) {
@@ -23,6 +26,8 @@ const getPlaceholder = (page: string): string => {
   }
 }
 
+/* ── Suggestion chips per pagina ─────────────────────────────────── */
+
 const suggestions: Record<string, string[]> = {
   dashboard: ['Qual è il fatturato del mese?', 'Top 5 clienti', 'Come stanno le finanze?'],
   fatture: ['Fatture NTT Data', 'Quante fatture ricevute?', 'Fatture in attesa'],
@@ -32,9 +37,58 @@ const suggestions: Record<string, string[]> = {
   default: ['Come stanno le finanze?', 'Prossime scadenze', 'Fatture da verificare'],
 }
 
-/**
- * Render **bold** markdown as <strong> elements.
- */
+/* ── Typing messages contestuali ─────────────────────────────────── */
+
+function getTypingMessage(page: string): string {
+  if (page === 'dashboard') return 'Analizzo i KPI...'
+  if (page.startsWith('crm') && page.includes('pipeline')) return 'Controllo la pipeline...'
+  if (page.startsWith('crm') && page.includes('deal')) return 'Verifico il deal...'
+  if (page.startsWith('crm')) return 'Controllo la pipeline...'
+  if (page === 'fatture') return 'Analizzo le fatture...'
+  if (page === 'contabilita') return 'Verifico le scritture...'
+  if (page === 'scadenze' || page === 'fisco') return 'Controllo le scadenze...'
+  if (page === 'banca') return 'Verifico i movimenti...'
+  if (page === 'ceo') return 'Analizzo i KPI...'
+  return 'Elaboro la richiesta...'
+}
+
+/* ── Agent badge per contesto ────────────────────────────────────── */
+
+interface AgentInfo {
+  name: string
+  colorClass: string
+}
+
+function getAgentForPage(pathname: string): AgentInfo {
+  const path = pathname.toLowerCase()
+  if (path.includes('crm') || path.includes('pipeline') || path.includes('deal') || path.includes('contact'))
+    return { name: 'SalesBot', colorClass: 'bg-purple-100 text-purple-700' }
+  if (path.includes('fattur') || path.includes('contabil'))
+    return { name: 'ContaBot', colorClass: 'bg-blue-100 text-blue-700' }
+  if (path.includes('fisco') || path.includes('scadenz'))
+    return { name: 'FiscoBot', colorClass: 'bg-orange-100 text-orange-700' }
+  if (path.includes('dashboard') || path.includes('ceo'))
+    return { name: 'ControllerBot', colorClass: 'bg-green-100 text-green-700' }
+  return { name: 'AgentFlow AI', colorClass: 'bg-gray-100 text-gray-700' }
+}
+
+/* ── Glow shadow per stato ───────────────────────────────────────── */
+
+function getGlowShadow(orbState: OrbState): string {
+  switch (orbState) {
+    case 'thinking':
+      return '0 0 20px rgba(167,139,250,0.3), 0 0 40px rgba(147,51,234,0.1)'
+    case 'responding':
+      return '0 0 16px rgba(52,211,153,0.3), 0 0 32px rgba(34,197,94,0.1)'
+    case 'error':
+      return '0 0 20px rgba(248,113,113,0.3), 0 0 40px rgba(251,146,60,0.1)'
+    default:
+      return 'none'
+  }
+}
+
+/* ── Bold markdown renderer ──────────────────────────────────────── */
+
 function renderBold(text: string): React.ReactNode[] {
   const parts = text.split(/(\*\*[^*]+\*\*)/g)
   return parts.map((part, i) => {
@@ -44,6 +98,8 @@ function renderBold(text: string): React.ReactNode[] {
     return part
   })
 }
+
+/* ── Main component ──────────────────────────────────────────────── */
 
 export default function ChatbotFloating() {
   const [query, setQuery] = useState('')
@@ -60,6 +116,7 @@ export default function ChatbotFloating() {
 
   const location = useLocation()
   const page = location.pathname.split('/')[1] || 'dashboard'
+  const fullPath = location.pathname
 
   const { executeActions, executeSingle } = useActionExecutor()
 
@@ -77,7 +134,21 @@ export default function ChatbotFloating() {
 
   const pageSuggestions = suggestions[page] ?? suggestions['default']
 
-  // Close response when navigating to a different page
+  /* ── Derive orb state ─────────────────────────────────────────── */
+
+  const orbState: OrbState = error
+    ? 'error'
+    : isLoading && !response
+      ? 'thinking'
+      : isLoading && !!response
+        ? 'responding'
+        : 'idle'
+
+  const agent = getAgentForPage(fullPath)
+  const typingMessage = getTypingMessage(fullPath)
+
+  /* ── Close response on navigation ─────────────────────────────── */
+
   useEffect(() => {
     if (showResponse) {
       setShowResponse(false)
@@ -87,6 +158,28 @@ export default function ChatbotFloating() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname])
+
+  /* ── Global keyboard shortcuts ────────────────────────────────── */
+
+  useEffect(() => {
+    function handleGlobalKeyDown(e: KeyboardEvent) {
+      // Ctrl+Space or Cmd+Space -> focus chatbot input
+      if (e.code === 'Space' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        inputRef.current?.focus()
+      }
+
+      // Escape -> close response panel if open
+      if (e.key === 'Escape' && showResponse) {
+        closeResponse()
+      }
+    }
+
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [showResponse])
+
+  /* ── Submit handler ────────────────────────────────────────────── */
 
   const handleSubmit = useCallback(async () => {
     const trimmed = query.trim()
@@ -176,6 +269,10 @@ export default function ChatbotFloating() {
     setContentBlocks([])
   }
 
+  /* ── Glow shadow for response panel ────────────────────────────── */
+
+  const panelGlow = showResponse ? getGlowShadow(orbState) : 'none'
+
   return (
     <>
       <div
@@ -193,20 +290,31 @@ export default function ChatbotFloating() {
               animate={{ opacity: 1, y: 0, height: 'auto' }}
               exit={{ opacity: 0, y: 10, height: 0 }}
               transition={{ duration: 0.3 }}
-              className="mb-2 overflow-hidden rounded-2xl border border-gray-200/50 bg-white/95 shadow-2xl backdrop-blur-xl"
+              className="mb-2 overflow-hidden rounded-2xl border border-gray-200/50 bg-white/95 backdrop-blur-xl"
+              style={{
+                boxShadow: panelGlow !== 'none'
+                  ? `${panelGlow}, 0 25px 50px -12px rgba(0,0,0,0.25)`
+                  : '0 25px 50px -12px rgba(0,0,0,0.25)',
+                transition: 'box-shadow 0.5s ease',
+              }}
             >
               {/* Response Header */}
               <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-blue-500" />
-                  <span className="text-sm font-medium text-gray-700">AgentFlow AI</span>
+                  <JarvisOrb state={orbState} size={20} />
+                  {/* Agent badge */}
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${agent.colorClass}`}
+                  >
+                    {agent.name}
+                  </span>
                   {isLoading && (
                     <motion.span
                       animate={{ opacity: [1, 0.4, 1] }}
                       transition={{ duration: 1.5, repeat: Infinity }}
                       className="text-xs text-blue-500"
                     >
-                      sta scrivendo...
+                      {typingMessage}
                     </motion.span>
                   )}
                 </div>
@@ -226,7 +334,7 @@ export default function ChatbotFloating() {
                   <p className="text-sm text-red-600">{error}</p>
                 ) : isLoading && !response ? (
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500">Sto elaborando</span>
+                    <span className="text-sm text-gray-500">{typingMessage}</span>
                     <span className="flex gap-0.5">
                       <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-400 [animation-delay:0ms]" />
                       <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-400 [animation-delay:150ms]" />
@@ -272,10 +380,7 @@ export default function ChatbotFloating() {
         >
           {/* Input Row */}
           <div className="flex items-center gap-3">
-            <Sparkles
-              className="h-5 w-5 flex-shrink-0 text-blue-500"
-              aria-hidden="true"
-            />
+            <JarvisOrb state={orbState} size={40} />
 
             <div className="relative flex-1">
               <input
