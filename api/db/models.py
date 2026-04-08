@@ -1007,6 +1007,7 @@ class CrmDeal(Base):
     portal_customer_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # FK Portal Customer.id (Pivot 10)
     portal_customer_name: Mapped[str | None] = mapped_column(String(255), nullable=True)  # Cached name from Portal
     portal_project_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # FK Portal Project.id (commessa created from Won deal)
+    portal_offer_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # Portal Offer.id
     contact_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # FK CrmContact — main referente
     stage_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     pipeline_template_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # US-201: which pipeline template
@@ -1061,6 +1062,33 @@ class CrmDealDocument(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     uploaded_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+# ============================================================
+# Deal Resources — persons assigned from Portal (T&M/Project staffing)
+# ============================================================
+
+
+class CrmDealResource(Base):
+    """Person assigned to a deal from Portal (T&M/Project staffing)."""
+    __tablename__ = "crm_deal_resources"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    deal_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    portal_person_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    person_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    person_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    seniority: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    daily_cost: Mapped[float | None] = mapped_column(Float, nullable=True)
+    role: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="assigned")  # assigned, active, released
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    portal_activity_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
 # ============================================================

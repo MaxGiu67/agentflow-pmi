@@ -422,11 +422,11 @@ Tutti i 26 tool del Sales Agent sono ora coperti da stories:
 
 ---
 
-# Sprint Plan — Pivot 10: Portal Integration (ADR-011)
+# Sprint Plan — Pivot 10: Portal Integration (ADR-011) — COMPLETATO 2026-04-07
 
 **Data:** 2026-04-07
 **Stories:** 12 (US-230 -> US-241), 52 SP
-**Sprint:** 42 -> 45 (~8 settimane)
+**Sprint:** 42 -> 45 — **TUTTI COMPLETATI**
 **Principio:** Portal master anagrafico (Customer), AgentFlow master commerciale (Deal/Contact). Conferma umana per ogni scrittura su Portal. Zero regressione sui 1029+ test esistenti.
 
 **Connessione:** JWT auto-generato con JWTSECRET condiviso, nessun login/password.
@@ -435,7 +435,7 @@ Tutti i 26 tool del Sales Agent sono ora coperti da stories:
 
 ---
 
-## Sprint 42: Portal Client + Read (2 settimane)
+## Sprint 42: Portal Client + Read (2 settimane) — COMPLETATO
 
 **Goal:** Adapter Portal funzionante. Lettura Customer/Person/Project. Proxy endpoint. CrmCompany sostituito da Portal Customer per nuovi deal.
 
@@ -488,7 +488,7 @@ Tutti i 26 tool del Sales Agent sono ora coperti da stories:
 
 ---
 
-## Sprint 43: Create Commessa (2 settimane)
+## Sprint 43: Create Commessa (2 settimane) — COMPLETATO
 
 **Goal:** Deal Won crea commessa su Portal. Customer matching automatico. Bottone "Crea Commessa" nel deal detail.
 
@@ -529,7 +529,7 @@ Tutti i 26 tool del Sales Agent sono ora coperti da stories:
 
 ---
 
-## Sprint 44: Assign Collaborators (2 settimane)
+## Sprint 44: Assign Collaborators (2 settimane) — COMPLETATO
 
 **Goal:** Assegnazione collaboratori a commessa Portal da AgentFlow. Sezione "Risorse assegnate" nel deal detail.
 
@@ -563,7 +563,7 @@ Tutti i 26 tool del Sales Agent sono ora coperti da stories:
 
 ---
 
-## Sprint 45: Sync Timesheets + Dashboard (2 settimane)
+## Sprint 45: Sync Timesheets + Dashboard (2 settimane) — COMPLETATO
 
 **Goal:** Sync periodico timesheet da Portal. Margine reale calcolato. Sezione "Avanzamento Operativo" nel deal detail. Pagina admin PortalConfig.
 
@@ -609,15 +609,23 @@ Tutti i 26 tool del Sales Agent sono ora coperti da stories:
 
 ---
 
-## Riepilogo Sprint Pivot 10
+## Riepilogo Sprint Pivot 10 — COMPLETATO 2026-04-07
 
-| Sprint | Settimane | Stories | SP | Focus |
-|--------|:---------:|:-------:|:--:|-------|
-| 42 | 2 | US-230, US-231, US-232, US-233 | 16 | Portal Client + Read |
-| 43 | 2 | US-234, US-235, US-236 | 14 | Create Commessa |
-| 44 | 2 | US-237, US-238 | 11 | Assign Collaborators |
-| 45 | 2 | US-239, US-240, US-241 | 11 | Sync Timesheets + Dashboard |
-| **TOTALE** | **~8** | **12** | **52** | |
+| Sprint | Settimane | Stories | SP | Focus | Status |
+|--------|:---------:|:-------:|:--:|-------|--------|
+| 42 | 2 | US-230, US-231, US-232, US-233 | 16 | Portal Client + Read | COMPLETATO |
+| 43 | 2 | US-234, US-235, US-236 | 14 | Create Commessa | COMPLETATO |
+| 44 | 2 | US-237, US-238 | 11 | Assign Collaborators | COMPLETATO |
+| 45 | 2 | US-239, US-240, US-241 | 11 | Sync Timesheets + Dashboard | COMPLETATO |
+| **TOTALE** | **~8** | **12** | **52** | | **COMPLETATO** |
+
+### Note implementazione (2026-04-07)
+- Portal JWT: HS256 con JWTSECRET condiviso, no quotes in env vars
+- Account manager auto-match by email (non per ID)
+- Customer matching by P.IVA con batch-match endpoint
+- Pipeline Templates: full CRUD indipendente (template + stages separati)
+- Products ora data-driven da `crm_products` table per tenant
+- 9 bug fix critici (build fail, env vars, duplicate stages, missing migrations)
 
 ---
 

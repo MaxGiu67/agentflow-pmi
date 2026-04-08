@@ -119,6 +119,7 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS portal_customer_id INTEGER",
             "ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS portal_customer_name VARCHAR(255)",
             "ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS portal_project_id INTEGER",
+            "ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS portal_offer_id INTEGER",
             "ALTER TABLE crm_products ADD COLUMN IF NOT EXISTS requires_resources BOOLEAN DEFAULT FALSE",
         ]:
             try:

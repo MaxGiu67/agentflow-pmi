@@ -44,6 +44,10 @@ class DealUpdate(BaseModel):
     technology: str | None = None
     probability: float | None = None
     assigned_to: str | None = None
+    portal_offer_id: int | None = None
+    portal_project_id: int | None = None
+    portal_customer_id: int | None = None
+    portal_customer_name: str | None = None
 
 
 class OrderRegister(BaseModel):
@@ -99,6 +103,11 @@ class DealResponse(BaseModel):
     order_reference: str = ""
     order_date: str = ""
     order_notes: str = ""
+    portal_customer_id: int | None = None
+    portal_customer_name: str = ""
+    portal_project_id: int | None = None
+    portal_offer_id: int | None = None
+    requires_resources: bool = False
 
 
 class StageResponse(BaseModel):

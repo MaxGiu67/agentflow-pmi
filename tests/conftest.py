@@ -50,6 +50,7 @@ from api.db.models import (
     CrmProductCategory,
     CrmProduct,
     CrmDealProduct,
+    CrmDealResource,
     CrmDashboardWidget,
     CrmCompensationRule,
     CrmCompensationEntry,

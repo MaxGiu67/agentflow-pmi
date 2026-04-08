@@ -1023,12 +1023,115 @@ _Nessun bug trovato._
 | 44 | Assign Collaborators | US-237, US-238 | 11 |
 | 45 | Sync Timesheets + Dashboard | US-239, US-240, US-241 | 11 |
 
-**Status:** Sprint 42 ready to start.
+**Status:** Sprint 42-45 COMPLETATI (2026-04-07).
 
 **File chiave:**
 - `api/adapters/portal_client.py` — Client async per PortalJS.be API
 - `api/modules/portal/router.py` — Proxy endpoints /portal/*
 - `specs/03-user-stories-pivot9.md` — Stories US-230 -> US-241 (sezione Pivot 10)
 - `specs/05-sprint-plan-pivot9.md` — Sprint 42-45
+
+---
+
+## Session 2026-04-07 — Pivot 10 Implementation (Sprint 42-45 COMPLETATI)
+
+### Portal Integration (US-230 to US-240)
+
+**Portal Client + JWT auto-generation:**
+- `PortalClient` async con httpx, JWT HS256 auto-generato con shared `PORTAL_JWT_SECRET`
+- Graceful degradation: se Portal offline, ritorna empty con warning
+- 23+ proxy endpoint a `/portal/*`
+- Portal staging: `portaaljsbe-staging.up.railway.app`, JWTSECRET fixed (no literal quotes)
+
+**Offer creation + Account Manager matching:**
+- Full Portal DTO: project_code, name, customer_id, accountManager_id, project_type_id, location_id, billing_type
+- Account manager auto-match by email: apalermo@nexadata.it -> Portal Account id=17, mgiurelli@nexadata.it -> id=46
+- Customer matching by P.IVA (US-235)
+
+**Deal -> Commessa link:**
+- `crm_deals.portal_project_id` (Integer, nullable) — migration added
+- Deal Won crea commessa su Portal con conferma umana (US-236)
+- Activity/assignment creation on Portal (US-237)
+
+**Risorse assegnate + Avanzamento operativo:**
+- Sezione "Risorse assegnate" nel deal detail (US-238)
+- Operational progress/margin calculation (US-239/240)
+
+### Data-driven Products & Pipeline CRUD
+
+**Prodotti da DB:**
+- "Cosa vendi?" ora legge da `crm_products` table per tenant (no more hardcoded cards)
+- Product form ha `pipeline_template_id` dropdown
+
+**Pipeline Templates — full CRUD:**
+- GET/POST/PATCH/DELETE `/pipeline-templates` (template)
+- POST `/pipeline-templates/{id}/stages`, PATCH/DELETE `/pipeline-templates/stages/{id}` (stages indipendenti)
+- Stage dropdown in new deal mostra stages specifici del template
+- All entities per tenant, seed on first access
+
+### Bug Fixes (Pivot 10)
+
+| Bug | Fix |
+|-----|-----|
+| PlusCircle missing import | Aggiunto import corretto (build fail) |
+| PORTAL_API_URL missing `/api/v1` | Corretto URL base |
+| PORTAL_JWT_SECRET had literal quotes | Fix su AgentFlow e Portal staging (no quotes in env) |
+| `/crud/User` -> `/crud/Account` | Portal usa Account model, non User |
+| company_id sent as Portal ID (not UUID) | Fix tipo in contact creation |
+| Duplicate pipeline stages in DB | Dedup migration + FE dedup |
+| portal_project_id column missing | Aggiunto in lifespan startup migrations |
+| Company dropdown not sorted alphabetically | Fix sort |
+| Contact/company summary missing in step 2 | Fix wizard new deal |
+
+### New DB Fields (Pivot 10)
+- `crm_deals.portal_project_id` (Integer, nullable)
+
+### New Endpoints (Pivot 10)
+
+**Pipeline Templates CRUD:**
+- `GET /api/v1/pipeline-templates` — List per tenant
+- `POST /api/v1/pipeline-templates` — Create template
+- `PATCH /api/v1/pipeline-templates/{id}` — Update template
+- `DELETE /api/v1/pipeline-templates/{id}` — Delete template
+- `POST /api/v1/pipeline-templates/{id}/stages` — Add stage to template
+- `PATCH /api/v1/pipeline-templates/stages/{id}` — Update stage
+- `DELETE /api/v1/pipeline-templates/stages/{id}` — Delete stage
+
+**Portal Integration:**
+- `GET /api/v1/portal/match-customer` — Match customer by P.IVA
+- `POST /api/v1/portal/batch-match` — Batch match customers
+- `POST /api/v1/portal/link-project` — Link deal to Portal project
+- `GET /api/v1/portal/deal-project/{id}` — Get Portal project for deal
+- `GET /api/v1/portal/deal-progress/{id}` — Get operational progress
+- `GET /api/v1/portal/project-types` — Portal project types
+- `GET /api/v1/portal/locations` — Portal locations
+- `GET /api/v1/portal/account-managers` — Portal account managers
+- `GET /api/v1/portal/my-account-manager` — Current user's Portal account manager
+
+### File modificati (backend)
+- `api/adapters/portal_client.py` — JWT auto-generation, 23+ metodi proxy, offer creation DTO
+- `api/modules/portal/router.py` — 23+ proxy endpoints, match-customer, batch-match, link-project, deal-progress
+- `api/modules/pipeline_templates/router.py` — Full CRUD templates + stages indipendenti
+- `api/modules/pipeline_templates/service.py` — Seed on first access, dedup migration
+- `api/modules/crm/service.py` — portal_project_id on deal, product -> pipeline template link
+- `api/modules/crm/router.py` — Updated deal creation with template-specific stages
+
+### File modificati (frontend)
+- `frontend/src/pages/crm/CrmNewDealPage.tsx` — Products from DB, pipeline_template_id dropdown, stage dropdown template-specific
+- `frontend/src/pages/crm/CrmDealDetailPage.tsx` — Risorse assegnate section, Portal project link, avanzamento operativo
+- `frontend/src/api/hooks.ts` — New hooks for pipeline templates CRUD, Portal endpoints
+- PlusCircle import fix (build fail)
+
+---
+
+## PIVOT 10 COMPLETATO — Portal Integration + Data-driven Products
+
+| Sprint | Stories | SP | Focus | Status |
+|--------|---------|----|-------|--------|
+| Sprint 42 | US-230, US-231, US-232, US-233 | 16 | Portal Client + Read | COMPLETATO |
+| Sprint 43 | US-234, US-235, US-236 | 14 | Create Commessa | COMPLETATO |
+| Sprint 44 | US-237, US-238 | 11 | Assign Collaborators | COMPLETATO |
+| Sprint 45 | US-239, US-240, US-241 | 11 | Sync Timesheets + Dashboard | COMPLETATO |
+| **TOTALE** | **12 stories** | **52 SP** | | **COMPLETATO** |
 
 ---

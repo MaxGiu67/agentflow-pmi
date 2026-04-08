@@ -25,6 +25,7 @@ from api.modules.crm.schemas import (
     OrderRegister,
     PipelineSummaryResponse,
 )
+from api.modules.deal_resources.service import DealResourceService
 
 router = APIRouter(prefix="/crm", tags=["crm"])
 
@@ -395,3 +396,75 @@ async def delete_deal_document(
     if not ok:
         raise HTTPException(404, "Documento non trovato")
     return {"status": "deleted"}
+
+
+# ── Deal Resources ─────────────────────────────────
+
+
+@router.get("/deals/{deal_id}/resources")
+async def list_deal_resources(
+    deal_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    tid = _require_tenant(user)
+    svc = DealResourceService(db)
+    return await svc.list_resources(deal_id, tid)
+
+
+@router.post("/deals/{deal_id}/resources", status_code=201)
+async def add_deal_resource(
+    deal_id: uuid.UUID,
+    body: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    tid = _require_tenant(user)
+    svc = DealResourceService(db)
+    result = await svc.add_resource(deal_id, tid, body)
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+    return result
+
+
+@router.patch("/deals/{deal_id}/resources/{resource_id}")
+async def update_deal_resource(
+    deal_id: uuid.UUID,
+    resource_id: uuid.UUID,
+    body: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    _require_tenant(user)
+    svc = DealResourceService(db)
+    result = await svc.update_resource(resource_id, body)
+    if not result:
+        raise HTTPException(404, "Resource not found")
+    return result
+
+
+@router.delete("/deals/{deal_id}/resources/{resource_id}")
+async def remove_deal_resource(
+    deal_id: uuid.UUID,
+    resource_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    _require_tenant(user)
+    svc = DealResourceService(db)
+    ok = await svc.remove_resource(resource_id)
+    if not ok:
+        raise HTTPException(404, "Resource not found")
+    return {"ok": True}
+
+
+@router.get("/deals/{deal_id}/resources/requires")
+async def check_requires_resources(
+    deal_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    tid = _require_tenant(user)
+    svc = DealResourceService(db)
+    requires = await svc.check_requires_resources(deal_id, tid)
+    return {"requires_resources": requires}

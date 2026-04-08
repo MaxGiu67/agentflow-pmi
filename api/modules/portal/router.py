@@ -8,6 +8,7 @@ are in separate endpoints that require human confirmation.
 """
 
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, update as sql_update
@@ -559,3 +560,94 @@ async def get_deal_progress(
             "project_name": project.get("name", "") if isinstance(project, dict) else "",
         }
     }
+
+
+# ── Create Offer from Deal (Sprint A) ────────────
+
+
+@router.post("/offers/create-from-deal/{deal_id}")
+async def create_offer_from_deal(
+    deal_id: str,
+    body: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a Portal offer auto-populated from deal data."""
+    if not user.tenant_id:
+        return {"error": "Tenant not configured"}
+
+    result = await db.execute(
+        select(CrmDeal).where(CrmDeal.id == uuid.UUID(deal_id), CrmDeal.tenant_id == user.tenant_id)
+    )
+    deal = result.scalar_one_or_none()
+    if not deal:
+        return {"error": "Deal not found"}
+    if not deal.portal_customer_id:
+        return {"error": "Deal has no Portal customer linked"}
+
+    # Build offer payload
+    billing = body.get("billing_type")
+    if not billing:
+        billing = "Daily" if deal.deal_type == "T&M" else "LumpSum"
+
+    payload = {
+        "project_code": body.get("project_code", ""),
+        "name": body.get("name", deal.name),
+        "customer_id": deal.portal_customer_id,
+        "accountManager_id": body.get("accountManager_id"),
+        "project_type_id": body.get("project_type_id"),
+        "location_id": body.get("location_id"),
+        "billing_type": billing,
+        "rate": deal.daily_rate if deal.daily_rate else None,
+        "days": deal.estimated_days if deal.estimated_days else None,
+        "amount": deal.expected_revenue if deal.expected_revenue else None,
+        "OutcomeType": "W",
+        "year": body.get("year", datetime.now().year),
+        "other_details": body.get("other_details", ""),
+    }
+
+    offer_result = await portal_client.create_offer(payload)
+
+    # Save portal_offer_id on deal
+    if offer_result and isinstance(offer_result, dict) and offer_result.get("id"):
+        deal.portal_offer_id = offer_result["id"]
+        await db.commit()
+
+    return offer_result
+
+
+# ── Create Project from Deal (Sprint A) ──────────
+
+
+@router.post("/projects/create-from-deal/{deal_id}")
+async def create_project_from_deal(
+    deal_id: str,
+    body: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create Portal project from deal's offer."""
+    if not user.tenant_id:
+        return {"error": "Tenant not configured"}
+
+    result = await db.execute(
+        select(CrmDeal).where(CrmDeal.id == uuid.UUID(deal_id), CrmDeal.tenant_id == user.tenant_id)
+    )
+    deal = result.scalar_one_or_none()
+    if not deal:
+        return {"error": "Deal not found"}
+    if not deal.portal_offer_id:
+        return {"error": "Create an offer first"}
+
+    # Check if the offer already has a project on Portal
+    offer = await portal_client.get_offer(deal.portal_offer_id)
+    project_id = None
+    if isinstance(offer, dict) and not offer.get("error"):
+        project_id = offer.get("project_id") or offer.get("projectId")
+
+    if project_id:
+        deal.portal_project_id = project_id
+        await db.commit()
+        return {"project_id": project_id, "from": "existing_offer"}
+
+    return {"error": "No project found for this offer. Create it manually on Portal."}

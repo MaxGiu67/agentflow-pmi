@@ -908,9 +908,11 @@ class CRMService:
             "portal_customer_id": getattr(d, "portal_customer_id", None),
             "portal_customer_name": getattr(d, "portal_customer_name", None) or "",
             "portal_project_id": getattr(d, "portal_project_id", None),
+            "portal_offer_id": getattr(d, "portal_offer_id", None),
             "pipeline_template_id": str(d.pipeline_template_id) if getattr(d, "pipeline_template_id", None) else "",
             "assigned_to_name": assigned_to_name,
             "days_in_stage": 0,
+            "requires_resources": False,
         }
 
     def _activity_to_dict(self, a: CrmActivity) -> dict:
