@@ -230,6 +230,10 @@ def approve_offer(scenario, offer_id, deal_id, start_date, end_date, order_num="
     resp = api_post(f"/portal/offers/{offer_id}/approve", body)
     if resp.status_code == 200:
         result = resp.json()
+        # Check for Portal-level error
+        if result.get("ok") is False or result.get("error"):
+            record(scenario, "Approve Offer", False, f"Portal error: {result.get('error')} — {result.get('detail', '')[:150]}")
+            return None
         project_id = result.get("project_id")
         # Also check nested result
         if not project_id and isinstance(result.get("result"), dict):

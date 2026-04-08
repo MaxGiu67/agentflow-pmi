@@ -349,16 +349,26 @@ async def approve_offer(
     All dates must be ISO DateTime: "2026-05-01T00:00:00.000Z"
     """
     # PATCH the offer on Portal with OutcomeType=P and ProjectData
+    # Portal requires orderNum to be non-empty; auto-generate if missing
+    order_num = body.get("orderNum") or body.get("order_num") or ""
+    if not order_num.strip():
+        order_num = f"AF-{offer_id}-{datetime.utcnow().strftime('%Y%m%d')}"
     patch_data: dict = {
         "OutcomeType": "P",
         "approval_date": datetime.utcnow().isoformat() + "Z",
         "ProjectData": {
             "start_date": body["start_date"],
             "end_date": body["end_date"],
-            "orderNum": body.get("orderNum", ""),
+            "orderNum": order_num,
         },
     }
     result = await portal_client.update_offer(offer_id, patch_data)
+
+    # Check for Portal PATCH errors
+    if isinstance(result, dict) and result.get("error"):
+        import logging
+        logging.getLogger(__name__).error("Offer %s approval PATCH failed: %s", offer_id, result)
+        return {"ok": False, "offer_id": offer_id, "error": result.get("error"), "detail": result.get("detail", "")}
 
     # Extract project_id from the result and update the deal
     project_id = None
