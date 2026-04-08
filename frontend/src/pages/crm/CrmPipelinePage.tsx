@@ -139,10 +139,7 @@ export default function CrmPipelinePage() {
   const handleConfirmMove = async () => {
     if (!moveDialog) return
 
-    // Optimistic move
-    setOptimisticMove({ dealId: moveDialog.dealId, stageId: moveDialog.toStageId })
-
-    // Move the deal
+    // Move the deal (wait for backend to resolve template→generic stage)
     await updateDeal.mutateAsync({ dealId: moveDialog.dealId, stage_id: moveDialog.toStageId })
 
     // Log the activity (if subject provided)
@@ -160,8 +157,9 @@ export default function CrmPipelinePage() {
 
     setMoveDialog(null)
     setShowMoveActivity(false)
-    // Force refetch to show updated stage
-    setTimeout(() => refetchDeals(), 300)
+    // Force immediate refetch — updateDeal.onSuccess already invalidates queries
+    // but we refetch explicitly to ensure UI updates
+    await refetchDeals()
   }
 
   // ── Reusable Kanban column + card renderer ──
