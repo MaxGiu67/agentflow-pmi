@@ -114,7 +114,7 @@ class PortalClient:
             p = params or {"pageNum": 0, "pageSize": 200, "include": "true"}
             async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.post(f"{self.base_url}{path}", params=p, json=body, headers=self._headers())
-            if resp.status_code == 200:
+            if resp.status_code in (200, 201):
                 return resp.json()
             return {"data": [], "total": 0, "error": f"HTTP {resp.status_code}"}
         except Exception as e:

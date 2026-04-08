@@ -372,12 +372,16 @@ async def approve_offer(
             project_id = result.get("project_id") or result.get("projectId")
 
     # If we got a project_id but not from the result, try fetching the offer
-    # Portal creates the Project asynchronously, so we may need to wait and retry
+    # Portal creates the Project asynchronously after the PATCH, so we need to
+    # wait and retry with exponential backoff
     if not project_id:
         import asyncio
+        import logging
+        _log = logging.getLogger(__name__)
         portal_client.clear_cache()  # Ensure fresh data
-        for _attempt in range(3):
-            await asyncio.sleep(0.5)
+        delays = [0.5, 1.0, 1.5, 2.0]  # Total ~5s of waiting
+        for _attempt, delay in enumerate(delays):
+            await asyncio.sleep(delay)
             try:
                 offer = await portal_client.get_offer(offer_id)
                 if isinstance(offer, dict):
@@ -387,6 +391,7 @@ async def approve_offer(
                         if isinstance(proj, dict):
                             project_id = proj.get("id")
                     if project_id:
+                        _log.info("Offer %s project_id=%s found on attempt %d", offer_id, project_id, _attempt + 1)
                         break
             except Exception:
                 pass
