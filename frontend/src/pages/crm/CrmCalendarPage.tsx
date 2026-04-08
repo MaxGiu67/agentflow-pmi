@@ -76,14 +76,16 @@ export default function CrmCalendarPage() {
     setShowCreateForm(true)
   }
 
+  // Format date without Z/milliseconds for Python compatibility
+  const formatDateForAPI = (d: Date) => d.toISOString().replace('Z', '').split('.')[0]
+
   // Drag to move — update scheduled_at directly
   const handleEventDrop = async (info: any) => {
     const activityId = info.event.extendedProps?.id
     if (!activityId) { info.revert(); return }
-    const newDate = info.event.start?.toISOString()
-    if (!newDate) { info.revert(); return }
+    if (!info.event.start) { info.revert(); return }
     try {
-      await updateActivity.mutateAsync({ activityId, scheduled_at: newDate })
+      await updateActivity.mutateAsync({ activityId, scheduled_at: formatDateForAPI(info.event.start) })
     } catch {
       info.revert()
     }
@@ -93,10 +95,9 @@ export default function CrmCalendarPage() {
   const handleEventResize = async (info: any) => {
     const activityId = info.event.extendedProps?.id
     if (!activityId) { info.revert(); return }
-    const newDate = info.event.start?.toISOString()
-    if (!newDate) { info.revert(); return }
+    if (!info.event.start) { info.revert(); return }
     try {
-      await updateActivity.mutateAsync({ activityId, scheduled_at: newDate })
+      await updateActivity.mutateAsync({ activityId, scheduled_at: formatDateForAPI(info.event.start) })
     } catch {
       info.revert()
     }
