@@ -8,7 +8,7 @@ import {
   usePortalProjectTypes, usePortalLocations, usePortalAccountManagers,
   usePortalProtocolByCustomer, useMyPortalAccountManager,
   useDealProject, useAssignPortalEmployee, usePortalPersons, useDealProgress,
-  usePipelineTemplates,
+  usePipelineTemplates, useUpdateCrmDeal,
 } from '../../api/hooks'
 import { formatCurrency } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
@@ -90,6 +90,11 @@ export default function CrmDealDetailPage() {
   const [showAssignForm, setShowAssignForm] = useState(false)
   const [assignForm, setAssignForm] = useState({ activity_id: '', person_id: '' })
 
+  // Edit mode
+  const updateDeal = useUpdateCrmDeal()
+  const [editMode, setEditMode] = useState(false)
+  const [editForm, setEditForm] = useState({ name: '', expected_revenue: '', daily_rate: '', estimated_days: '', technology: '', probability: '' })
+
   if (isLoading) return <LoadingSpinner />
   if (!deal) return <div className="p-8 text-center text-gray-500">Deal non trovato</div>
 
@@ -131,9 +136,18 @@ export default function CrmDealDetailPage() {
               className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700">
               <Mail className="h-4 w-4" /> Invia email
             </button>
-            <button onClick={() => navigate(`/crm/deals/${id}/edit`)}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
-              <Pencil className="h-4 w-4" /> Modifica
+            <button onClick={() => {
+              if (!editMode) {
+                setEditForm({
+                  name: deal.name || '', expected_revenue: String(deal.expected_revenue || ''),
+                  daily_rate: String(deal.daily_rate || ''), estimated_days: String(deal.estimated_days || ''),
+                  technology: deal.technology || '', probability: String(deal.probability || ''),
+                })
+              }
+              setEditMode(!editMode)
+            }}
+              className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${editMode ? 'border-purple-300 bg-purple-50 text-purple-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
+              <Pencil className="h-4 w-4" /> {editMode ? 'Annulla' : 'Modifica'}
             </button>
             <button onClick={() => navigate('/crm')}
               className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900">
@@ -201,15 +215,67 @@ export default function CrmDealDetailPage() {
           {/* Dettagli deal */}
           <div className="border-t border-gray-100 pt-4">
             <h4 className="text-xs font-semibold uppercase text-gray-400 mb-3">Dettagli Opportunita</h4>
-            <div className="grid grid-cols-2 gap-3">
-              <Info label="Valore atteso" value={formatCurrency(deal.expected_revenue)} />
-              <Info label="Probabilita" value={`${deal.probability}%`} />
-              {deal.daily_rate > 0 && <Info label="Tariffa giornaliera" value={`${formatCurrency(deal.daily_rate)}/gg`} />}
-              {deal.estimated_days > 0 && <Info label="Giorni stimati" value={String(deal.estimated_days)} />}
-              {deal.technology && <Info label="Tecnologia / Stack" value={deal.technology} className="col-span-2" />}
-              <Info label="Responsabile" value={deal.assigned_to_name || deal.assigned_to || '-'} />
-              {deal.days_in_stage != null && <Info label="Giorni in questa fase" value={`${deal.days_in_stage} giorni`} />}
-            </div>
+            {editMode ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Nome opportunita</label>
+                    <input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Valore atteso (EUR)</label>
+                    <input type="number" value={editForm.expected_revenue} onChange={(e) => setEditForm({ ...editForm, expected_revenue: e.target.value })}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Tariffa giornaliera</label>
+                    <input type="number" value={editForm.daily_rate} onChange={(e) => setEditForm({ ...editForm, daily_rate: e.target.value })}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Giorni stimati</label>
+                    <input type="number" value={editForm.estimated_days} onChange={(e) => setEditForm({ ...editForm, estimated_days: e.target.value })}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Tecnologia / Stack</label>
+                    <input value={editForm.technology} onChange={(e) => setEditForm({ ...editForm, technology: e.target.value })}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Probabilita (%)</label>
+                    <input type="number" value={editForm.probability} onChange={(e) => setEditForm({ ...editForm, probability: e.target.value })}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
+                  </div>
+                </div>
+                <button onClick={async () => {
+                  await updateDeal.mutateAsync({
+                    dealId: id,
+                    name: editForm.name || undefined,
+                    expected_revenue: editForm.expected_revenue ? parseFloat(editForm.expected_revenue) : undefined,
+                    daily_rate: editForm.daily_rate ? parseFloat(editForm.daily_rate) : undefined,
+                    estimated_days: editForm.estimated_days ? parseFloat(editForm.estimated_days) : undefined,
+                    technology: editForm.technology || undefined,
+                    probability: editForm.probability ? parseFloat(editForm.probability) : undefined,
+                  })
+                  setEditMode(false)
+                }} disabled={updateDeal.isPending}
+                  className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+                  {updateDeal.isPending ? 'Salvataggio...' : 'Salva modifiche'}
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <Info label="Valore atteso" value={formatCurrency(deal.expected_revenue)} />
+                <Info label="Probabilita" value={`${deal.probability}%`} />
+                {deal.daily_rate > 0 && <Info label="Tariffa giornaliera" value={`${formatCurrency(deal.daily_rate)}/gg`} />}
+                {deal.estimated_days > 0 && <Info label="Giorni stimati" value={String(deal.estimated_days)} />}
+                {deal.technology && <Info label="Tecnologia / Stack" value={deal.technology} className="col-span-2" />}
+                <Info label="Responsabile" value={deal.assigned_to_name || deal.assigned_to || '-'} />
+                {deal.days_in_stage != null && <Info label="Giorni in questa fase" value={`${deal.days_in_stage} giorni`} />}
+              </div>
+            )}
           </div>
         </div>
 
