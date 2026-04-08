@@ -28,7 +28,7 @@ export default function CrmPipelinePage() {
 
   const { data: _pipeline } = useCrmPipeline()
   const { data: deals, isLoading, refetch: refetchDeals } = useCrmDeals('', '')
-  const { data: stages } = useCrmStages()
+  const { data: stages, refetch: refetchStages } = useCrmStages()
   const { data: analytics } = useCrmAnalytics()
   const updateDeal = useUpdateCrmDeal()
   const { data: activityTypes } = useActivityTypes(true)
@@ -158,9 +158,8 @@ export default function CrmPipelinePage() {
 
     setMoveDialog(null)
     setShowMoveActivity(false)
-    // Force immediate refetch — updateDeal.onSuccess already invalidates queries
-    // but we refetch explicitly to ensure UI updates
-    await refetchDeals()
+    // Force refetch stages too (backend may have created new generic stages)
+    await Promise.all([refetchDeals(), refetchStages()])
   }
 
   // ── Reusable Kanban column + card renderer ──
@@ -355,22 +354,22 @@ export default function CrmPipelinePage() {
               const tmpl = pipelineTemplates?.find((t: any) => t.id === pipelineTab)
               const tmplStages = tmpl?.stages?.length ? [...tmpl.stages].sort((a: any, b: any) => a.sequence - b.sequence) : stages || []
 
-              // Map generic stage names to template stage IDs for matching
+              // Build stage name map from both generic stages AND deal's own stage field
               const genericStageMap: Record<string, string> = {}
               for (const s of stages || []) { genericStageMap[s.id] = s.name }
 
               return (
                 <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: 400 }}>
                   {tmplStages.map((tStage: any) => {
-                    // Match deals: by stage name match OR first template stage as catch-all
+                    // Match deals by stage name — use deal.stage (name from backend) as primary, fallback to genericStageMap
                     const stageDeals = tabDeals.filter((d: any) => {
-                      const dealStageName = genericStageMap[d.stage_id] || ''
+                      const dealStageName = d.stage || d.stage_name || genericStageMap[d.stage_id] || ''
                       return dealStageName === tStage.name
                     })
                     // Catch unmatched deals in first stage
                     const isFirstStage = tStage.sequence === tmplStages[0]?.sequence
                     const unmatchedDeals = isFirstStage ? tabDeals.filter((d: any) => {
-                      const dealStageName = genericStageMap[d.stage_id] || ''
+                      const dealStageName = d.stage || d.stage_name || genericStageMap[d.stage_id] || ''
                       return !tmplStages.some((ts: any) => ts.name === dealStageName)
                     }) : []
                     const allDeals = [...stageDeals, ...unmatchedDeals]
@@ -434,12 +433,12 @@ export default function CrmPipelinePage() {
                       <div className="flex gap-3 overflow-x-auto pb-3">
                         {section.stagesForSection.map((stageInfo: any, idx: number) => {
                           const stageDeals = section.deals.filter((d: any) => {
-                            const dealStageName = genericStageMap[d.stage_id] || ''
+                            const dealStageName = d.stage || d.stage_name || genericStageMap[d.stage_id] || ''
                             return dealStageName === stageInfo.name
                           })
                           // Catch unmatched in first stage
                           const unmatchedDeals = idx === 0 ? section.deals.filter((d: any) => {
-                            const dealStageName = genericStageMap[d.stage_id] || ''
+                            const dealStageName = d.stage || d.stage_name || genericStageMap[d.stage_id] || ''
                             return !section.stagesForSection.some((ts: any) => ts.name === dealStageName)
                           }) : []
                           const allDeals = [...stageDeals, ...unmatchedDeals]
