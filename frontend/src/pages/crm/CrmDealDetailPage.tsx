@@ -110,6 +110,7 @@ export default function CrmDealDetailPage() {
   const [offerForm, setOfferForm] = useState({
     title: '', billing_type: 'Daily', rate: '', days: '', amount: '', description: '',
     project_type_id: '', location_id: '', accountManager_id: '', protocol: '',
+    outcome_type: 'W', deadline_date: '', noCollective: false,
   })
   const [showAssignForm, setShowAssignForm] = useState(false)
   const [assignForm, setAssignForm] = useState({ activity_id: '', person_id: '' })
@@ -779,9 +780,40 @@ export default function CrmDealDetailPage() {
                   placeholder="Importo fisso (EUR)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
               )}
 
+              {/* Esito + Scadenza */}
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="block text-[10px] text-gray-400 mb-0.5">Esito *</label>
+                  <select value={offerForm.outcome_type} onChange={(e) => setOfferForm({ ...offerForm, outcome_type: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                    <option value="W">In Attesa</option>
+                    <option value="P">Positivo (crea commessa)</option>
+                    <option value="N">Negativo</option>
+                    <option value="R">Rimandato</option>
+                    <option value="A">Annullato</option>
+                    <option value="C">Chiuso</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] text-gray-400 mb-0.5">Data scadenza</label>
+                  <input type="date" value={offerForm.deadline_date} onChange={(e) => setOfferForm({ ...offerForm, deadline_date: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                </div>
+                <label className="flex items-center gap-2 text-sm pt-4">
+                  <input type="checkbox" checked={offerForm.noCollective} onChange={(e) => setOfferForm({ ...offerForm, noCollective: e.target.checked })} />
+                  No collettivo
+                </label>
+              </div>
+
+              {offerForm.outcome_type === 'P' && (
+                <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+                  Attenzione: con esito "Positivo" verra creata automaticamente una commessa su Portal.
+                </p>
+              )}
+
               {/* Descrizione */}
               <textarea value={offerForm.description} onChange={(e) => setOfferForm({ ...offerForm, description: e.target.value })}
-                placeholder="Descrizione" rows={2} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                placeholder="Descrizione / Note" rows={2} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
 
               {/* Actions */}
               <div className="flex gap-2">
@@ -799,8 +831,10 @@ export default function CrmDealDetailPage() {
                     rate: offerForm.rate ? parseFloat(offerForm.rate) : undefined,
                     days: offerForm.days ? parseInt(offerForm.days) : undefined,
                     amount: offerForm.amount ? parseFloat(offerForm.amount) : undefined,
-                    OutcomeType: 'W',
+                    OutcomeType: offerForm.outcome_type,
                     year: new Date().getFullYear(),
+                    deadline_date: offerForm.deadline_date || undefined,
+                    noCollective: offerForm.noCollective,
                   }
                   await createPortalOffer.mutateAsync(payload)
                   setShowOfferForm(false)
