@@ -77,27 +77,29 @@ export default function CrmCalendarPage() {
   }
 
   // Drag to move — update scheduled_at directly
-  const handleEventDrop = (info: any) => {
+  const handleEventDrop = async (info: any) => {
     const activityId = info.event.extendedProps?.id
     if (!activityId) { info.revert(); return }
     const newDate = info.event.start?.toISOString()
     if (!newDate) { info.revert(); return }
-    updateActivity.mutate(
-      { activityId, scheduled_at: newDate },
-      { onError: () => info.revert() }
-    )
+    try {
+      await updateActivity.mutateAsync({ activityId, scheduled_at: newDate })
+    } catch {
+      info.revert()
+    }
   }
 
   // Drag to resize — update scheduled_at to new start
-  const handleEventResize = (info: any) => {
+  const handleEventResize = async (info: any) => {
     const activityId = info.event.extendedProps?.id
     if (!activityId) { info.revert(); return }
     const newDate = info.event.start?.toISOString()
     if (!newDate) { info.revert(); return }
-    updateActivity.mutate(
-      { activityId, scheduled_at: newDate },
-      { onError: () => info.revert() }
-    )
+    try {
+      await updateActivity.mutateAsync({ activityId, scheduled_at: newDate })
+    } catch {
+      info.revert()
+    }
   }
 
   const handleCreate = async () => {
