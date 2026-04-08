@@ -336,6 +336,75 @@ async def update_offer(
     return await portal_client.update_offer(offer_id, body)
 
 
+@router.post("/offers/{offer_id}/approve")
+async def approve_offer(
+    offer_id: int,
+    body: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Approve offer (OutcomeType=P) -> creates commessa automatically on Portal.
+
+    Body: { start_date, end_date, orderNum, deal_id? }
+    All dates must be ISO DateTime: "2026-05-01T00:00:00.000Z"
+    """
+    # PATCH the offer on Portal with OutcomeType=P and ProjectData
+    patch_data: dict = {
+        "OutcomeType": "P",
+        "approval_date": datetime.utcnow().isoformat() + "Z",
+        "ProjectData": {
+            "start_date": body["start_date"],
+            "end_date": body["end_date"],
+            "orderNum": body.get("orderNum", ""),
+        },
+    }
+    result = await portal_client.update_offer(offer_id, patch_data)
+
+    # Extract project_id from the result and update the deal
+    project_id = None
+    if isinstance(result, dict):
+        # The Portal may return the Project directly or nested
+        project = result.get("Project") or result.get("project")
+        if isinstance(project, dict):
+            project_id = project.get("id")
+        # Or it may be at top level after the patch
+        if not project_id:
+            project_id = result.get("project_id") or result.get("projectId")
+
+    # If we got a project_id but not from the result, try fetching the offer
+    if not project_id:
+        try:
+            offer = await portal_client.get_offer(offer_id)
+            if isinstance(offer, dict):
+                project_id = offer.get("project_id") or offer.get("projectId")
+                if not project_id:
+                    proj = offer.get("Project") or offer.get("project")
+                    if isinstance(proj, dict):
+                        project_id = proj.get("id")
+        except Exception:
+            pass
+
+    # Update deal's portal_project_id if deal_id provided
+    if body.get("deal_id") and project_id:
+        deal_result = await db.execute(
+            select(CrmDeal).where(
+                CrmDeal.id == uuid.UUID(body["deal_id"]),
+                CrmDeal.tenant_id == user.tenant_id,
+            )
+        )
+        deal = deal_result.scalar_one_or_none()
+        if deal:
+            deal.portal_project_id = project_id
+            await db.commit()
+
+    return {
+        "ok": True,
+        "offer_id": offer_id,
+        "project_id": project_id,
+        "result": result,
+    }
+
+
 # ── Activities & Assignments (US-237) ──────────────
 
 

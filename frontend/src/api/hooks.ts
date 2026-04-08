@@ -1443,14 +1443,18 @@ export function usePortalOfferProtocol(customerCode: string) {
 }
 
 export function useCreatePortalActivity() {
+  const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: Record<string, unknown>) => api.post('/portal/activities/create', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['portal-deal-project'] }),
   })
 }
 
 export function useAssignPortalEmployee() {
+  const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: Record<string, unknown>) => api.post('/portal/activities/assign', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['portal-deal-project'] }),
   })
 }
 
@@ -1530,6 +1534,52 @@ export function useDealProgress(dealId: string | undefined, portalProjectId: num
     queryKey: ['portal-deal-progress', dealId],
     queryFn: () => api.get(`/portal/deal-progress/${dealId}`).then((r) => r.data),
     enabled: !!dealId && !!portalProjectId,
+  })
+}
+
+// ── Portal: Approve Offer / Activity / Assign (Workflow) ──
+
+export function useApproveOffer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ offerId, ...data }: { offerId: number; start_date: string; end_date: string; orderNum?: string; deal_id?: string }) =>
+      api.post(`/portal/offers/${offerId}/approve`, data).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm-deal'] })
+      qc.invalidateQueries({ queryKey: ['crm-deals'] })
+      qc.invalidateQueries({ queryKey: ['portal-deal-project'] })
+    },
+  })
+}
+
+export function usePortalActivityTypes() {
+  return useQuery({
+    queryKey: ['portal-activity-types'],
+    queryFn: () => api.get('/portal/activities/types').then((r) => r.data),
+  })
+}
+
+export function useCreatePortalActivityOnProject() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/portal/activities/create', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['portal-deal-project'] }),
+  })
+}
+
+export function useAssignEmployeeToActivity() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/portal/activities/assign', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['portal-deal-project'] }),
+  })
+}
+
+export function usePortalOffer(offerId: number | undefined) {
+  return useQuery({
+    queryKey: ['portal-offer', offerId],
+    queryFn: () => api.get(`/portal/offers/${offerId}`).then((r) => r.data),
+    enabled: !!offerId,
   })
 }
 
