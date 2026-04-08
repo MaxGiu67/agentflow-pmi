@@ -647,11 +647,15 @@ export default function CrmDealDetailPage() {
                 formData.append('doc_type', docForm.doc_type)
                 formData.append('name', docForm.name || docFile.name)
                 formData.append('notes', docForm.notes)
-                await uploadDocument.mutateAsync({ dealId: deal.id, formData })
-                setDocForm({ doc_type: 'offerta', name: '', notes: '' })
-                setDocFile(null)
-                if (fileInputRef.current) fileInputRef.current.value = ''
-                setShowDocForm(false)
+                try {
+                  await uploadDocument.mutateAsync({ dealId: deal.id, formData })
+                  setDocForm({ doc_type: 'offerta', name: '', notes: '' })
+                  setDocFile(null)
+                  if (fileInputRef.current) fileInputRef.current.value = ''
+                  setShowDocForm(false)
+                } catch (err: any) {
+                  alert(`Errore upload: ${err?.response?.data?.detail || err?.message || 'Errore sconosciuto'}`)
+                }
               }} disabled={!docFile || uploadDocument.isPending}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
                 {uploadDocument.isPending ? 'Caricamento...' : 'Carica'}

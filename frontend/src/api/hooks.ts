@@ -1404,9 +1404,7 @@ export function useUploadDealDocument() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ dealId, formData }: { dealId: string; formData: FormData }) =>
-      api.post(`/crm/deals/${dealId}/documents/upload`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      }).then((r) => r.data),
+      api.post(`/crm/deals/${dealId}/documents/upload`, formData).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['deal-documents'] }),
   })
 }
