@@ -19,7 +19,7 @@ import SendEmailModal from '../../components/email/SendEmailModal'
 import {
   ArrowLeft, FileCheck, CheckCircle, AlertCircle, Mail, Eye, MousePointer,
   Plus, Phone, Video, Calendar, MessageSquare, Activity, Pencil, Building2,
-  FileText, Link2, Trash2, Send, Loader2, Upload, Users, X, Download, Save, ChevronDown, ChevronUp,
+  FileText, Trash2, Send, Loader2, Upload, Users, X, Download, Save, ChevronUp,
 } from 'lucide-react'
 
 const ORDER_TYPES = [

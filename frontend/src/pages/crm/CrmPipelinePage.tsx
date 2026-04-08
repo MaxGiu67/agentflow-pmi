@@ -41,13 +41,14 @@ export default function CrmPipelinePage() {
   const [showMoveActivity, setShowMoveActivity] = useState(false)
 
   // React 19 useOptimistic for instant drag feedback
-  const [optimisticMoves, setOptimisticMove] = useOptimistic(
+  const [optimisticMoves, _setOptimisticMove] = useOptimistic(
     {} as Record<string, string>, // dealId → new stageId
     (prev, move: { dealId: string; stageId: string }) => ({
       ...prev,
       [move.dealId]: move.stageId,
     })
   )
+  void _setOptimisticMove // suppress unused warning
 
   // Client-side search filter (cliente, nominativo, descrizione deal)
   const searchLower = searchQuery.toLowerCase().trim()
