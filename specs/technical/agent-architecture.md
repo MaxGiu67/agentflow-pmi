@@ -355,3 +355,241 @@ Per aggiungere un nuovo agente (es. OrderAgent, HRAgent):
 - Il Sales Agent ha piu tool (~26) ma ne vede solo quelli del prodotto corrente (~8-12)
 - Prompt dinamico: cambia per ogni deal/prodotto
 - Testabilita: ogni set di tool per prodotto testabile separatamente
+
+---
+
+## Sales Agent v2 — LangChain + LangGraph
+
+**Data: 2026-04-08**
+**Stack: LangChain 1.2 + LangGraph 1.0 + Claude Sonnet 4 / Opus 4**
+**File: `api/agents/sales_agent_v2.py`**
+
+### Perche v2
+
+La v1 (`sales_agent.py`) definisce la struttura tool/pipeline ma delega l'esecuzione all'orchestratore esistente basato su OpenAI. La v2 porta il Sales Agent su LangGraph con un grafo a stati esplicito, modelli Anthropic nativi, e un engine di generazione offerte Word integrato.
+
+### Architettura
+
+```
+User Message
+     |
+     v
+[Router Node]         Claude Sonnet 4
+  |  intent + tool selection
+  |
+  +---> no tools? --> [Responder] --> END
+  |
+  v
+[Tool Executor]       runs selected tool(s)
+  |
+  +---> offer doc? --> [Offer Writer]  Claude Opus 4 (prose)
+  |                         |
+  |                         v
+  +---> high risk? --> [Human Gate]    pausa + conferma utente
+  |                         |
+  |                         v
+  +-------------------->[Responder]    Claude Sonnet 4
+                              |
+                              v
+                            END
+```
+
+### Modelli LLM
+
+| Nodo | Modello | Perche |
+|------|---------|--------|
+| Router | Claude Sonnet 4 (`claude-sonnet-4-20250514`) | Veloce, economico. Ottimo per intent classification e tool calling |
+| Tool Executor | — (esecuzione Python diretta) | Nessun LLM, solo codice |
+| Offer Writer | Claude Opus 4 (`claude-opus-4-20250514`) | Testo di alta qualita per offerte commerciali |
+| Responder | Claude Sonnet 4 | Sintetizza risultati tool in risposta conversazionale |
+
+Configurabili via env: `SALES_AGENT_ROUTER_MODEL`, `SALES_AGENT_WRITER_MODEL`.
+
+### 25 Tool in 4 categorie
+
+#### Cat. 1 — CRM Core (8 tool, sempre disponibili)
+
+| # | Tool | Cosa fa | Rischio |
+|---|------|---------|---------|
+| 1 | `crm_get_deal_summary` | Riepilogo completo deal: azienda, prodotto, stato, attivita, info mancanti | LOW |
+| 2 | `crm_list_deals` | Lista deal con filtri per stage e pipeline_type | LOW |
+| 3 | `crm_move_deal_stage` | Sposta deal a nuovo stage. Verifica required_fields | **HIGH** |
+| 4 | `crm_log_activity` | Registra attivita (call, meeting, email, task, nota) | MEDIUM |
+| 5 | `crm_pipeline_summary` | Pipeline pesata: deal per stage, valore totale, conversion | LOW |
+| 6 | `crm_list_contacts` | Cerca contatti per nome, email, azienda | LOW |
+| 7 | `crm_ask_missing_info` | Identifica campi obbligatori mancanti per lo stage corrente | LOW |
+| 8 | `crm_classify_loss` | Classifica deal perso (prezzo, timing, competitor, no-fit) | LOW |
+
+#### Cat. 2 — Portal Integration (8 tool)
+
+| # | Tool | Cosa fa | Rischio |
+|---|------|---------|---------|
+| 9 | `portal_search_resources` | Cerca risorse Portal per skill, seniority, disponibilita | LOW |
+| 10 | `portal_get_projects` | Lista commesse Portal | LOW |
+| 11 | `portal_get_project_detail` | Dettaglio commessa con attivita e risorse assegnate | LOW |
+| 12 | `portal_get_customers` | Cerca clienti Portal per nome/codice | LOW |
+| 13 | `portal_create_offer` | Crea offerta su Portal con protocollo auto-generato | **HIGH** |
+| 14 | `portal_get_offers` | Lista offerte Portal | LOW |
+| 15 | `portal_assign_resource` | Assegna risorsa a project activity | **HIGH** |
+| 16 | `portal_get_timesheets` | Timesheet per verifica utilizzo risorse | LOW |
+
+#### Cat. 3 — Offer Generation (4 tool)
+
+| # | Tool | Cosa fa | Rischio |
+|---|------|---------|---------|
+| 17 | `generate_offer_doc` | Genera .docx da template con sostituzione placeholder | **HIGH** |
+| 18 | `list_offer_placeholders` | Lista placeholder disponibili nel template | LOW |
+| 19 | `calc_margin` | Calcola margine T&M. Warning se < 15% | LOW |
+| 20 | `estimate_effort` | Stima effort progetto a corpo (giorni/persona) | LOW |
+
+#### Cat. 4 — Search & Intelligence (5 tool)
+
+| # | Tool | Cosa fa | Rischio |
+|---|------|---------|---------|
+| 21 | `match_resources` | Match risorse interne per skill/seniority. Top 5 con score | LOW |
+| 22 | `detect_cross_sell` | Analizza note per segnali cross-sell (keyword detection) | LOW |
+| 23 | `suggest_next_action` | Suggerisce prossima azione in base a stato, timing, SLA | LOW |
+| 24 | `generate_email_draft` | Bozza email per fase (primo contatto, follow-up, invio offerta) | MEDIUM |
+| 25 | `check_bench` | Risorse in bench (disponibili o in scadenza progetto) | LOW |
+
+### Tool filtering per pipeline
+
+L'agente mostra solo i tool rilevanti per il pipeline_type del deal:
+
+| Pipeline | Tool extra (oltre ai core) |
+|----------|---------------------------|
+| `vendita_diretta` | match_resources, calc_margin, generate_offer_doc, check_bench, portal_search_resources, portal_assign_resource |
+| `progetto_corpo` | estimate_effort, generate_offer_doc, portal_create_offer |
+| `social_selling` | detect_cross_sell, portal_search_resources, generate_email_draft, suggest_next_action |
+| Nessun deal | Solo CRM core + search + portal read (19 tool) |
+
+### Generazione offerte Word
+
+**File**: `api/agents/tools/offer_generator.py`
+**Template**: `api/agents/templates/Template_Offerta_NexaData.docx`
+
+Il motore python-docx gestisce il problema dei **placeholder split su run XML separati**. Word salva `{{Placeholder}}` come 3+ run XML: `{{`, `Placeholder`, `}}`. L'engine:
+
+1. Concatena il testo di tutti i run di ogni paragrafo
+2. Trova i `{{PLACEHOLDER}}` nel testo concatenato
+3. Mappa ogni carattere al run originale (char_map)
+4. Per placeholder split: sostituisce nel primo run, svuota i run intermedi, mantiene il testo dopo nell'ultimo run
+
+**31 placeholder** supportati (27 trovati nel template attuale):
+
+- **Cover page** (9): PROTOCOLLO, DATA_OFFERTA, NOME_CLIENTE, INDIRIZZO_CLIENTE, CAP_CITTA_CLIENTE, PROVINCIA_CLIENTE, REFERENTE_CLIENTE, TITOLO_OFFERTA, TESTO_INTRODUTTIVO
+- **Sezioni 1-8** (12): Descrizione_Offerta, TECNOLOGIE_INTRO/BACKEND/FRONTEND/CONCLUSIONE, Componenti_del_sistema, Team_di_progetto, Stima_dettagliata_di_impegno, PIANO_DI_SVILUPPO, MODALITA_CONTRATTUALE, ASSUNZIONE, RISCHIO
+- **Riferimenti** (10): REF_COMMERCIALE_NOME/EMAIL/TEL, REF_IT_NOME/EMAIL/TEL, REF_AMM_NOME/EMAIL/TEL, FIRMATARIO
+
+L'offerta T&M vs corpo cambia il contenuto dei placeholder, non il template.
+
+### Human-in-the-loop
+
+4 azioni ad alto rischio richiedono conferma esplicita del commerciale:
+
+| Azione | Tool | Motivo |
+|--------|------|--------|
+| Sposta deal | `crm_move_deal_stage` | Cambia stato pipeline — irreversibile |
+| Crea offerta Portal | `portal_create_offer` | Crea record su sistema esterno |
+| Assegna risorsa | `portal_assign_resource` | Impegna una persona su un progetto |
+| Genera documento | `generate_offer_doc` | Produce documento ufficiale |
+
+Il nodo `human_gate` blocca il grafo e invia una richiesta di conferma al frontend via WebSocket. L'esecuzione riprende solo dopo conferma.
+
+### State management (LangGraph)
+
+```python
+class AgentState(BaseModel):
+    messages: list[BaseMessage]      # Conversazione completa
+    tenant_id: str                    # Multi-tenant
+    user_name: str                    # Commerciale corrente
+    deal_context: dict                # Deal attivo (company, product, stage...)
+    pipeline_stages: list[dict]       # FSM stages dal DB
+    selected_tools: list[str]         # Tool scelti dal router
+    tool_results: dict                # Risultati esecuzione
+    risk_level: RiskLevel             # LOW / MEDIUM / HIGH
+    needs_human_confirmation: bool    # Richiede conferma?
+    human_confirmed: bool             # Confermato?
+    needs_offer_writing: bool         # Serve Opus 4 per testo?
+    offer_output_path: str            # Path .docx generato
+    final_response: str               # Risposta finale al commerciale
+```
+
+### Portal endpoints utilizzati
+
+Il Sales Agent v2 usa `PortalClient` (`api/adapters/portal_client.py`) che espone:
+
+**Lettura:**
+- `get_persons(search)` — cerca dipendenti per skill/nome
+- `get_person(id)` — dettaglio con contratti
+- `get_projects(search)` — lista commesse
+- `get_project(id)` — dettaglio con attivita
+- `get_customers(search)` — clienti
+- `get_customer(id)` — dettaglio cliente
+- `get_offers(search)` — offerte
+- `get_offer(id)` — dettaglio offerta
+- `get_timesheets()` — rapportini
+- `get_account_managers()` — utenti Portal (account manager)
+- `get_project_types()` — tipi commessa
+- `get_billing_types()` — tipi fatturazione (Daily, LumpSum)
+
+**Scrittura (con conferma umana):**
+- `create_offer(data)` — crea offerta
+- `create_project(data)` — crea commessa
+- `add_employee_to_activity(data)` — assegna risorsa
+- `find_account_manager_by_email(email)` — match AM per auto-linking
+
+### File implementati
+
+```
+api/agents/
+  tools/
+    __init__.py                    # Package init, re-exports
+    offer_generator.py             # python-docx template engine (split-run aware)
+  templates/
+    Template_Offerta_NexaData.docx # Template offerta Word (31 placeholder)
+    ISTRUZIONI_TEMPLATE.md         # Guida placeholder per Claude
+  sales_agent_v2.py                # LangGraph StateGraph completo
+  sales_agent.py                   # v1 (BaseAgent, keyword routing) — mantenuto
+  base.py                          # BaseAgent class
+  registry.py                      # Agent registry (plugin pattern)
+```
+
+### Invocazione
+
+```python
+from api.agents.sales_agent_v2 import invoke_sales_agent_v2
+
+result = await invoke_sales_agent_v2(
+    message="Cerca risorse Python senior disponibili per il deal ACME",
+    tenant_id="abc-123",
+    user_name="Marco Rossi",
+    deal_context={
+        "company": "ACME S.r.l.",
+        "product": "Consulenza T&M",
+        "pipeline_type": "vendita_diretta",
+        "current_stage": "match_risorse",
+        "days_in_stage": 2,
+        "last_contact": "2026-04-06",
+        "missing_fields": ["resource_profile"],
+    },
+    pipeline_stages=[
+        {"code": "lead", "name": "Lead", "sequence": 1},
+        {"code": "qualifica", "name": "Qualifica", "sequence": 2},
+        {"code": "match_risorse", "name": "Match Risorse", "sequence": 3},
+        {"code": "offerta", "name": "Offerta", "sequence": 4},
+        {"code": "negoziazione", "name": "Negoziazione", "sequence": 5},
+        {"code": "won", "name": "Won", "sequence": 6},
+    ],
+)
+
+print(result["response"])
+```
+
+### Prossimi passi
+
+- [ ] Collegare tool CRM ai service reali (db session injection)
+- [ ] WebSocket integration per human-in-the-loop dal frontend
+- [ ] Test E2E: flusso completo router -> tools -> responder
+- [ ] Metriche: latenza per nodo, costi token, hit rate tool
+- [ ] Rate limiting per tenant su chiamate Opus 4
