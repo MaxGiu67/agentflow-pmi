@@ -368,11 +368,29 @@ async def update_activity(
     body: dict,
     user: User = Depends(get_current_user),
     svc: CRMService = Depends(get_service),
+    db: AsyncSession = Depends(get_db),
 ):
     _require_tenant(user)
     result = await svc.update_activity(activity_id, body)
     if not result:
         raise HTTPException(404, "Attivita non trovata")
+
+    # Sync to Outlook if scheduled_at changed and user has Microsoft connected
+    if "scheduled_at" in body and user.microsoft_token:
+        try:
+            from api.modules.calendar.microsoft_service import MicrosoftCalendarService
+            from sqlalchemy import select as sql_select
+            from api.db.models import CrmActivity
+            act_result = await db.execute(sql_select(CrmActivity).where(CrmActivity.id == activity_id))
+            activity = act_result.scalar_one_or_none()
+            if activity and activity.outlook_event_id:
+                ms_svc = MicrosoftCalendarService(db)
+                await ms_svc.update_activity(user, activity)
+                await db.commit()
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Outlook sync failed: %s", e)
+
     return result
 
 

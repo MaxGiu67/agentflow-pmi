@@ -8,8 +8,8 @@ import { SkeletonPage } from '../ui/Skeleton'
 import ChatbotFloating from '../chat/ChatbotFloating'
 import { useAuthStore } from '../../store/auth'
 
-// ChatbotFloating visible only on these routes
-const CHATBOT_ROUTES = ['/dashboard', '/chat', '/']
+// ChatbotFloating visible on all main app routes
+const CHATBOT_ROUTES = ['/dashboard', '/chat', '/', '/crm', '/fatture', '/banca', '/contabilita', '/scadenzario', '/fisco', '/ceo', '/report', '/spese', '/cespiti', '/personale', '/budget', '/impostazioni', '/email', '/elevia']
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)

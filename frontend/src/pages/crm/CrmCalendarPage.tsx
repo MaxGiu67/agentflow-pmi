@@ -76,8 +76,11 @@ export default function CrmCalendarPage() {
     setShowCreateForm(true)
   }
 
-  // Format date without Z/milliseconds for Python compatibility
-  const formatDateForAPI = (d: Date) => d.toISOString().replace('Z', '').split('.')[0]
+  // Format date as LOCAL time (not UTC) for the backend which stores naive datetimes
+  const formatDateForAPI = (d: Date) => {
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  }
 
   // Drag to move — update scheduled_at directly
   const handleEventDrop = async (info: any) => {
