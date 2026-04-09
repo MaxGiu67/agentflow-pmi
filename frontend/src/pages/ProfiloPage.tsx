@@ -10,6 +10,7 @@ import {
 import PageHeader from '../components/ui/PageHeader'
 import Card from '../components/ui/Card'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
+import { useSettingsStore } from '../store/settings'
 
 export default function ProfiloPage() {
   const { data: profile, isLoading } = useProfile()
@@ -26,6 +27,8 @@ export default function ProfiloPage() {
   const [calendlyInput, setCalendlyInput] = useState('')
   const [saved, setSaved] = useState(false)
   const [calendlySaved, setCalendlySaved] = useState(false)
+  const orbStore = useSettingsStore()
+  const [orbSaved, setOrbSaved] = useState(false)
 
   useEffect(() => {
     if (profile) {
@@ -204,6 +207,41 @@ export default function ProfiloPage() {
                 <span><strong>File .ics:</strong> Dal calendario puoi scaricare qualsiasi attivita come file .ics per aggiungerla manualmente a Google Calendar, Apple Calendar o qualsiasi altro client.</span>
               </li>
             </ul>
+          </Card>
+
+          {/* Tema Avatar Bot */}
+          <Card>
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Tema Avatar Bot</h3>
+            <p className="text-xs text-gray-500 mb-4">Scegli l'aspetto dell'assistente AI. Il cambio e' immediato.</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button onClick={() => { orbStore.setOrbTheme('siri'); setOrbSaved(true); setTimeout(() => setOrbSaved(false), 2000) }}
+                className={`rounded-xl border-2 p-4 text-left transition-all ${
+                  orbStore.orbTheme === 'siri' ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200' : 'border-gray-200 hover:border-gray-300'
+                }`}>
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 opacity-80" />
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Siri Orb</p>
+                    <p className="text-xs text-gray-500">Sfere colorate fluide (CSS)</p>
+                  </div>
+                </div>
+              </button>
+              <button onClick={() => { orbStore.setOrbTheme('jarvis'); setOrbSaved(true); setTimeout(() => setOrbSaved(false), 2000) }}
+                className={`rounded-xl border-2 p-4 text-left transition-all ${
+                  orbStore.orbTheme === 'jarvis' ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200' : 'border-gray-200 hover:border-gray-300'
+                }`}>
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 via-indigo-500 to-blue-600 opacity-80 flex items-center justify-center">
+                    <div className="h-4 w-4 rounded-full border-2 border-blue-300/60" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Jarvis HUD</p>
+                    <p className="text-xs text-gray-500">Anelli rotanti stile HUD</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+            {orbSaved && <p className="mt-2 text-xs text-green-600">Tema aggiornato!</p>}
           </Card>
         </div>
       </div>
