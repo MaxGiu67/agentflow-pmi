@@ -14,6 +14,7 @@ import { useUIHighlights } from '../../context/UIHighlightContext'
 /* ── Placeholder per pagina ──────────────────────────────────────── */
 
 const getPlaceholder = (page: string): string => {
+  if (page === 'crm') return 'Chiedi sulla pipeline, deal, offerte, contatti...'
   switch (page) {
     case 'dashboard': return 'Chiedi sui KPI, fatturato, clienti...'
     case 'fatture': return 'Cerca fattura, cliente, fornitore...'
@@ -31,6 +32,7 @@ const getPlaceholder = (page: string): string => {
 /* ── Suggestion chips per pagina ─────────────────────────────────── */
 
 const suggestions: Record<string, string[]> = {
+  crm: ['Cosa devo fare oggi?', 'Deal fermi da seguire', 'Prepara offerta', 'Cerca risorsa Java', 'Deal vinti da completare'],
   dashboard: ['Qual è il fatturato del mese?', 'Top 5 clienti', 'Come stanno le finanze?'],
   fatture: ['Fatture NTT Data', 'Quante fatture ricevute?', 'Fatture in attesa'],
   contabilita: ['Ultime registrazioni', 'Stato patrimoniale', 'Prima nota'],
@@ -164,11 +166,47 @@ export default function ChatbotFloating() {
 
   /* ── Open / Close chat ────────────────────────────────────────── */
 
+  const hasAutoAnalyzed = useRef(false)
+
   const openChat = useCallback(() => {
     setChatOpen(true)
     // Auto-focus input after animation settles
     setTimeout(() => inputRef.current?.focus(), 350)
-  }, [])
+
+    // Auto-analyze pipeline on first open if on CRM page
+    if (!hasAutoAnalyzed.current && fullPath.startsWith('/crm')) {
+      hasAutoAnalyzed.current = true
+      // Delay to let chatbar animate in, then auto-send analysis request
+      setTimeout(async () => {
+        setShowResponse(true)
+        setIsLoading(true)
+        try {
+          const result = await sendMessage.mutateAsync({
+            message: 'Analizza la pipeline e dimmi cosa devo fare oggi',
+            conversationId: conversationId ?? undefined,
+            context: { page, year: getSelectedYear() },
+          })
+          if (!conversationId && result.conversation_id) {
+            setConversationId(result.conversation_id)
+          }
+          setResponse(result.content ?? '')
+          const meta = result.response_meta
+          if (meta) {
+            const uiActions = meta.ui_actions
+            if (Array.isArray(uiActions) && uiActions.length > 0) {
+              setHighlights(uiActions)
+            }
+            const suggested = (meta.suggested_actions ?? []) as ActionCommand[]
+            if (suggested.length > 0) setSuggestedActions(suggested)
+          }
+        } catch {
+          setResponse('Non sono riuscito ad analizzare la pipeline. Riprova.')
+        } finally {
+          setIsLoading(false)
+        }
+      }, 500)
+    }
+  }, [fullPath, conversationId, sendMessage, page, setHighlights])
 
   const closeChat = useCallback(() => {
     setChatOpen(false)
@@ -178,6 +216,8 @@ export default function ChatbotFloating() {
   /* ── Close response on navigation ─────────────────────────────── */
 
   useEffect(() => {
+    // Reset auto-analyze flag on page change so it triggers again
+    hasAutoAnalyzed.current = false
     if (showResponse) {
       setShowResponse(false)
       setResponse('')
