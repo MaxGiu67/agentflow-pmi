@@ -9,6 +9,7 @@ import ContentBlockRenderer from './ContentBlockRenderer'
 import { useAIBlocksStore } from '../../store/aiBlocks'
 import { useSettingsStore } from '../../store/settings'
 import BotOrb, { SiriBorder, type OrbState } from './BotOrb'
+import { useUIHighlights } from '../../context/UIHighlightContext'
 
 /* ── Placeholder per pagina ──────────────────────────────────────── */
 
@@ -128,6 +129,7 @@ export default function ChatbotFloating() {
   const fullPath = location.pathname
 
   const orbTheme = useSettingsStore((s) => s.orbTheme)
+  const { setHighlights } = useUIHighlights()
 
   const { executeActions, executeSingle } = useActionExecutor()
 
@@ -257,6 +259,12 @@ export default function ChatbotFloating() {
           setContentBlocks(blocks)
           console.log('[AgentFlow] Sending content_blocks to dashboard:', blocks.length)
           useAIBlocksStore.getState().setBlocks(blocks, result.content?.slice(0, 100) ?? '')
+        }
+
+        // Apply UI highlights from agent response
+        const uiActions = meta.ui_actions
+        if (Array.isArray(uiActions) && uiActions.length > 0) {
+          setHighlights(uiActions)
         }
       }
     } catch {

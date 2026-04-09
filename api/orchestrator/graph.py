@@ -1218,6 +1218,44 @@ async def run_orchestrator(
             existing.extend(result["suggested_actions"])
             response_meta["suggested_actions"] = existing
 
+    # UI Actions — generate highlights for CRM deals mentioned in tool results
+    ui_actions = []
+    for tr in state.get("tool_results", []):
+        result = tr.get("result", {})
+        if not isinstance(result, dict):
+            continue
+        # Highlight deals from pipeline summary or deal list
+        deals = result.get("deals", [])
+        if isinstance(deals, list):
+            for deal in deals:
+                if not isinstance(deal, dict) or not deal.get("id"):
+                    continue
+                # Highlight stale deals (>5 days in stage) with high priority
+                days = deal.get("days_in_stage", 0) or 0
+                if days > 5:
+                    ui_actions.append({
+                        "type": "highlight",
+                        "target": "deal",
+                        "id": str(deal["id"]),
+                        "style": "pulse-border",
+                        "color": "#ef4444" if days > 10 else "#f59e0b",
+                        "tooltip": f"Fermo da {days} giorni — serve follow-up",
+                        "navigate": f"/crm/deals/{deal['id']}",
+                    })
+                # Highlight high-value deals near closing
+                elif deal.get("probability", 0) >= 50 and deal.get("expected_revenue", 0) > 5000:
+                    ui_actions.append({
+                        "type": "highlight",
+                        "target": "deal",
+                        "id": str(deal["id"]),
+                        "style": "glow",
+                        "color": "#8b5cf6",
+                        "tooltip": f"Deal caldo — {deal.get('probability',0)}% probabilita",
+                        "navigate": f"/crm/deals/{deal['id']}",
+                    })
+    if ui_actions:
+        response_meta["ui_actions"] = ui_actions
+
     return {
         "content": content,
         "tool_calls": state.get("tool_calls"),
