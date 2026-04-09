@@ -18,15 +18,15 @@ interface SiriOrbProps {
 
 const ORB_COLORS: Record<OrbState, Record<string, string>> = {
   sleep: {
-    '--siri-bg': 'oklch(14% 0.005 220)',
-    '--siri-c1': 'oklch(40% 0.04 220)',
-    '--siri-c2': 'oklch(35% 0.04 210)',
-    '--siri-c3': 'oklch(38% 0.03 230)',
-    '--siri-blur': '1.5px',
-    '--siri-contrast': '1.2',
-    '--siri-shadow': '0.5px',
-    '--siri-speed': '35s',
-    '--siri-glow-color': 'rgba(125, 211, 252, 0.4)',
+    '--siri-bg': 'oklch(20% 0.01 220)',
+    '--siri-c1': 'oklch(60% 0.08 220)',
+    '--siri-c2': 'oklch(55% 0.09 210)',
+    '--siri-c3': 'oklch(52% 0.07 230)',
+    '--siri-blur': '2px',
+    '--siri-contrast': '1.3',
+    '--siri-shadow': '1px',
+    '--siri-speed': '25s',
+    '--siri-glow-color': 'rgba(125, 211, 252, 0.45)',
   },
   idle: {
     '--siri-bg': 'oklch(22% 0.01 220)',
