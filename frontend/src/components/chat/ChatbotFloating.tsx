@@ -129,7 +129,7 @@ export default function ChatbotFloating() {
   const fullPath = location.pathname
 
   const orbTheme = useSettingsStore((s) => s.orbTheme)
-  const { setHighlights } = useUIHighlights()
+  const { setHighlights, clearHighlights } = useUIHighlights()
 
   const { executeActions, executeSingle } = useActionExecutor()
 
@@ -172,7 +172,8 @@ export default function ChatbotFloating() {
 
   const closeChat = useCallback(() => {
     setChatOpen(false)
-  }, [])
+    clearHighlights()
+  }, [clearHighlights])
 
   /* ── Close response on navigation ─────────────────────────────── */
 

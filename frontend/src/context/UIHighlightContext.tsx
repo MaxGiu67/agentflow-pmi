@@ -2,8 +2,8 @@
  * UIHighlightContext — React Context for AI-driven UI highlights.
  *
  * Sprint 46-47: The Sales Agent can "point at" UI elements by returning
- * ui_actions in chat responses. This context manages the highlight state
- * and auto-clears highlights after 30 seconds.
+ * ui_actions in chat responses. This context manages the highlight state.
+ * Highlights are permanent until individually dismissed or the chatbot closes.
  *
  * Target types:
  * - deal: highlight a deal card on the Kanban or deal detail
@@ -19,8 +19,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
-  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -45,6 +43,7 @@ interface UIHighlightContextType {
   highlights: UIHighlight[]
   setHighlights: (highlights: UIHighlight[]) => void
   clearHighlights: () => void
+  dismissHighlight: (id: string) => void
   getHighlight: (target: string, id: string) => UIHighlight | undefined
   hasHighlight: (target: string, id: string) => boolean
 }
@@ -53,36 +52,27 @@ const UIHighlightContext = createContext<UIHighlightContextType>({
   highlights: [],
   setHighlights: () => {},
   clearHighlights: () => {},
+  dismissHighlight: () => {},
   getHighlight: () => undefined,
   hasHighlight: () => false,
 })
 
-const AUTO_CLEAR_MS = 30_000 // 30 seconds
-
 export function UIHighlightProvider({ children }: { children: ReactNode }) {
   const [highlights, setHighlightsState] = useState<UIHighlight[]>([])
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const clearHighlights = useCallback(() => {
     setHighlightsState([])
-    if (timerRef.current) {
-      clearTimeout(timerRef.current)
-      timerRef.current = null
-    }
+  }, [])
+
+  const dismissHighlight = useCallback((id: string) => {
+    setHighlightsState((prev) => prev.filter((h) => h.id !== id))
   }, [])
 
   const setHighlights = useCallback(
     (newHighlights: UIHighlight[]) => {
       setHighlightsState(newHighlights)
-      // Auto-clear after 30 seconds
-      if (timerRef.current) {
-        clearTimeout(timerRef.current)
-      }
-      if (newHighlights.length > 0) {
-        timerRef.current = setTimeout(clearHighlights, AUTO_CLEAR_MS)
-      }
     },
-    [clearHighlights],
+    [],
   )
 
   const getHighlight = useCallback(
@@ -99,16 +89,9 @@ export function UIHighlightProvider({ children }: { children: ReactNode }) {
     [highlights],
   )
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current)
-    }
-  }, [])
-
   return (
     <UIHighlightContext.Provider
-      value={{ highlights, setHighlights, clearHighlights, getHighlight, hasHighlight }}
+      value={{ highlights, setHighlights, clearHighlights, dismissHighlight, getHighlight, hasHighlight }}
     >
       {children}
     </UIHighlightContext.Provider>

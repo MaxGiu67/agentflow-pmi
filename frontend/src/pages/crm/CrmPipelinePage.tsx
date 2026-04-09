@@ -36,7 +36,7 @@ export default function CrmPipelinePage() {
   const { data: activityTypes } = useActivityTypes(true)
   const createActivity = useCreateCrmActivity()
   const { data: pipelineTemplates } = usePipelineTemplates()
-  const { getHighlight, clearHighlights } = useUIHighlights()
+  const { getHighlight, clearHighlights, dismissHighlight } = useUIHighlights()
 
   // Stage move dialog
   const [moveDialog, setMoveDialog] = useState<{ dealId: string; dealName: string; contactId?: string; fromStage: string; toStageId: string; toStageName: string } | null>(null)
@@ -195,9 +195,9 @@ export default function CrmPipelinePage() {
         {stageDeals.map((deal: any) => {
           const dealHL = getHighlight('deal', deal.id)
           const dealClass = dealHL
-            ? `cursor-grab rounded-lg border bg-white p-2.5 shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing ${dealHL.style === 'glow' ? 'ai-highlight-glow' : 'ai-highlight-pulse'}`
+            ? 'cursor-grab rounded-lg border border-gray-200 bg-white p-2.5 shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing'
             : 'cursor-grab rounded-lg border border-gray-200 bg-white p-2.5 shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing'
-          const dealStyle = dealHL ? { '--ai-color': dealHL.color } as React.CSSProperties : undefined
+          const dealStyle = dealHL ? { borderLeftWidth: '3px', borderLeftColor: dealHL.color } as React.CSSProperties : undefined
 
           return (
           <div key={deal.id}>
@@ -214,7 +214,6 @@ export default function CrmPipelinePage() {
                 {deal.assigned_to_name && <span className="flex items-center gap-0.5"><User className="h-2.5 w-2.5" /> {deal.assigned_to_name}</span>}
                 {deal.days_in_stage != null && <span className="flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {deal.days_in_stage}gg</span>}
               </div>
-              {dealHL && <AIHighlightTooltip highlight={dealHL} onDismiss={clearHighlights} />}
               <div className="mt-1.5">
                 <button onClick={() => navigate(`/crm/deals/${deal.id}`)}
                   className="inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-medium text-blue-700 hover:bg-blue-100">
@@ -228,9 +227,9 @@ export default function CrmPipelinePage() {
                 priority={dealHL.coaching.priority}
                 actions={dealHL.coaching.actions?.map(a => ({
                   ...a,
-                  onClick: () => { if (a.href) navigate(a.href); clearHighlights() },
+                  onClick: () => { if (a.href) navigate(a.href); dismissHighlight(deal.id) },
                 }))}
-                onDismiss={clearHighlights}
+                onDismiss={() => dismissHighlight(deal.id)}
                 agentName="SalesBot"
               />
             )}
