@@ -210,8 +210,8 @@ export default function ChatbotFloating() {
 
   const closeChat = useCallback(() => {
     setChatOpen(false)
-    clearHighlights()
-  }, [clearHighlights])
+    // Coaching marks restano visibili anche a chatbot chiuso
+  }, [])
 
   /* ── Close response on navigation ─────────────────────────────── */
 
