@@ -1235,7 +1235,6 @@ async def crm_list_deals_handler(
     if not client.is_configured():
         return {"error": "CRM Odoo non configurato."}
     try:
-        from dataclasses import asdict
         stage = kwargs.get("stage", "") or ""
         deal_type = kwargs.get("deal_type", "") or ""
         limit = int(kwargs.get("limit", 20) or 20)

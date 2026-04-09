@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.db.models import DashboardLayout, User
 from api.db.session import get_db
 from api.middleware.auth import get_current_user
-from api.modules.dashboard.default_widgets import DEFAULT_WIDGETS, get_widgets_for_role
+from api.modules.dashboard.default_widgets import get_widgets_for_role
 
 router = APIRouter(tags=["dashboard-layout"])
 

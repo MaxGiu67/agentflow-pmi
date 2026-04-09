@@ -264,7 +264,7 @@ class PortalClient:
 
     async def get_protocol(self, customer_code: str) -> Any:
         """Get auto-generated protocol number for a customer."""
-        return await self._get(f"/offers/getProtocol", {"customer_code": customer_code}, use_cache=False)
+        return await self._get("/offers/getProtocol", {"customer_code": customer_code}, use_cache=False)
 
     async def get_protocol_by_customer_id(self, customer_id: int) -> Any:
         """Get protocol by fetching customer first, then generating protocol."""
@@ -333,8 +333,11 @@ class PortalClient:
         return await self._get("/crud/Timesheet", params)
 
     async def get_timesheet_details(self, timesheet_id: int) -> dict:
-        """Read timesheet details (daily hours)."""
-        return await self._get(f"/crud/TimesheetDetail", {"pageNum": 0, "pageSize": 500})
+        """Read timesheet details (daily hours) for a specific timesheet."""
+        return await self._get(
+            "/crud/TimesheetDetail",
+            {"pageNum": 0, "pageSize": 500, "timesheetId": timesheet_id},
+        )
 
     # ── Cache management ─────────────────────────────────
 

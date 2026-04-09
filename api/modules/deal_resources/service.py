@@ -6,9 +6,9 @@ auto-fetch person info from Portal to cache locally.
 
 import logging
 import uuid
-from datetime import date, datetime
+from datetime import date
 
-from sqlalchemy import select, and_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import CrmDealResource, CrmDealProduct, CrmProduct

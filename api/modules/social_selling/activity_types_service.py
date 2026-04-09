@@ -6,7 +6,7 @@ import uuid
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.db.models import CrmActivityType, CrmActivity
+from api.db.models import CrmActivityType
 
 logger = logging.getLogger(__name__)
 

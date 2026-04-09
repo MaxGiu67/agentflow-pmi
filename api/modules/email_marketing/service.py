@@ -4,7 +4,7 @@ import logging
 import uuid
 from datetime import datetime, timedelta
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.adapters.brevo import BrevoClient
@@ -429,7 +429,6 @@ class EmailMarketingService:
 
         # Check condition
         if step["condition_type"] != "none" and enrollment.current_step > 0:
-            prev_step = steps[enrollment.current_step - 1]
             # Find previous send for this contact in this campaign
             prev_send_result = await self.db.execute(
                 select(EmailSend).where(

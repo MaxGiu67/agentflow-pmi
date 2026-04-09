@@ -8,9 +8,9 @@ import csv
 import io
 import logging
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import CrmActivity, CrmContact, CrmCompany

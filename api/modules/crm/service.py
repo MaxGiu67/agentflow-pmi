@@ -8,7 +8,7 @@ import logging
 import uuid
 from datetime import datetime, date
 
-from sqlalchemy import select, func, and_, or_
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import CrmCompany, CrmContact, CrmDeal, CrmPipelineStage, CrmActivity, CrmDealDocument, User

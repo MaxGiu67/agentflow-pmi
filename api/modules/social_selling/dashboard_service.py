@@ -2,7 +2,7 @@
 
 import logging
 import uuid
-from datetime import date, timedelta
+from datetime import date
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession

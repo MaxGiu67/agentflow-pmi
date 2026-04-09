@@ -10,8 +10,6 @@ An agent has:
 
 from __future__ import annotations
 
-import uuid
-from typing import Any
 
 
 class BaseAgent:

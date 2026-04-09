@@ -4,10 +4,10 @@ import logging
 import uuid
 from datetime import date, timedelta
 
-from sqlalchemy import select, and_, func, extract, case
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.db.models import Invoice, Scadenza, BankAccount, Tenant
+from api.db.models import Invoice, Scadenza, BankAccount
 
 logger = logging.getLogger(__name__)
 

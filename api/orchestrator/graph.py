@@ -27,7 +27,7 @@ from api.orchestrator.prompts import ORCHESTRATOR_SYSTEM_PROMPT, RESPONSE_SYSTEM
 from api.orchestrator.skill_discovery import get_skill_discovery_message
 from api.orchestrator.state import OrchestratorState
 from api.orchestrator.tool_registry import get_tools_by_name, get_tools_description
-from api.agents.registry import get_agent_for_tool, route_to_agent, list_agents
+from api.agents.registry import get_agent_for_tool
 
 logger = logging.getLogger(__name__)
 

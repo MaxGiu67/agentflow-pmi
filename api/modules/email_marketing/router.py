@@ -1,8 +1,5 @@
 """Router for email marketing module (US-92, US-93, US-94, US-95)."""
 
-import hashlib
-import hmac
-import os
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -216,17 +213,14 @@ async def generate_email(
 ):
     """Generate professional HTML email from natural language prompt."""
     from api.modules.email_marketing.ai_generator import generate_email_html
-    from api.modules.metering.service import MeteringService
     from api.db.session import get_db as _get_db
 
-    tid = _require_tenant(user)
+    _require_tenant(user)
 
     # Get tenant name for context
     tenant_name = ""
     try:
-        from api.db.models import Tenant
-        from sqlalchemy import select
-        db = next(iter(_get_db.__self__.__dict__.values())) if hasattr(_get_db, '__self__') else None
+        next(iter(_get_db.__self__.__dict__.values())) if hasattr(_get_db, '__self__') else None
     except Exception:
         pass
 

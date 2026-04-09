@@ -4,7 +4,6 @@ Prefix: /resources
 """
 
 import uuid
-from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession

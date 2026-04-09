@@ -6,7 +6,6 @@ between T&M and Elevia pipelines.
 
 import logging
 import uuid
-from datetime import datetime
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession

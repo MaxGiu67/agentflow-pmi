@@ -20,7 +20,6 @@ from api.modules.crm.service import CRMService
 from api.modules.crm.schemas import (
     ContactCreate,
     ContactListResponse,
-    DealCreate,
     DealListResponse,
     DealUpdate,
     OrderRegister,

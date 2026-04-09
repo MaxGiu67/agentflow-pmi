@@ -8,7 +8,7 @@ import logging
 import uuid
 from datetime import date
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import Resource, ResourceSkill

@@ -3,7 +3,7 @@
 import logging
 import uuid
 
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import CrmPipelineStage

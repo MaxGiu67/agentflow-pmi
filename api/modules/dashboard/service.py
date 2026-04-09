@@ -540,7 +540,7 @@ class DashboardService:
 
     async def get_crm_stats(self, user: User) -> dict:
         """CRM KPIs for commerciale dashboard."""
-        from datetime import datetime, date
+        from datetime import date
         tid = user.tenant_id
         uid = user.id
         if not tid:

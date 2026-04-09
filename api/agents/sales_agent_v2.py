@@ -27,9 +27,7 @@ from __future__ import annotations
 
 import logging
 import os
-import uuid
 from enum import Enum
-from pathlib import Path
 from typing import Annotated, Any, Literal, Sequence
 
 from langchain_anthropic import ChatAnthropic
@@ -42,7 +40,6 @@ from pydantic import BaseModel, Field
 from api.adapters.portal_client import portal_client
 from api.agents.tools.offer_generator import (
     KNOWN_PLACEHOLDERS,
-    generate_offer_document,
     list_placeholders,
 )
 

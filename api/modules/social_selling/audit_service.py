@@ -5,12 +5,11 @@ import hashlib
 import io
 import logging
 import uuid
-from datetime import datetime
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.db.models import CrmAuditLog, User
+from api.db.models import CrmAuditLog
 
 logger = logging.getLogger(__name__)
 

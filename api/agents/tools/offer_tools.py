@@ -14,7 +14,7 @@ from typing import Any
 from langchain_core.tools import tool
 
 from api.agents.tools.crm_tools import get_tenant_id
-from api.agents.tools.offer_generator import generate_offer_document, KNOWN_PLACEHOLDERS
+from api.agents.tools.offer_generator import generate_offer_document
 from api.db.session import async_session_factory
 from api.modules.crm.service import CRMService
 
