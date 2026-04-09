@@ -16,7 +16,7 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
-      orbTheme: 'jarvis',
+      orbTheme: 'siri',
       setOrbTheme: (orbTheme) => set({ orbTheme }),
     }),
     { name: 'agentflow-settings' },

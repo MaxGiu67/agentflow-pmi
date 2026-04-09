@@ -9,7 +9,6 @@ import ContentBlockRenderer from './ContentBlockRenderer'
 import { useAIBlocksStore } from '../../store/aiBlocks'
 import { useSettingsStore } from '../../store/settings'
 import BotOrb, { SiriBorder, type OrbState } from './BotOrb'
-import JarvisOrb from './JarvisOrb'
 
 /* ── Placeholder per pagina ──────────────────────────────────────── */
 
@@ -334,7 +333,7 @@ export default function ChatbotFloating() {
             tabIndex={0}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') openChat() }}
           >
-            <JarvisOrb state="sleep" size={58} />
+            <BotOrb state="sleep" size={58} />
           </motion.div>
         )}
       </AnimatePresence>
