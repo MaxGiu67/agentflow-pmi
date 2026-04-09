@@ -147,72 +147,72 @@ export interface SiriBorderProps {
 /** Siri palette: purple / pink / blue (oklch-inspired) */
 const SIRI_BORDER_COLORS: Record<string, Record<string, string>> = {
   idle: {
-    '--siri-bc1': 'rgba(125,211,252,0.35)',
-    '--siri-bc2': 'rgba(165,180,252,0.25)',
-    '--siri-bc3': 'rgba(110,231,183,0.2)',
-    '--siri-border-speed': '8s',
-    '--siri-border-opacity': '0.5',
-    '--siri-glow-opacity': '0.06',
+    '--siri-bc1': 'rgba(125,211,252,0.5)',
+    '--siri-bc2': 'rgba(165,180,252,0.4)',
+    '--siri-bc3': 'rgba(110,231,183,0.35)',
+    '--siri-border-speed': '6s',
+    '--siri-border-opacity': '0.7',
+    '--siri-glow-opacity': '0.12',
   },
   thinking: {
-    '--siri-bc1': 'rgba(165,180,252,0.75)',
-    '--siri-bc2': 'rgba(192,132,252,0.65)',
-    '--siri-bc3': 'rgba(125,211,252,0.55)',
-    '--siri-border-speed': '2s',
-    '--siri-border-opacity': '0.9',
-    '--siri-glow-opacity': '0.15',
+    '--siri-bc1': 'rgba(165,180,252,0.95)',
+    '--siri-bc2': 'rgba(192,132,252,0.85)',
+    '--siri-bc3': 'rgba(125,211,252,0.75)',
+    '--siri-border-speed': '1.5s',
+    '--siri-border-opacity': '1',
+    '--siri-glow-opacity': '0.35',
   },
   responding: {
-    '--siri-bc1': 'rgba(110,231,183,0.55)',
-    '--siri-bc2': 'rgba(125,211,252,0.45)',
-    '--siri-bc3': 'rgba(165,180,252,0.35)',
-    '--siri-border-speed': '5s',
-    '--siri-border-opacity': '0.7',
-    '--siri-glow-opacity': '0.1',
+    '--siri-bc1': 'rgba(110,231,183,0.7)',
+    '--siri-bc2': 'rgba(125,211,252,0.6)',
+    '--siri-bc3': 'rgba(165,180,252,0.5)',
+    '--siri-border-speed': '4s',
+    '--siri-border-opacity': '0.85',
+    '--siri-glow-opacity': '0.2',
   },
   error: {
-    '--siri-bc1': 'rgba(248,113,113,0.7)',
-    '--siri-bc2': 'rgba(251,146,60,0.6)',
-    '--siri-bc3': 'rgba(248,113,113,0.5)',
-    '--siri-border-speed': '1.5s',
-    '--siri-border-opacity': '0.85',
-    '--siri-glow-opacity': '0.12',
+    '--siri-bc1': 'rgba(248,113,113,0.9)',
+    '--siri-bc2': 'rgba(251,146,60,0.8)',
+    '--siri-bc3': 'rgba(248,113,113,0.7)',
+    '--siri-border-speed': '1s',
+    '--siri-border-opacity': '1',
+    '--siri-glow-opacity': '0.3',
   },
 }
 
 /** Jarvis palette: blue / cyan (matching JarvisOrb SVG colors) */
 const JARVIS_BORDER_COLORS: Record<string, Record<string, string>> = {
   idle: {
-    '--siri-bc1': 'rgba(96,165,250,0.4)',    // blue-400
-    '--siri-bc2': 'rgba(34,211,238,0.3)',     // cyan-400
-    '--siri-bc3': 'rgba(96,165,250,0.25)',    // blue-400
-    '--siri-border-speed': '8s',
-    '--siri-border-opacity': '0.55',
-    '--siri-glow-opacity': '0.06',
+    '--siri-bc1': 'rgba(96,165,250,0.55)',
+    '--siri-bc2': 'rgba(34,211,238,0.45)',
+    '--siri-bc3': 'rgba(96,165,250,0.4)',
+    '--siri-border-speed': '6s',
+    '--siri-border-opacity': '0.7',
+    '--siri-glow-opacity': '0.12',
   },
   thinking: {
-    '--siri-bc1': 'rgba(167,139,250,0.75)',   // violet-400
-    '--siri-bc2': 'rgba(147,51,234,0.65)',    // purple-600
-    '--siri-bc3': 'rgba(167,139,250,0.55)',   // violet-400
-    '--siri-border-speed': '2s',
-    '--siri-border-opacity': '0.9',
-    '--siri-glow-opacity': '0.15',
+    '--siri-bc1': 'rgba(167,139,250,0.95)',
+    '--siri-bc2': 'rgba(147,51,234,0.85)',
+    '--siri-bc3': 'rgba(167,139,250,0.75)',
+    '--siri-border-speed': '1.5s',
+    '--siri-border-opacity': '1',
+    '--siri-glow-opacity': '0.35',
   },
   responding: {
-    '--siri-bc1': 'rgba(52,211,153,0.55)',    // emerald-400
-    '--siri-bc2': 'rgba(34,197,94,0.45)',     // green-500
-    '--siri-bc3': 'rgba(34,211,238,0.35)',    // cyan-400
-    '--siri-border-speed': '5s',
-    '--siri-border-opacity': '0.7',
-    '--siri-glow-opacity': '0.1',
+    '--siri-bc1': 'rgba(52,211,153,0.7)',
+    '--siri-bc2': 'rgba(34,197,94,0.6)',
+    '--siri-bc3': 'rgba(34,211,238,0.5)',
+    '--siri-border-speed': '4s',
+    '--siri-border-opacity': '0.85',
+    '--siri-glow-opacity': '0.2',
   },
   error: {
-    '--siri-bc1': 'rgba(248,113,113,0.7)',    // red-400
-    '--siri-bc2': 'rgba(251,146,60,0.6)',     // orange-400
-    '--siri-bc3': 'rgba(248,113,113,0.5)',    // red-400
-    '--siri-border-speed': '1.5s',
-    '--siri-border-opacity': '0.85',
-    '--siri-glow-opacity': '0.12',
+    '--siri-bc1': 'rgba(248,113,113,0.9)',
+    '--siri-bc2': 'rgba(251,146,60,0.8)',
+    '--siri-bc3': 'rgba(248,113,113,0.7)',
+    '--siri-border-speed': '1s',
+    '--siri-border-opacity': '1',
+    '--siri-glow-opacity': '0.3',
   },
 }
 

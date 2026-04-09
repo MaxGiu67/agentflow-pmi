@@ -367,7 +367,6 @@ export default function ChatbotFloating() {
                       {/* Response Header */}
                       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2">
                         <div className="flex items-center gap-2">
-                          <BotOrb state={orbState} size={20} />
                           <span
                             className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${agent.colorClass}`}
                           >
