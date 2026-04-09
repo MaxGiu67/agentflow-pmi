@@ -25,6 +25,12 @@ import {
   type ReactNode,
 } from 'react'
 
+export interface CoachingData {
+  message: string
+  priority: 'high' | 'medium' | 'low'
+  actions?: Array<{ label: string; icon?: string; href?: string }>
+}
+
 export interface UIHighlight {
   type: 'highlight' | 'navigate' | 'scroll'
   target: 'deal' | 'stage' | 'contact' | 'activity' | 'section' | 'button' | 'kpi'
@@ -32,6 +38,7 @@ export interface UIHighlight {
   style: 'pulse-border' | 'glow' | 'badge'
   color: string
   tooltip: string
+  coaching?: CoachingData
 }
 
 interface UIHighlightContextType {

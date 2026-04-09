@@ -1232,7 +1232,9 @@ async def run_orchestrator(
                     continue
                 # Highlight stale deals (>5 days in stage) with high priority
                 days = deal.get("days_in_stage", 0) or 0
-                if days > 5:
+                stage_name = deal.get("stage", deal.get("stage_name", ""))
+                is_won = deal.get("is_won", False)
+                if days > 5 and not is_won:
                     ui_actions.append({
                         "type": "highlight",
                         "target": "deal",
@@ -1241,17 +1243,50 @@ async def run_orchestrator(
                         "color": "#ef4444" if days > 10 else "#f59e0b",
                         "tooltip": f"Fermo da {days} giorni — serve follow-up",
                         "navigate": f"/crm/deals/{deal['id']}",
+                        "coaching": {
+                            "message": f"Fermo da {days}gg in {stage_name}. Chiama il cliente per follow-up.",
+                            "priority": "high" if days > 10 else "medium",
+                            "actions": [
+                                {"label": "Apri deal", "icon": "eye", "href": f"/crm/deals/{deal['id']}"},
+                            ],
+                        },
                     })
                 # Highlight high-value deals near closing
                 elif deal.get("probability", 0) >= 50 and deal.get("expected_revenue", 0) > 5000:
+                    prob = deal.get("probability", 0)
                     ui_actions.append({
                         "type": "highlight",
                         "target": "deal",
                         "id": str(deal["id"]),
                         "style": "glow",
                         "color": "#8b5cf6",
-                        "tooltip": f"Deal caldo — {deal.get('probability',0)}% probabilita",
+                        "tooltip": f"Deal caldo — {prob}% probabilita",
                         "navigate": f"/crm/deals/{deal['id']}",
+                        "coaching": {
+                            "message": f"Deal caldo ({prob}%). Prepara l'offerta o fissa call.",
+                            "priority": "medium",
+                            "actions": [
+                                {"label": "Apri deal", "icon": "eye", "href": f"/crm/deals/{deal['id']}"},
+                            ],
+                        },
+                    })
+                # Won deals missing order reference
+                elif is_won and not deal.get("order_reference"):
+                    ui_actions.append({
+                        "type": "highlight",
+                        "target": "deal",
+                        "id": str(deal["id"]),
+                        "style": "pulse-border",
+                        "color": "#ef4444",
+                        "tooltip": "Ordine confermato — completa i dati",
+                        "navigate": f"/crm/deals/{deal['id']}",
+                        "coaching": {
+                            "message": "Ordine confermato ma mancano i dati. Completa il riferimento ordine.",
+                            "priority": "high",
+                            "actions": [
+                                {"label": "Completa", "icon": "edit", "href": f"/crm/deals/{deal['id']}"},
+                            ],
+                        },
                     })
     if ui_actions:
         response_meta["ui_actions"] = ui_actions

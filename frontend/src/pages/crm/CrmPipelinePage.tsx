@@ -11,6 +11,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
 import { Briefcase, Plus, Eye, LayoutGrid, List, User, Clock, Search, X } from 'lucide-react'
 import { useUIHighlights, AIHighlightTooltip } from '../../context/UIHighlightContext'
+import AICoachingMark from '../../components/ui/AICoachingMark'
 
 const DEAL_TYPE_SHORT: Record<string, string> = {
   'T&M': 'T&M',
@@ -199,26 +200,40 @@ export default function CrmPipelinePage() {
           const dealStyle = dealHL ? { '--ai-color': dealHL.color } as React.CSSProperties : undefined
 
           return (
-          <div key={deal.id} draggable onDragStart={(e) => handleDragStart(e, deal.id)} onDragEnd={handleDragEnd}
-            className={dealClass} style={dealStyle}>
-            <button onClick={() => navigate(`/crm/deals/${deal.id}`)}
-              className="text-left text-xs font-medium text-gray-900 hover:text-blue-600 line-clamp-2">{deal.name}</button>
-            {deal.client_name && <p className="mt-0.5 text-[10px] text-gray-500">{deal.client_name}</p>}
-            <div className="mt-1.5 flex items-center justify-between">
-              <span className="text-xs font-semibold text-gray-800">{formatCurrency(deal.expected_revenue)}</span>
-              {deal.deal_type && <span className="rounded bg-gray-100 px-1 py-0.5 text-[9px] font-medium text-gray-600">{DEAL_TYPE_SHORT[deal.deal_type] || deal.deal_type}</span>}
-            </div>
-            <div className="mt-1 flex items-center justify-between text-[9px] text-gray-400">
-              {deal.assigned_to_name && <span className="flex items-center gap-0.5"><User className="h-2.5 w-2.5" /> {deal.assigned_to_name}</span>}
-              {deal.days_in_stage != null && <span className="flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {deal.days_in_stage}gg</span>}
-            </div>
-            {dealHL && <AIHighlightTooltip highlight={dealHL} onDismiss={clearHighlights} />}
-            <div className="mt-1.5">
+          <div key={deal.id}>
+            <div draggable onDragStart={(e) => handleDragStart(e, deal.id)} onDragEnd={handleDragEnd}
+              className={dealClass} style={dealStyle}>
               <button onClick={() => navigate(`/crm/deals/${deal.id}`)}
-                className="inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-medium text-blue-700 hover:bg-blue-100">
-                <Eye className="h-2.5 w-2.5" /> Apri
-              </button>
+                className="text-left text-xs font-medium text-gray-900 hover:text-blue-600 line-clamp-2">{deal.name}</button>
+              {deal.client_name && <p className="mt-0.5 text-[10px] text-gray-500">{deal.client_name}</p>}
+              <div className="mt-1.5 flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-800">{formatCurrency(deal.expected_revenue)}</span>
+                {deal.deal_type && <span className="rounded bg-gray-100 px-1 py-0.5 text-[9px] font-medium text-gray-600">{DEAL_TYPE_SHORT[deal.deal_type] || deal.deal_type}</span>}
+              </div>
+              <div className="mt-1 flex items-center justify-between text-[9px] text-gray-400">
+                {deal.assigned_to_name && <span className="flex items-center gap-0.5"><User className="h-2.5 w-2.5" /> {deal.assigned_to_name}</span>}
+                {deal.days_in_stage != null && <span className="flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {deal.days_in_stage}gg</span>}
+              </div>
+              {dealHL && <AIHighlightTooltip highlight={dealHL} onDismiss={clearHighlights} />}
+              <div className="mt-1.5">
+                <button onClick={() => navigate(`/crm/deals/${deal.id}`)}
+                  className="inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-medium text-blue-700 hover:bg-blue-100">
+                  <Eye className="h-2.5 w-2.5" /> Apri
+                </button>
+              </div>
             </div>
+            {dealHL?.coaching && (
+              <AICoachingMark
+                message={dealHL.coaching.message}
+                priority={dealHL.coaching.priority}
+                actions={dealHL.coaching.actions?.map(a => ({
+                  ...a,
+                  onClick: () => { if (a.href) navigate(a.href); clearHighlights() },
+                }))}
+                onDismiss={clearHighlights}
+                agentName="SalesBot"
+              />
+            )}
           </div>
           )
         })}

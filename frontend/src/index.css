@@ -260,6 +260,22 @@ h1, h2, h3 {
   line-height: 1.3;
 }
 
+/* AI Coaching Mark — entrance animation */
+@keyframes ai-coaching-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ai-coaching-mark-enter {
+  animation: ai-coaching-enter 0.35s ease-out both;
+}
+
 /* Reduce motion preference */
 @media (prefers-reduced-motion: reduce) {
   .ai-highlight-pulse,
@@ -272,5 +288,8 @@ h1, h2, h3 {
   }
   .ai-highlight-glow {
     box-shadow: 0 0 8px 2px color-mix(in srgb, var(--ai-color, #8b5cf6) 30%, transparent);
+  }
+  .ai-coaching-mark-enter {
+    animation: none;
   }
 }
