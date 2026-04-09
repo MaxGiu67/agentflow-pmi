@@ -293,7 +293,7 @@ class ChatService:
             if tool_name == "count_invoices":
                 suggestions.extend([
                     "Mostra l'elenco delle fatture",
-                    "Qual è la situazione della dashboard?",
+                    "Qual e la situazione della dashboard?",
                 ])
             elif tool_name == "get_dashboard_summary":
                 suggestions.extend([
@@ -304,6 +304,23 @@ class ChatService:
                 suggestions.extend([
                     "Ci sono scadenze in ritardo?",
                     "Mostra la dashboard",
+                ])
+            elif tool_name in ("crm_pipeline_summary", "crm_list_deals"):
+                suggestions.extend([
+                    "Quali deal sono fermi da troppo?",
+                    "Deal vinti questo mese",
+                    "Ordini in attesa di conferma",
+                    "Mostra i contatti CRM",
+                ])
+            elif tool_name == "crm_won_deals":
+                suggestions.extend([
+                    "Com'e la pipeline?",
+                    "Ordini in attesa",
+                ])
+            elif tool_name == "crm_pending_orders":
+                suggestions.extend([
+                    "Com'e la pipeline?",
+                    "Deal vinti",
                 ])
             elif tool_name == "direct_response":
                 suggestions.extend(default_suggestions)

@@ -77,17 +77,38 @@ class SalesAgent(BaseAgent):
         return tools
 
     def get_system_prompt(self, context: dict | None = None) -> str:
+        page = (context or {}).get("page", "")
+        page_lower = page.lower() if page else ""
+
         base = (
             "Sei l'assistente commerciale di AgentFlow. Aiuti il commerciale a gestire "
             "i deal, preparare offerte, tracciare attivita e seguire la pipeline.\n\n"
             "REGOLE:\n"
             "1. Sei un assistente, non un controllore. Suggerisci, non imponi.\n"
             "2. Se mancano info, chiedile in modo naturale.\n"
-            "3. Se il deal e fermo da troppo tempo, suggerisci un follow-up.\n"
+            "3. Se il deal e fermo da troppo tempo (>5 giorni), suggerisci un follow-up.\n"
             "4. Prepara bozze ma chiedi sempre conferma prima di procedere.\n"
             "5. Se rilevi opportunita per altri prodotti, segnalalo discretamente.\n"
             "6. Risposte brevi e pratiche. Il commerciale ha fretta.\n"
+            "7. Rispondi SEMPRE in italiano.\n"
         )
+
+        # Page-specific behavior
+        if page_lower.startswith("crm") and "pipeline" in page_lower:
+            base += (
+                "\nCONTESTO: L'utente e sulla pagina CRM Pipeline (Kanban board).\n"
+                "Quando l'utente chiede genericamente 'come posso continuare' o simili:\n"
+                "1. Analizza TUTTI i deal in pipeline usando crm_pipeline_summary e crm_list_deals\n"
+                "2. Identifica deal urgenti: fermi >5 giorni, alto valore, vicini alla chiusura\n"
+                "3. Suggerisci azioni concrete per ogni deal problematico\n"
+                "4. Esempio: 'Hai 3 deal per EUR25.375. Il deal Offerta Java e fermo da 5 giorni — suggerisco un follow-up.'\n"
+            )
+        elif page_lower.startswith("crm") or page_lower.startswith("deal"):
+            base += (
+                "\nCONTESTO: L'utente e sulla pagina CRM.\n"
+                "Rispondi con dati dalla pipeline interna, non suggerire tool esterni.\n"
+                "Analizza i deal e suggerisci prossime azioni concrete.\n"
+            )
 
         if context and context.get("deal"):
             deal = context["deal"]
@@ -96,6 +117,7 @@ class SalesAgent(BaseAgent):
                 f"- Azienda: {deal.get('company', 'N/A')}\n"
                 f"- Prodotto: {deal.get('product', 'N/A')} (pipeline: {deal.get('pipeline_type', 'N/A')})\n"
                 f"- Stato: {deal.get('current_stage', 'N/A')}\n"
+                f"- Giorni in fase: {deal.get('days_in_stage', 'N/A')}\n"
                 f"- Ultimo contatto: {deal.get('last_contact', 'N/A')}\n"
             )
 

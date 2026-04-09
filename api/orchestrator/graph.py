@@ -123,11 +123,108 @@ def _extract_time_params(message: str) -> dict:
     return params
 
 
-def keyword_route(message: str) -> list[dict]:
-    """Smart keyword-matching router with time extraction."""
+def _page_based_route(page: str, message: str) -> list[dict] | None:
+    """Route based on page context BEFORE keyword matching.
+
+    Returns tool calls if the page context provides a clear routing signal,
+    or None to fall through to keyword matching.
+
+    Priority routing:
+    - CRM pages → Sales Agent (pipeline summary + deal list)
+    - Fatture/contabilita pages → Accounting tools
+    - Fisco/scadenze pages → Fiscal tools
+    - Dashboard/CEO pages → Controller/KPI tools
+    """
+    if not page:
+        return None
+
+    page_lower = page.lower().strip("/")
+    msg_lower = message.lower()
+
+    # Don't intercept greetings or help requests — let their handlers deal with them
+    greetings = ["ciao", "buongiorno", "buonasera", "salve", "hello", "hey", "grazie"]
+    if any(msg_lower.strip() == g or msg_lower.strip().startswith(g + " ") or msg_lower.strip().startswith(g + "!") for g in greetings):
+        return None
+    help_keywords = ["cosa sai fare", "aiuto", "help", "cosa puoi", "come funziona", "cosa fai"]
+    if any(k in msg_lower for k in help_keywords):
+        return None
+
+    # CRM pages → route to Sales Agent tools
+    if page_lower.startswith("crm") or page_lower.startswith("pipeline") or page_lower.startswith("deal"):
+        # If the message has specific CRM keywords, let keyword_route handle it
+        # (it already has good CRM matching for "deal vinti", "ordini pendenti", etc.)
+        specific_crm_kw = [
+            "deal vint", "deal chius", "contratti vint", "ordini in attesa",
+            "ordini da confermare", "contatti crm", "clienti crm",
+        ]
+        if any(k in msg_lower for k in specific_crm_kw):
+            return None  # fall through to keyword matching
+
+        # For generic/ambiguous messages on CRM pages, route to pipeline + deals
+        return [
+            {"tool": "crm_pipeline_summary", "args": {}},
+            {"tool": "crm_list_deals", "args": {}},
+        ]
+
+    # Fatture/contabilita pages
+    if page_lower.startswith("fattur") or page_lower.startswith("contabilit"):
+        # Only route if message is generic (no specific keywords already handled)
+        generic_kw = [
+            "come posso", "continuare", "cosa devo", "situazione",
+            "cosa fare", "prossimi passi", "aiutami", "aiuto",
+            "come va", "come stiam",
+        ]
+        if any(k in msg_lower for k in generic_kw):
+            if page_lower.startswith("fattur"):
+                return [{"tool": "list_invoices", "args": {}}, {"tool": "get_pending_review", "args": {}}]
+            else:
+                return [{"tool": "get_journal_entries", "args": {}}, {"tool": "get_balance_sheet_summary", "args": {}}]
+        return None
+
+    # Fisco/scadenze pages
+    if page_lower.startswith("fisco") or page_lower.startswith("scadenz"):
+        generic_kw = [
+            "come posso", "continuare", "cosa devo", "situazione",
+            "cosa fare", "prossimi passi", "aiutami", "aiuto",
+            "come va", "come stiam",
+        ]
+        if any(k in msg_lower for k in generic_kw):
+            return [{"tool": "get_deadlines", "args": {}}, {"tool": "get_fiscal_alerts", "args": {}}]
+        return None
+
+    # Dashboard/CEO pages
+    if page_lower.startswith("dashboard") or page_lower.startswith("ceo"):
+        generic_kw = [
+            "come posso", "continuare", "cosa devo", "situazione",
+            "cosa fare", "prossimi passi", "aiutami", "aiuto",
+            "come va", "come stiam",
+        ]
+        if any(k in msg_lower for k in generic_kw):
+            return [
+                {"tool": "get_period_stats", "args": {}},
+                {"tool": "get_deadlines", "args": {}},
+            ]
+        return None
+
+    return None
+
+
+def keyword_route(message: str, context: dict | None = None) -> list[dict]:
+    """Smart keyword-matching router with time extraction and page context.
+
+    If context.page is provided, tries page-based routing first for
+    generic/ambiguous messages. Falls through to keyword matching for
+    specific queries.
+    """
     import re as _re
     msg_lower = message.lower()
     time_params = _extract_time_params(message)
+
+    # --- Page-based routing (priority for generic messages) ---
+    if context and context.get("page"):
+        page_route = _page_based_route(context["page"], message)
+        if page_route is not None:
+            return page_route
 
     # --- Helper: extract search query from message (strips known keywords) ---
     def _extract_query(msg: str) -> str | None:
@@ -360,9 +457,21 @@ def keyword_route(message: str) -> list[dict]:
     if any(kw in msg_lower for kw in ["ciao", "buongiorno", "buonasera", "salve", "hello", "hey", "grazie"]):
         if "grazie" in msg_lower:
             return [{"tool": "direct_response", "args": {"message": "Prego! Se hai bisogno di altro, sono qui."}}]
-        return [{"tool": "direct_response", "args": {"message": "Ciao! Come posso aiutarti con la contabilit\u00e0 oggi?"}}]
+        # Page-aware greeting
+        page = (context or {}).get("page", "")
+        if page and page.lower().startswith("crm"):
+            return [{"tool": "direct_response", "args": {"message": "Ciao! Come posso aiutarti con le vendite e la pipeline oggi?"}}]
+        return [{"tool": "direct_response", "args": {"message": "Ciao! Come posso aiutarti oggi?"}}]
 
-    return [{"tool": "direct_response", "args": {"message": "Non ho capito la richiesta. Prova con: fatturato 2024, top 5 clienti, elenco fatture, scadenze."}}]
+    # Page-aware fallback for completely unrecognized messages
+    page = (context or {}).get("page", "")
+    if page and page.lower().startswith("crm"):
+        return [
+            {"tool": "crm_pipeline_summary", "args": {}},
+            {"tool": "crm_list_deals", "args": {}},
+        ]
+
+    return [{"tool": "direct_response", "args": {"message": "Non ho capito la richiesta. Prova con: fatturato 2024, top 5 clienti, elenco fatture, scadenze, pipeline CRM."}}]
 
 
 def _has_api_key() -> bool:
@@ -409,8 +518,11 @@ async def _call_llm(system_prompt: str, user_message: str) -> str:
 async def router_node(state: OrchestratorState) -> OrchestratorState:
     """Analyze user message and decide which tool(s) to call.
 
-    Uses Claude API when available, falls back to keyword matching otherwise.
+    Uses page-based routing first (for context-aware routing on CRM/fatture/etc. pages).
+    Then tries Claude API, falls back to keyword matching.
     """
+    ctx = state.get("context", {})
+
     # Get the latest user message
     user_messages = [m for m in state["messages"] if m.get("role") == "user"]
     if not user_messages:
@@ -421,10 +533,29 @@ async def router_node(state: OrchestratorState) -> OrchestratorState:
 
     latest_message = user_messages[-1]["content"]
 
+    # --- Page-based routing: check BEFORE LLM for unambiguous page contexts ---
+    # This ensures CRM pages always route to sales tools, even with generic messages.
+    if ctx.get("page"):
+        page_route = _page_based_route(ctx["page"], latest_message)
+        if page_route is not None:
+            state["tool_calls"] = page_route
+            return state
+
     if _has_api_key():
         try:
             tools_desc = get_tools_description()
-            system_prompt = ORCHESTRATOR_SYSTEM_PROMPT.format(tools_description=tools_desc)
+            # Inject page context into the LLM system prompt for better routing
+            page_hint = ""
+            if ctx.get("page"):
+                page_hint = (
+                    f"\n\nCONTESTO PAGINA: L'utente si trova sulla pagina '{ctx['page']}'.\n"
+                    f"Se la domanda e generica, privilegia i tool pertinenti alla pagina corrente.\n"
+                    f"- Pagine CRM/pipeline/deal → usa tool CRM (crm_pipeline_summary, crm_list_deals)\n"
+                    f"- Pagine fatture/contabilita → usa tool contabili (list_invoices, count_invoices)\n"
+                    f"- Pagine scadenze/fisco → usa tool fiscali (get_deadlines, get_fiscal_alerts)\n"
+                    f"- Pagine dashboard/ceo → usa tool KPI (get_period_stats, get_ceo_kpi)\n"
+                )
+            system_prompt = ORCHESTRATOR_SYSTEM_PROMPT.format(tools_description=tools_desc) + page_hint
             raw_response = await _call_llm(system_prompt, latest_message)
 
             # Parse JSON response
@@ -444,9 +575,9 @@ async def router_node(state: OrchestratorState) -> OrchestratorState:
 
         except Exception as e:
             logger.warning("Claude API call failed in router, using keyword fallback: %s", e)
-            state["tool_calls"] = keyword_route(latest_message)
+            state["tool_calls"] = keyword_route(latest_message, context=ctx)
     else:
-        state["tool_calls"] = keyword_route(latest_message)
+        state["tool_calls"] = keyword_route(latest_message, context=ctx)
 
     return state
 
@@ -541,11 +672,106 @@ async def respond_node(state: OrchestratorState) -> OrchestratorState:
     return state
 
 
+def _format_crm_results(tool_results: list[dict]) -> str:
+    """Format CRM tool results into an actionable commercial summary.
+
+    Produces Italian-language advice about pipeline status, stale deals,
+    and suggested next actions — the kind of response a sales agent would give.
+    """
+    parts: list[str] = []
+    pipeline_data: dict = {}
+    deals_data: list[dict] = []
+
+    for tr in tool_results:
+        tool_name = tr.get("tool", "")
+        result = tr.get("result", {})
+        if not isinstance(result, dict):
+            continue
+
+        if tool_name == "crm_pipeline_summary":
+            pipeline_data = result
+        elif tool_name == "crm_list_deals":
+            raw_deals = result.get("deals", result.get("items", []))
+            if isinstance(raw_deals, list):
+                deals_data = raw_deals
+
+    # Pipeline summary
+    if pipeline_data:
+        total = pipeline_data.get("total_deals", 0)
+        total_value = pipeline_data.get("total_value", 0)
+        weighted = pipeline_data.get("weighted_value", 0)
+
+        if total == 0:
+            return "La pipeline e vuota al momento. Vuoi creare un nuovo deal?"
+
+        parts.append(
+            f"Hai **{total} deal** in pipeline per un valore totale di **EUR {total_value:,.0f}**."
+        )
+        if weighted:
+            parts.append(f"Valore pesato (per probabilita): EUR {weighted:,.0f}.")
+
+        # Stage breakdown
+        by_stage = pipeline_data.get("by_stage", {})
+        if by_stage:
+            stage_parts = []
+            for stage_name, info in by_stage.items():
+                if isinstance(info, dict):
+                    count = info.get("count", 0)
+                    value = info.get("value", 0)
+                    if count > 0:
+                        stage_parts.append(f"  - {stage_name}: {count} deal (EUR {value:,.0f})")
+            if stage_parts:
+                parts.append("\n**Pipeline per fase:**")
+                parts.extend(stage_parts)
+
+    # Deal analysis — find stale/urgent deals
+    if deals_data:
+        stale_deals = []
+        high_value_deals = []
+        for deal in deals_data:
+            if not isinstance(deal, dict):
+                continue
+            days = deal.get("days_in_stage", 0)
+            name = deal.get("name", deal.get("deal_name", ""))
+            stage = deal.get("stage", deal.get("stage_name", ""))
+            revenue = deal.get("expected_revenue", deal.get("revenue", 0)) or 0
+
+            if days and days > 5:
+                stale_deals.append({"name": name, "stage": stage, "days": days, "revenue": revenue})
+            if revenue and revenue > 10000:
+                high_value_deals.append({"name": name, "stage": stage, "revenue": revenue, "days": days})
+
+        if stale_deals:
+            parts.append(f"\n**Attenzione — {len(stale_deals)} deal fermi da troppo tempo:**")
+            for d in stale_deals[:5]:
+                parts.append(
+                    f"  - **{d['name']}** fermo in '{d['stage']}' da {d['days']} giorni "
+                    f"(EUR {d['revenue']:,.0f}) — suggerisco un follow-up"
+                )
+
+        if high_value_deals and not stale_deals:
+            parts.append("\n**Deal di alto valore da seguire:**")
+            for d in high_value_deals[:3]:
+                action = "follow-up" if (d.get("days") or 0) > 3 else "monitora"
+                parts.append(
+                    f"  - **{d['name']}** in '{d['stage']}' (EUR {d['revenue']:,.0f}) — {action}"
+                )
+
+    if not parts:
+        return ""  # Fall through to generic formatting
+
+    # Add actionable suggestion
+    parts.append("\nVuoi che analizzi un deal specifico o prepari un follow-up?")
+
+    return "\n".join(parts)
+
+
 def _format_results_fallback(tool_results: list[dict]) -> str:
     """Format tool results into a smart text response without LLM.
 
     US-A07: When multiple tools are present, prepend agent badges.
     Smart response logic:
+    - CRM pipeline/deals → actionable commercial summary
     - Single value (count, total) -> short text
     - List <= 5 items -> markdown table
     - List > 5 items -> summary with link suggestion
@@ -553,6 +779,16 @@ def _format_results_fallback(tool_results: list[dict]) -> str:
     """
     is_multi = len(tool_results) > 1
     parts: list[str] = []
+
+    # --- CRM-specific formatting ---
+    crm_tools = {"crm_pipeline_summary", "crm_list_deals", "crm_list_contacts",
+                 "crm_won_deals", "crm_pending_orders", "crm_analytics"}
+    is_crm = any(tr.get("tool") in crm_tools for tr in tool_results)
+
+    if is_crm:
+        crm_parts = _format_crm_results(tool_results)
+        if crm_parts:
+            return crm_parts
 
     for tr in tool_results:
         tool_name = tr.get("tool", "unknown")
@@ -704,6 +940,12 @@ TOOL_PAGE_MAP: dict[str, str] = {
     "sync_cassetto": "/impostazioni",
     "apertura_conti": "/import/bilancio",
     "crea_budget": "/budget",
+    "crm_pipeline_summary": "/crm/pipeline",
+    "crm_list_deals": "/crm/pipeline",
+    "crm_list_contacts": "/crm/contatti",
+    "crm_won_deals": "/crm/pipeline",
+    "crm_pending_orders": "/crm/pipeline",
+    "crm_analytics": "/crm/pipeline",
 }
 
 
@@ -861,12 +1103,29 @@ async def run_orchestrator(
     if context:
         page = context.get("page", "dashboard")
         year = context.get("year", "")
+        page_lower = page.lower() if page else ""
+
+        # Page-specific context hints for the response generation
+        page_domain = "contabilita"
+        if page_lower.startswith("crm") or page_lower.startswith("pipeline") or page_lower.startswith("deal"):
+            page_domain = "vendite e pipeline CRM"
+        elif page_lower.startswith("fattur"):
+            page_domain = "fatturazione"
+        elif page_lower.startswith("fisco") or page_lower.startswith("scadenz"):
+            page_domain = "scadenze e adempimenti fiscali"
+        elif page_lower.startswith("dashboard") or page_lower.startswith("ceo"):
+            page_domain = "KPI e panoramica aziendale"
+        elif page_lower.startswith("banca"):
+            page_domain = "banca e cash flow"
+
         context_msg = (
             f"CONTESTO UTENTE:\n"
             f"- Pagina corrente: {page}\n"
+            f"- Dominio pagina: {page_domain}\n"
             f"- Anno selezionato: {year}\n\n"
-            f"Usa queste informazioni per filtrare i dati. Se l'utente è sulla dashboard {year}, "
-            f"le domande sulle fatture si riferiscono al {year}."
+            f"Rispondi in modo pertinente al contesto della pagina ({page_domain}). "
+            f"Se l'utente è sulla pagina CRM, parla di deal, pipeline e vendite. "
+            f"Se l'utente è sulla dashboard {year}, le domande sui dati si riferiscono al {year}."
         )
         messages.append({"role": "system", "content": context_msg})
 
@@ -879,6 +1138,7 @@ async def run_orchestrator(
         "current_agent": "orchestrator",
         "tool_results": [],
         "tool_calls": [],
+        "context": context or {},
     }
 
     # Step 1: Router — decide which tools to call
