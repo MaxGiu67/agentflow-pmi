@@ -131,7 +131,7 @@ export default function ChatbotFloating() {
   const fullPath = location.pathname
 
   const orbTheme = useSettingsStore((s) => s.orbTheme)
-  const { setHighlights, clearHighlights } = useUIHighlights()
+  const { setHighlights } = useUIHighlights()
 
   const { executeActions, executeSingle } = useActionExecutor()
 
