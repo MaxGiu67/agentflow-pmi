@@ -13,7 +13,8 @@ interface DealResourcesProps {
   portalEnabled: boolean
 }
 
-export default function DealResources({ deal, dealId, portalEnabled }: DealResourcesProps) {
+export default function DealResources({ deal: _deal, dealId, portalEnabled }: DealResourcesProps) {
+  void _deal
   const { data: dealResources } = useDealResources(dealId)
   const { data: requiresResourcesData } = useDealRequiresResources(dealId)
   const addDealResource = useAddDealResource()
