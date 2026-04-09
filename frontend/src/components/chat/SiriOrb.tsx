@@ -1,4 +1,5 @@
 import { useEffect, useRef, type CSSProperties } from 'react'
+import type { OrbTheme } from '../../store/settings'
 import styles from './SiriOrb.module.css'
 
 /* ── Types ──────────────────────────────────────────────────────────── */
@@ -134,12 +135,17 @@ export default function SiriOrb({
 
 export interface SiriBorderProps {
   state: OrbState
+  /** Which orb theme — determines border color palette */
+  theme?: OrbTheme
   enabled?: boolean
   children: React.ReactNode
   className?: string
 }
 
-const BORDER_COLORS: Record<string, Record<string, string>> = {
+/* ── Border color palettes per theme ──────────────────────────────── */
+
+/** Siri palette: purple / pink / blue (oklch-inspired) */
+const SIRI_BORDER_COLORS: Record<string, Record<string, string>> = {
   idle: {
     '--siri-bc1': 'rgba(125,211,252,0.35)',
     '--siri-bc2': 'rgba(165,180,252,0.25)',
@@ -174,11 +180,51 @@ const BORDER_COLORS: Record<string, Record<string, string>> = {
   },
 }
 
+/** Jarvis palette: blue / cyan (matching JarvisOrb SVG colors) */
+const JARVIS_BORDER_COLORS: Record<string, Record<string, string>> = {
+  idle: {
+    '--siri-bc1': 'rgba(96,165,250,0.4)',    // blue-400
+    '--siri-bc2': 'rgba(34,211,238,0.3)',     // cyan-400
+    '--siri-bc3': 'rgba(96,165,250,0.25)',    // blue-400
+    '--siri-border-speed': '8s',
+    '--siri-border-opacity': '0.55',
+    '--siri-glow-opacity': '0.06',
+  },
+  thinking: {
+    '--siri-bc1': 'rgba(167,139,250,0.75)',   // violet-400
+    '--siri-bc2': 'rgba(147,51,234,0.65)',    // purple-600
+    '--siri-bc3': 'rgba(167,139,250,0.55)',   // violet-400
+    '--siri-border-speed': '2s',
+    '--siri-border-opacity': '0.9',
+    '--siri-glow-opacity': '0.15',
+  },
+  responding: {
+    '--siri-bc1': 'rgba(52,211,153,0.55)',    // emerald-400
+    '--siri-bc2': 'rgba(34,197,94,0.45)',     // green-500
+    '--siri-bc3': 'rgba(34,211,238,0.35)',    // cyan-400
+    '--siri-border-speed': '5s',
+    '--siri-border-opacity': '0.7',
+    '--siri-glow-opacity': '0.1',
+  },
+  error: {
+    '--siri-bc1': 'rgba(248,113,113,0.7)',    // red-400
+    '--siri-bc2': 'rgba(251,146,60,0.6)',     // orange-400
+    '--siri-bc3': 'rgba(248,113,113,0.5)',    // red-400
+    '--siri-border-speed': '1.5s',
+    '--siri-border-opacity': '0.85',
+    '--siri-glow-opacity': '0.12',
+  },
+}
+
 /**
  * SiriBorder — Animated conic-gradient border using mask-composite: exclude.
- * Wraps any content (chatbar, response panel) with a Siri-style rotating border.
+ * Wraps any content (chatbar, response panel) with a rotating border.
+ *
+ * Colors adapt to the active orb theme:
+ * - 'jarvis': blue/cyan palette matching JarvisOrb SVG
+ * - 'siri': purple/pink/blue oklch Siri palette
  */
-export function SiriBorder({ state, enabled = true, children, className = '' }: SiriBorderProps) {
+export function SiriBorder({ state, theme = 'jarvis', enabled = true, children, className = '' }: SiriBorderProps) {
   const borderRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -187,12 +233,13 @@ export function SiriBorder({ state, enabled = true, children, className = '' }: 
 
     // Map orb state to border state (sleep maps to idle)
     const borderState = state === 'sleep' ? 'idle' : state
-    const colors = BORDER_COLORS[borderState] ?? BORDER_COLORS.idle
+    const palette = theme === 'siri' ? SIRI_BORDER_COLORS : JARVIS_BORDER_COLORS
+    const colors = palette[borderState] ?? palette.idle
 
     for (const [key, value] of Object.entries(colors)) {
       el.style.setProperty(key, value)
     }
-  }, [state, enabled])
+  }, [state, theme, enabled])
 
   if (!enabled) {
     return <div className={className}>{children}</div>

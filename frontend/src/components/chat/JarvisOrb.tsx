@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 
-export type OrbState = 'idle' | 'thinking' | 'responding' | 'error'
+export type OrbState = 'sleep' | 'idle' | 'thinking' | 'responding' | 'error'
 
 interface JarvisOrbProps {
   state: OrbState
@@ -11,6 +11,12 @@ interface JarvisOrbProps {
 /* ── Gradient & glow configs per state ───────────────────────────── */
 
 const STATE_CONFIG = {
+  sleep: {
+    innerStop: 'var(--orb-sleep-inner, #3b82f6)',     // blue-500 muted
+    outerStop: 'var(--orb-sleep-outer, #1e40af)',      // blue-800 dark
+    glow: 'var(--orb-sleep-glow, rgba(59,130,246,0.15))',
+    glowOuter: 'var(--orb-sleep-glow-outer, rgba(30,64,175,0.06))',
+  },
   idle: {
     innerStop: 'var(--orb-idle-inner, #60a5fa)',     // blue-400
     outerStop: 'var(--orb-idle-outer, #22d3ee)',      // cyan-400
@@ -40,6 +46,15 @@ const STATE_CONFIG = {
 /* ── Animation variants ──────────────────────────────────────────── */
 
 const orbVariants = {
+  sleep: {
+    scale: [0.95, 1, 0.95],
+    opacity: [0.35, 0.55, 0.35],
+    transition: {
+      duration: 4,
+      repeat: Infinity,
+      ease: 'easeInOut' as const,
+    },
+  },
   idle: {
     scale: [1, 1.08, 1],
     opacity: [0.7, 1, 0.7],
@@ -79,6 +94,15 @@ const orbVariants = {
 }
 
 const ringVariants = {
+  sleep: {
+    scale: [1, 1.15, 1],
+    opacity: [0.1, 0, 0.1],
+    transition: {
+      duration: 4,
+      repeat: Infinity,
+      ease: 'easeInOut' as const,
+    },
+  },
   idle: {
     scale: [1, 1.3, 1],
     opacity: [0.3, 0, 0.3],
@@ -123,6 +147,7 @@ const DOT_OFFSETS = [0, 120, 240] // degrees apart
 
 function getRotationDuration(state: OrbState): number {
   switch (state) {
+    case 'sleep': return 12
     case 'idle': return 6
     case 'thinking': return 1.5
     case 'responding': return 3

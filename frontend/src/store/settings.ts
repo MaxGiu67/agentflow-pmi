@@ -3,16 +3,12 @@ import { persist } from 'zustand/middleware'
 
 /* ── Types ──────────────────────────────────────────────────────────── */
 
-export type OrbTheme = 'siri' | 'jarvis'
-export type JarvisVariant = 'hud-rings' | 'arc-reactor' | 'particle-sphere'
+export type OrbTheme = 'jarvis' | 'siri'
 
 interface SettingsState {
-  /** Tema orb del chatbot: 'siri' (CSS conic-gradient) o 'jarvis' (Canvas 2D) */
+  /** Tema orb del chatbot: 'jarvis' (SVG + Framer Motion) o 'siri' (CSS conic-gradient) */
   orbTheme: OrbTheme
-  /** Variante Jarvis: 'hud-rings' | 'arc-reactor' | 'particle-sphere' */
-  jarvisVariant: JarvisVariant
   setOrbTheme: (theme: OrbTheme) => void
-  setJarvisVariant: (variant: JarvisVariant) => void
 }
 
 /* ── Store ──────────────────────────────────────────────────────────── */
@@ -20,10 +16,8 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
-      orbTheme: 'siri',
-      jarvisVariant: 'hud-rings',
+      orbTheme: 'jarvis',
       setOrbTheme: (orbTheme) => set({ orbTheme }),
-      setJarvisVariant: (jarvisVariant) => set({ jarvisVariant }),
     }),
     { name: 'agentflow-settings' },
   ),

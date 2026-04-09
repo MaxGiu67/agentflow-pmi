@@ -9,6 +9,7 @@ import ContentBlockRenderer from './ContentBlockRenderer'
 import { useAIBlocksStore } from '../../store/aiBlocks'
 import { useSettingsStore } from '../../store/settings'
 import BotOrb, { SiriBorder, type OrbState } from './BotOrb'
+import JarvisOrb from './JarvisOrb'
 
 /* ── Placeholder per pagina ──────────────────────────────────────── */
 
@@ -128,7 +129,6 @@ export default function ChatbotFloating() {
   const fullPath = location.pathname
 
   const orbTheme = useSettingsStore((s) => s.orbTheme)
-  const isSiriTheme = orbTheme === 'siri'
 
   const { executeActions, executeSingle } = useActionExecutor()
 
@@ -304,7 +304,7 @@ export default function ChatbotFloating() {
       <AnimatePresence>
         {chatOpen && (
           <motion.div
-            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+            className="fixed inset-0 z-40 bg-black/30"
             variants={overlayVariants}
             initial="hidden"
             animate="visible"
@@ -334,7 +334,7 @@ export default function ChatbotFloating() {
             tabIndex={0}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') openChat() }}
           >
-            <BotOrb state="sleep" size={58} showGlow />
+            <JarvisOrb state="sleep" size={58} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -363,7 +363,7 @@ export default function ChatbotFloating() {
                   transition={{ duration: 0.3 }}
                   className="mb-2 overflow-hidden"
                 >
-                  <SiriBorder state={orbState} enabled={isSiriTheme}>
+                  <SiriBorder state={orbState} theme={orbTheme}>
                     <div className="rounded-2xl bg-white/95 backdrop-blur-xl">
                       {/* Response Header */}
                       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2">
@@ -440,7 +440,7 @@ export default function ChatbotFloating() {
             </AnimatePresence>
 
             {/* Input Bar with animated Siri border */}
-            <SiriBorder state={orbState} enabled={isSiriTheme}>
+            <SiriBorder state={orbState} theme={orbTheme}>
               <div className="flex items-center gap-3 rounded-2xl bg-white/95 p-3 backdrop-blur-xl">
                 <BotOrb state={orbState} size={38} />
 
