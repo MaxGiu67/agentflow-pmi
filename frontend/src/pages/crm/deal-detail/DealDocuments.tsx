@@ -80,7 +80,8 @@ export default function DealDocuments({ deal, dealId }: DealDocumentsProps) {
                 if (fileInputRef.current) fileInputRef.current.value = ''
                 setShowDocForm(false)
               } catch (err: any) {
-                alert(`Errore upload: ${err?.response?.data?.detail || err?.message || 'Errore sconosciuto'}`)
+                const detail = err?.response?.data?.detail || err?.response?.data?.message || (typeof err?.response?.data === 'string' ? err.response.data : null) || err?.message || 'Errore sconosciuto'
+                alert(`Errore upload: ${detail}`)
               }
             }} disabled={!docFile || uploadDocument.isPending}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
