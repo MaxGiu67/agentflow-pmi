@@ -1230,62 +1230,94 @@ async def run_orchestrator(
             for deal in deals:
                 if not isinstance(deal, dict) or not deal.get("id"):
                     continue
-                # Highlight stale deals (>5 days in stage) with high priority
-                days = deal.get("days_in_stage", 0) or 0
+                deal_id = str(deal["id"])
+                deal_name = deal.get("name", "")
+                client = deal.get("client_name", deal.get("portal_customer_name", ""))
                 stage_name = deal.get("stage", deal.get("stage_name", ""))
-                is_won = deal.get("is_won", False)
-                if days > 5 and not is_won:
+                days = deal.get("days_in_stage", 0) or 0
+                prob = deal.get("probability", 0) or 0
+                revenue = deal.get("expected_revenue", 0) or 0
+                rate = deal.get("daily_rate", 0) or 0
+                est_days = deal.get("estimated_days", 0) or 0
+                order_ref = deal.get("order_reference", "")
+                is_won = stage_name.lower() in ("confermato", "won")
+                is_lost = stage_name.lower() in ("perso", "lost")
+
+                if is_lost:
+                    continue
+
+                # Won deals missing order info
+                if is_won and not order_ref:
                     ui_actions.append({
-                        "type": "highlight",
-                        "target": "deal",
-                        "id": str(deal["id"]),
-                        "style": "pulse-border",
-                        "color": "#ef4444" if days > 10 else "#f59e0b",
-                        "tooltip": f"Fermo da {days} giorni — serve follow-up",
-                        "navigate": f"/crm/deals/{deal['id']}",
+                        "type": "highlight", "target": "deal", "id": deal_id,
+                        "style": "pulse-border", "color": "#ef4444",
+                        "tooltip": f"Ordine da completare",
+                        "navigate": f"/crm/deals/{deal_id}",
                         "coaching": {
-                            "message": f"Fermo da {days}gg in {stage_name}. Chiama il cliente per follow-up.",
-                            "priority": "high" if days > 10 else "medium",
-                            "actions": [
-                                {"label": "Apri deal", "icon": "eye", "href": f"/crm/deals/{deal['id']}"},
-                            ],
+                            "message": f"Deal vinto con {client}! Mancano riferimento ordine e data. Completa per poter fatturare.",
+                            "priority": "high",
+                            "actions": [{"label": "Completa ordine", "icon": "edit", "href": f"/crm/deals/{deal_id}"}],
                         },
                     })
-                # Highlight high-value deals near closing
-                elif deal.get("probability", 0) >= 50 and deal.get("expected_revenue", 0) > 5000:
-                    prob = deal.get("probability", 0)
+                # Stale deals (>5 days in stage)
+                elif days > 5 and not is_won:
+                    if stage_name.lower() in ("offerta", "proposta inviata"):
+                        msg = f"Offerta a {client} ferma da {days}gg. Chiama per avere feedback — un'offerta senza follow-up e' persa."
+                    elif stage_name.lower() in ("qualifica", "qualificato"):
+                        if not revenue or not rate:
+                            msg = f"Deal con {client} in Qualifica senza valore definito. Fai la call e definisci scope + tariffa."
+                        else:
+                            msg = f"Deal con {client} fermo in Qualifica da {days}gg. Avanza o archivia."
+                    elif stage_name.lower() in ("discovery call",):
+                        msg = f"Discovery call con {client} da schedulare. Fissa la call questa settimana."
+                    else:
+                        msg = f"Deal con {client} fermo da {days}gg in {stage_name}. Serve un'azione."
                     ui_actions.append({
-                        "type": "highlight",
-                        "target": "deal",
-                        "id": str(deal["id"]),
-                        "style": "glow",
-                        "color": "#8b5cf6",
-                        "tooltip": f"Deal caldo — {prob}% probabilita",
-                        "navigate": f"/crm/deals/{deal['id']}",
+                        "type": "highlight", "target": "deal", "id": deal_id,
+                        "style": "pulse-border",
+                        "color": "#ef4444" if days > 10 else "#f59e0b",
+                        "tooltip": f"Fermo da {days}gg — serve azione",
+                        "navigate": f"/crm/deals/{deal_id}",
                         "coaching": {
-                            "message": f"Deal caldo ({prob}%). Prepara l'offerta o fissa call.",
+                            "message": msg,
+                            "priority": "high" if days > 10 else "medium",
+                            "actions": [{"label": "Apri deal", "icon": "eye", "href": f"/crm/deals/{deal_id}"}],
+                        },
+                    })
+                # High-value deals near closing
+                elif prob >= 50 and revenue > 5000 and not is_won:
+                    rev_fmt = f"{revenue:,.0f}".replace(",", ".")
+                    if stage_name.lower() in ("offerta", "proposta inviata"):
+                        msg = f"Offerta da €{rev_fmt} a {client} ({prob}%). Fai follow-up per chiudere."
+                    elif stage_name.lower() in ("negoziazione",):
+                        msg = f"In negoziazione con {client} per €{rev_fmt}. Spingi per la firma."
+                    else:
+                        msg = f"Deal caldo con {client} — €{rev_fmt} al {prob}%. Prepara offerta o fissa call."
+                    ui_actions.append({
+                        "type": "highlight", "target": "deal", "id": deal_id,
+                        "style": "glow", "color": "#8b5cf6",
+                        "tooltip": f"Deal caldo — €{rev_fmt}",
+                        "navigate": f"/crm/deals/{deal_id}",
+                        "coaching": {
+                            "message": msg,
                             "priority": "medium",
                             "actions": [
                                 {"label": "Apri deal", "icon": "eye", "href": f"/crm/deals/{deal['id']}"},
                             ],
                         },
                     })
-                # Won deals missing order reference
-                elif is_won and not deal.get("order_reference"):
+                # New leads without action
+                elif prob <= 10 and not is_won and stage_name.lower() in ("nuovo lead", "prospect"):
+                    msg = f"Lead {client} appena entrato. Valuta se qualificarlo o archiviarlo."
                     ui_actions.append({
-                        "type": "highlight",
-                        "target": "deal",
-                        "id": str(deal["id"]),
-                        "style": "pulse-border",
-                        "color": "#ef4444",
-                        "tooltip": "Ordine confermato — completa i dati",
-                        "navigate": f"/crm/deals/{deal['id']}",
+                        "type": "highlight", "target": "deal", "id": deal_id,
+                        "style": "glow", "color": "#10b981",
+                        "tooltip": "Nuovo lead da valutare",
+                        "navigate": f"/crm/deals/{deal_id}",
                         "coaching": {
-                            "message": "Ordine confermato ma mancano i dati. Completa il riferimento ordine.",
-                            "priority": "high",
-                            "actions": [
-                                {"label": "Completa", "icon": "edit", "href": f"/crm/deals/{deal['id']}"},
-                            ],
+                            "message": msg,
+                            "priority": "low",
+                            "actions": [{"label": "Valuta", "icon": "eye", "href": f"/crm/deals/{deal_id}"}],
                         },
                     })
     if ui_actions:
