@@ -430,6 +430,78 @@ async def delete_deal_document(
     return {"status": "deleted"}
 
 
+@router.get("/documents/{doc_id}/download")
+async def download_deal_document(
+    doc_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    svc: CRMService = Depends(get_service),
+):
+    """Download document file — proxies from R2 or serves base64."""
+    import os
+    from fastapi.responses import StreamingResponse
+    import io
+
+    _require_tenant(user)
+    docs = await svc.list_deal_documents(doc_id)
+    # doc_id might be the document ID, find it
+    doc = None
+    # Try to find by iterating (list_deal_documents takes deal_id, we need by doc_id)
+    # Use direct DB query instead
+    from sqlalchemy import select
+    from api.db.models import CrmDealDocument
+    result = await svc.db.execute(select(CrmDealDocument).where(CrmDealDocument.id == doc_id))
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(404, "Documento non trovato")
+
+    url = doc.url or ""
+    file_name = doc.name or "documento"
+
+    # Base64 data URL
+    if url.startswith("data:"):
+        import base64
+        # data:content_type;base64,DATA
+        header, b64data = url.split(",", 1)
+        content_type = header.split(":")[1].split(";")[0]
+        content = base64.b64decode(b64data)
+        return StreamingResponse(
+            io.BytesIO(content),
+            media_type=content_type,
+            headers={"Content-Disposition": f'attachment; filename="{file_name}"'},
+        )
+
+    # R2 URL — fetch and proxy
+    if url.startswith("https://"):
+        r2_account = os.getenv("R2_ACCOUNT_ID")
+        r2_access_key = os.getenv("R2_ACCESS_KEY_ID")
+        r2_secret_key = os.getenv("R2_SECRET_ACCESS_KEY")
+        r2_bucket = os.getenv("R2_BUCKET_NAME")
+
+        if r2_account and r2_access_key and r2_secret_key and r2_bucket:
+            try:
+                import boto3
+                s3 = boto3.client(
+                    "s3",
+                    endpoint_url=f"https://{r2_account}.r2.cloudflarestorage.com",
+                    aws_access_key_id=r2_access_key,
+                    aws_secret_access_key=r2_secret_key,
+                    region_name="auto",
+                )
+                # Extract object key from URL
+                # URL: https://agentflow.r2.cloudflarestorage.com/deals/uuid/filename
+                key = url.split(f"{r2_bucket}.r2.cloudflarestorage.com/")[-1] if r2_bucket in url else url.split(".com/")[-1]
+                obj = s3.get_object(Bucket=r2_bucket, Key=key)
+                return StreamingResponse(
+                    obj["Body"],
+                    media_type=obj.get("ContentType", "application/octet-stream"),
+                    headers={"Content-Disposition": f'attachment; filename="{file_name}"'},
+                )
+            except Exception as e:
+                raise HTTPException(500, f"Errore download R2: {e}")
+
+    raise HTTPException(404, "File non disponibile")
+
+
 @router.post("/deals/{deal_id}/documents/upload", status_code=201)
 async def upload_deal_document(
     deal_id: uuid.UUID,

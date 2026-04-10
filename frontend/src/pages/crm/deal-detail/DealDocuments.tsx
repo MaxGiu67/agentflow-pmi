@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { useDealDocuments, useDeleteDealDocument, useUploadDealDocument } from '../../../api/hooks'
+import api from '../../../api/client'
 import { Plus, FileText, Trash2, Upload, Download } from 'lucide-react'
 
 interface DealDocumentsProps {
@@ -120,11 +121,23 @@ export default function DealDocuments({ deal, dealId }: DealDocumentsProps) {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {doc.url && (
-                    <a href={isDataUrl ? doc.url : doc.url} download={isDataUrl ? doc.name : undefined}
-                      target={isDataUrl ? undefined : '_blank'} rel="noopener noreferrer"
+                    <button onClick={async () => {
+                      try {
+                        const res = await api.get(`/crm/documents/${doc.id}/download`, { responseType: 'blob' })
+                        const blob = res.data as Blob
+                        const url = window.URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = doc.name || 'documento'
+                        a.click()
+                        window.URL.revokeObjectURL(url)
+                      } catch {
+                        alert('Errore download')
+                      }
+                    }}
                       className="inline-flex items-center gap-1 rounded bg-gray-50 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50">
-                      <Download className="h-3 w-3" /> {isDataUrl ? 'Scarica' : 'Apri'}
-                    </a>
+                      <Download className="h-3 w-3" /> Scarica
+                    </button>
                   )}
                   <button onClick={() => { if (confirm(`Eliminare "${doc.name}"?`)) deleteDocument.mutate(doc.id) }}
                     className="text-gray-300 hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button>
