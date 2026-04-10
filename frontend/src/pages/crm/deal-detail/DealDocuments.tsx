@@ -105,7 +105,6 @@ export default function DealDocuments({ deal, dealId }: DealDocumentsProps) {
               altro: { label: 'Altro', color: 'bg-gray-100 text-gray-700' },
             }
             const typeInfo = typeLabels[doc.doc_type] || typeLabels.altro
-            const isDataUrl = doc.url?.startsWith('data:')
             return (
               <div key={doc.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3">
                 <div className="flex items-center gap-3 min-w-0">
