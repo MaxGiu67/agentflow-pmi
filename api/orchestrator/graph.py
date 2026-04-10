@@ -1323,6 +1323,110 @@ async def run_orchestrator(
     if ui_actions:
         response_meta["ui_actions"] = ui_actions
 
+    # AI Todos — generate actionable todo items for the AI Todo Panel
+    ai_todos: list[dict] = []
+    for tr in state.get("tool_results", []):
+        result = tr.get("result", {})
+        if not isinstance(result, dict):
+            continue
+        deals = result.get("deals", [])
+        if not isinstance(deals, list):
+            continue
+        for deal in deals:
+            if not isinstance(deal, dict) or not deal.get("id"):
+                continue
+            deal_id = str(deal["id"])
+            deal_name = deal.get("name", "")
+            client = deal.get("client_name", deal.get("portal_customer_name", ""))
+            stage_name = deal.get("stage", deal.get("stage_name", ""))
+            days = deal.get("days_in_stage", 0) or 0
+            revenue = deal.get("expected_revenue", 0) or 0
+            rate = deal.get("daily_rate", 0) or 0
+            order_ref = deal.get("order_reference", "")
+            is_won = stage_name.lower() in ("confermato", "won")
+            is_lost = stage_name.lower() in ("perso", "lost")
+
+            if is_lost:
+                continue
+
+            # Won deals missing order info
+            if is_won and not order_ref:
+                ai_todos.append({
+                    "id": f"todo-{deal_id[:8]}",
+                    "dealId": deal_id,
+                    "dealName": deal_name,
+                    "clientName": client,
+                    "priority": "high",
+                    "action": "Raccogli il purchase order per il deal Won",
+                    "icon": "check",
+                    "stage": stage_name,
+                })
+            # Stale deals (>5 days in stage)
+            elif days > 5 and not is_won:
+                if stage_name.lower() in ("offerta", "proposta inviata"):
+                    action = f"Follow-up offerta ferma da {days}gg — chiama per feedback"
+                    icon = "phone"
+                elif stage_name.lower() in ("qualifica", "qualificato"):
+                    if not revenue or not rate:
+                        action = "Definisci scope e tariffa giornaliera"
+                        icon = "edit"
+                    else:
+                        action = f"Avanza o archivia — fermo in Qualifica da {days}gg"
+                        icon = "edit"
+                elif stage_name.lower() in ("discovery call",):
+                    action = "Fissa la discovery call questa settimana"
+                    icon = "calendar"
+                else:
+                    action = f"Sblocca deal fermo in {stage_name} da {days}gg"
+                    icon = "phone"
+                ai_todos.append({
+                    "id": f"todo-{deal_id[:8]}",
+                    "dealId": deal_id,
+                    "dealName": deal_name,
+                    "clientName": client,
+                    "priority": "high" if days > 10 else "medium",
+                    "action": action,
+                    "icon": icon,
+                    "stage": stage_name,
+                })
+            # High-value deals near closing
+            elif deal.get("probability", 0) and deal["probability"] >= 50 and revenue > 5000 and not is_won:
+                rev_fmt = f"{revenue:,.0f}".replace(",", ".")
+                if stage_name.lower() in ("offerta", "proposta inviata"):
+                    action = f"Follow-up offerta da EUR {rev_fmt}"
+                    icon = "phone"
+                elif stage_name.lower() in ("negoziazione",):
+                    action = f"Spingi per la firma — EUR {rev_fmt}"
+                    icon = "edit"
+                else:
+                    action = f"Prepara offerta o fissa call — deal da EUR {rev_fmt}"
+                    icon = "calendar"
+                ai_todos.append({
+                    "id": f"todo-{deal_id[:8]}",
+                    "dealId": deal_id,
+                    "dealName": deal_name,
+                    "clientName": client,
+                    "priority": "medium",
+                    "action": action,
+                    "icon": icon,
+                    "stage": stage_name,
+                })
+            # New leads
+            elif deal.get("probability", 0) is not None and (deal.get("probability", 100) or 100) <= 10 and not is_won and stage_name.lower() in ("nuovo lead", "prospect"):
+                ai_todos.append({
+                    "id": f"todo-{deal_id[:8]}",
+                    "dealId": deal_id,
+                    "dealName": deal_name,
+                    "clientName": client,
+                    "priority": "low",
+                    "action": "Valuta se qualificare o archiviare il lead",
+                    "icon": "edit",
+                    "stage": stage_name,
+                })
+
+    if ai_todos:
+        response_meta["ai_todos"] = ai_todos
+
     return {
         "content": content,
         "tool_calls": state.get("tool_calls"),

@@ -9,7 +9,7 @@ import ContentBlockRenderer from './ContentBlockRenderer'
 import { useAIBlocksStore } from '../../store/aiBlocks'
 import { useSettingsStore } from '../../store/settings'
 import BotOrb, { SiriBorder, type OrbState } from './BotOrb'
-import { useUIHighlights } from '../../context/UIHighlightContext'
+import { useUIHighlights, type AITodoItem } from '../../context/UIHighlightContext'
 
 /* ── Placeholder per pagina ──────────────────────────────────────── */
 
@@ -131,7 +131,7 @@ export default function ChatbotFloating() {
   const fullPath = location.pathname
 
   const orbTheme = useSettingsStore((s) => s.orbTheme)
-  const { setHighlights } = useUIHighlights()
+  const { setHighlights, setTodos } = useUIHighlights()
 
   const { executeActions, executeSingle } = useActionExecutor()
 
@@ -198,6 +198,11 @@ export default function ChatbotFloating() {
             }
             const suggested = (meta.suggested_actions ?? []) as ActionCommand[]
             if (suggested.length > 0) setSuggestedActions(suggested)
+            // Extract AI todos and store them in context
+            const aiTodos = meta.ai_todos
+            if (Array.isArray(aiTodos) && aiTodos.length > 0) {
+              setTodos(aiTodos.map((t: Omit<AITodoItem, 'completed'>) => ({ ...t, completed: false })))
+            }
           }
         } catch {
           setResponse('Non sono riuscito ad analizzare la pipeline. Riprova.')
@@ -206,7 +211,7 @@ export default function ChatbotFloating() {
         }
       }, 500)
     }
-  }, [fullPath, conversationId, sendMessage, page, setHighlights])
+  }, [fullPath, conversationId, sendMessage, page, setHighlights, setTodos])
 
   const closeChat = useCallback(() => {
     setChatOpen(false)
@@ -307,13 +312,19 @@ export default function ChatbotFloating() {
         if (Array.isArray(uiActions) && uiActions.length > 0) {
           setHighlights(uiActions)
         }
+
+        // Extract AI todos and store them in context
+        const aiTodos = meta.ai_todos
+        if (Array.isArray(aiTodos) && aiTodos.length > 0) {
+          setTodos(aiTodos.map((t: Omit<AITodoItem, 'completed'>) => ({ ...t, completed: false })))
+        }
       }
     } catch {
       setError('Si è verificato un errore. Riprova tra poco.')
     } finally {
       setIsLoading(false)
     }
-  }, [query, isLoading, conversationId, sendMessage, page, location.search, executeActions])
+  }, [query, isLoading, conversationId, sendMessage, page, location.search, executeActions, setTodos])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {

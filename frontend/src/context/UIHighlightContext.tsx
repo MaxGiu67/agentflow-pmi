@@ -1,9 +1,12 @@
 /**
- * UIHighlightContext — React Context for AI-driven UI highlights.
+ * UIHighlightContext — React Context for AI-driven UI highlights and AI todos.
  *
  * Sprint 46-47: The Sales Agent can "point at" UI elements by returning
  * ui_actions in chat responses. This context manages the highlight state.
  * Highlights are permanent until individually dismissed or the chatbot closes.
+ *
+ * Sprint 48: AI Todo Panel — the orchestrator generates ai_todos alongside
+ * ui_actions. Todos are stored here and displayed in the AITodoPanel sidebar.
  *
  * Target types:
  * - deal: highlight a deal card on the Kanban or deal detail
@@ -39,6 +42,18 @@ export interface UIHighlight {
   coaching?: CoachingData
 }
 
+export interface AITodoItem {
+  id: string
+  dealId: string
+  dealName: string
+  clientName: string
+  priority: 'high' | 'medium' | 'low'
+  action: string
+  icon: string
+  completed: boolean
+  stage: string
+}
+
 interface UIHighlightContextType {
   highlights: UIHighlight[]
   setHighlights: (highlights: UIHighlight[]) => void
@@ -46,6 +61,9 @@ interface UIHighlightContextType {
   dismissHighlight: (id: string) => void
   getHighlight: (target: string, id: string) => UIHighlight | undefined
   hasHighlight: (target: string, id: string) => boolean
+  todos: AITodoItem[]
+  setTodos: (items: AITodoItem[]) => void
+  completeTodo: (id: string) => void
 }
 
 const UIHighlightContext = createContext<UIHighlightContextType>({
@@ -55,10 +73,14 @@ const UIHighlightContext = createContext<UIHighlightContextType>({
   dismissHighlight: () => {},
   getHighlight: () => undefined,
   hasHighlight: () => false,
+  todos: [],
+  setTodos: () => {},
+  completeTodo: () => {},
 })
 
 export function UIHighlightProvider({ children }: { children: ReactNode }) {
   const [highlights, setHighlightsState] = useState<UIHighlight[]>([])
+  const [todos, setTodosState] = useState<AITodoItem[]>([])
 
   const clearHighlights = useCallback(() => {
     setHighlightsState([])
@@ -89,9 +111,25 @@ export function UIHighlightProvider({ children }: { children: ReactNode }) {
     [highlights],
   )
 
+  const setTodos = useCallback(
+    (items: AITodoItem[]) => {
+      setTodosState(items)
+    },
+    [],
+  )
+
+  const completeTodo = useCallback((id: string) => {
+    setTodosState((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, completed: true } : t)),
+    )
+  }, [])
+
   return (
     <UIHighlightContext.Provider
-      value={{ highlights, setHighlights, clearHighlights, dismissHighlight, getHighlight, hasHighlight }}
+      value={{
+        highlights, setHighlights, clearHighlights, dismissHighlight, getHighlight, hasHighlight,
+        todos, setTodos, completeTodo,
+      }}
     >
       {children}
     </UIHighlightContext.Provider>

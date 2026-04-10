@@ -9,9 +9,10 @@ import { formatCurrency } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
-import { Briefcase, Plus, Eye, LayoutGrid, List, User, Clock, Search, X } from 'lucide-react'
+import { Briefcase, Plus, Eye, LayoutGrid, List, User, Clock, Search, X, ClipboardList } from 'lucide-react'
 import { useUIHighlights, AIHighlightTooltip } from '../../context/UIHighlightContext'
 import AICoachingMark from '../../components/ui/AICoachingMark'
+import AITodoPanel from '../../components/crm/AITodoPanel'
 
 const DEAL_TYPE_SHORT: Record<string, string> = {
   'T&M': 'T&M',
@@ -36,7 +37,8 @@ export default function CrmPipelinePage() {
   const { data: activityTypes } = useActivityTypes(true)
   const createActivity = useCreateCrmActivity()
   const { data: pipelineTemplates } = usePipelineTemplates()
-  const { getHighlight, clearHighlights, dismissHighlight } = useUIHighlights()
+  const { getHighlight, clearHighlights, dismissHighlight, todos, completeTodo } = useUIHighlights()
+  const [todoPanelOpen, setTodoPanelOpen] = useState(false)
 
   // Stage move dialog
   const [moveDialog, setMoveDialog] = useState<{ dealId: string; dealName: string; contactId?: string; fromStage: string; toStageId: string; toStageName: string } | null>(null)
@@ -242,8 +244,15 @@ export default function CrmPipelinePage() {
     )
   }
 
+  const handleTodoDismiss = (id: string) => {
+    // Remove the todo from the list by completing it silently
+    completeTodo(id)
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="flex gap-0">
+    {/* Main pipeline content */}
+    <div className="min-w-0 flex-1 space-y-4">
       <PageHeader
         title="CRM Pipeline"
         subtitle="Gestione opportunita e ordini cliente"
@@ -352,6 +361,24 @@ export default function CrmPipelinePage() {
             <List className="h-4 w-4" /> Tabella
           </button>
         </div>
+
+        {/* Toggle AI Todo Panel */}
+        <button
+          onClick={() => setTodoPanelOpen((prev) => !prev)}
+          className={`relative inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+            todoPanelOpen
+              ? 'border-purple-300 bg-purple-600 text-white'
+              : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <ClipboardList className="h-4 w-4" />
+          Azioni
+          {todos.filter((t) => !t.completed).length > 0 && (
+            <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+              {todos.filter((t) => !t.completed).length}
+            </span>
+          )}
+        </button>
 
         {/* Search: cliente, nominativo, descrizione */}
         <div className="relative flex-1 min-w-[250px] max-w-md">
@@ -597,6 +624,17 @@ export default function CrmPipelinePage() {
           </div>
         </div>
       )}
+    </div>
+
+    {/* AI Todo Panel — right sidebar */}
+    <AITodoPanel
+      items={todos}
+      onComplete={completeTodo}
+      onNavigate={(dealId) => navigate(`/crm/deals/${dealId}`)}
+      onDismiss={handleTodoDismiss}
+      onClose={() => setTodoPanelOpen(false)}
+      isOpen={todoPanelOpen}
+    />
     </div>
   )
 }
