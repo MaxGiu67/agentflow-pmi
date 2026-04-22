@@ -4,11 +4,36 @@ import uuid
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, Date, DateTime, Float, Integer, JSON, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, Float, Integer, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from api.db.models.base import Base
+
+
+class WebhookEvent(Base):
+    """Storico eventi webhook ricevuti — audit + idempotency (Pivot 11 US-OB-05).
+
+    Unique constraint su (source, event_type, external_id) previene processing doppio
+    in caso di retry da parte del provider.
+    """
+    __tablename__ = "webhook_events"
+    __table_args__ = (
+        UniqueConstraint("source", "event_type", "external_id", name="uq_webhook_event_dedup"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source: Mapped[str] = mapped_column(String(50), nullable=False)  # es. 'acube_ob', 'brevo'
+    event_type: Mapped[str] = mapped_column(String(50), nullable=False)  # es. 'connect', 'reconnect', 'payment'
+    external_id: Mapped[str | None] = mapped_column(String(255), nullable=True)  # id evento dal provider (se presente)
+    fiscal_id: Mapped[str | None] = mapped_column(String(20), nullable=True)  # P.IVA coinvolta (se applicabile)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    signature: Mapped[str | None] = mapped_column(String(512), nullable=True)  # firma ricevuta (audit)
+    signature_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    processing_status: Mapped[str] = mapped_column(String(20), default="pending")  # pending, processed, error
+    processing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class NotificationConfig(Base):

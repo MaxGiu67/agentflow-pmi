@@ -18,6 +18,7 @@ from api.db.models.accounting import (
     JournalLine,
     ChartAccount,
     ActiveInvoice,
+    BankConnection,
     BankAccount,
     BankTransaction,
     BankStatementImport,
@@ -75,6 +76,7 @@ from api.db.models.email import (
 )
 
 from api.db.models.other import (
+    WebhookEvent,
     NotificationConfig,
     NotificationLog,
     EmailConnection,

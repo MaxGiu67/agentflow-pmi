@@ -1,15 +1,15 @@
-# Gap Analysis — AgentFlow CRM per NExadata
+# Gap Analysis — AgentFlow CRM per Nexa Data
 
-> Analisi delle funzionalità mancanti nel CRM AgentFlow per supportare l'attività commerciale di NExadata, con focus sulla vendita di **elevia** tramite **social selling su LinkedIn** gestito da un **fractional account**.
+> Analisi delle funzionalità mancanti nel CRM AgentFlow per supportare l'attività commerciale di Nexa Data, con focus sulla vendita di **elevia** tramite **social selling su LinkedIn** gestito da un **fractional account**.
 
 **Data:** 4 aprile 2026
-**Autore:** NExadata — Ufficio Commerciale & Prodotto
+**Autore:** Nexa Data — Ufficio Commerciale & Prodotto
 
 ---
 
 ## 1. Contesto
 
-NExadata opera su due fronti commerciali paralleli:
+Nexa Data opera su due fronti commerciali paralleli:
 
 **Canale classico** — vendita diretta di consulenza IT, progetti T&M, servizi managed e hardware. Questo canale è ben coperto dall'attuale CRM AgentFlow, che gestisce pipeline, ordini, email marketing e analytics.
 
@@ -101,7 +101,7 @@ Pre-funnel LinkedIn:
 
 **Cosa manca:** Elevia non è un progetto T&M né hardware. È un **prodotto SaaS/AI** con un proprio modello di pricing (subscription, licenza, setup + canone). Il CRM non permette di associare un deal a un prodotto specifico, né di filtrare o analizzare la pipeline per prodotto.
 
-**Perché è critico:** NExadata deve poter rispondere a domande come: "Quanti deal elevia abbiamo in pipeline? Qual è il valore medio di un deal elevia? Qual è il conversion rate di elevia rispetto alla consulenza classica?" Oggi queste domande non hanno risposta.
+**Perché è critico:** Nexa Data deve poter rispondere a domande come: "Quanti deal elevia abbiamo in pipeline? Qual è il valore medio di un deal elevia? Qual è il conversion rate di elevia rispetto alla consulenza classica?" Oggi queste domande non hanno risposta.
 
 **Proposta funzionale:**
 
@@ -156,7 +156,7 @@ Aggiungere inoltre un campo **"Canale di acquisizione"** al deal per poter filtr
 
 **Cosa manca:** Il fractional pubblica post su LinkedIn per generare interesse su elevia. Serve sapere quale contenuto ha portato quale lead, per ottimizzare la strategia editoriale e dimostrare il ROI del content marketing.
 
-**Perché è critico:** Senza attribution, il fractional pubblica "alla cieca" senza sapere cosa funziona. NExadata non può decidere se investire di più in post tecnici, case study, video o articoli.
+**Perché è critico:** Senza attribution, il fractional pubblica "alla cieca" senza sapere cosa funziona. Nexa Data non può decidere se investire di più in post tecnici, case study, video o articoli.
 
 **Proposta funzionale:**
 
@@ -181,7 +181,7 @@ E un campo **"Contenuto di origine"** nel contatto, compilabile manualmente o tr
 
 **Cosa manca:** Mancano metriche specifiche per valutare l'efficacia del canale LinkedIn e del fractional.
 
-**Perché è critico:** Il fractional viene pagato per risultati. NExadata deve poter valutare oggettivamente se l'investimento nel social selling sta rendendo, confrontandolo con il canale classico.
+**Perché è critico:** Il fractional viene pagato per risultati. Nexa Data deve poter valutare oggettivamente se l'investimento nel social selling sta rendendo, confrontandolo con il canale classico.
 
 **Proposta funzionale:**
 
@@ -266,4 +266,4 @@ Si raccomanda di procedere in tre fasi:
 
 ---
 
-*Documento generato il 4 aprile 2026 — NExadata*
+*Documento generato il 4 aprile 2026 — Nexa Data*

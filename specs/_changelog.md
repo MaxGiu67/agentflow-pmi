@@ -8,6 +8,22 @@
 
 ---
 
+## 2026-04-09 — PIVOT 9b: Framework CRM ElevIA
+
+- **Causa**: Il documento `CRM_Arc_P2C_v126_ElevIA.md` definisce il playbook commerciale completo di ElevIA (tag awareness 1-5, 9 sequenze email, Lead Magnet, eventi INTRO/INSIGHT, KPI funnel) ma il Pivot 9 non copre l'integrazione di queste regole operative in AgentFlow.
+- **Brainstorming**: Sessione trio creativo con 70 idee → 15 TIER 1 → 3 concept (Light/Pro/Smart). Scelto concept "Elevia Pro" (orchestrazione + guardrails).
+- **Gap analysis**: 7 gap identificati rispetto a Pivot 9 (tag system, sequenze awareness-driven, regola una-sola-sequenza, Lead Magnet come entita, eventi INTRO/INSIGHT, orchestrazione Brevo, KPI funnel).
+- **Stories nuove**: US-222→US-228 (47 SP, Sprint 46-47)
+- **Epic nuovi**: EPIC 23 (ElevIA Awareness Engine), EPIC 24 (ElevIA Sequence Orchestration)
+- **Principio architetturale**: AgentFlow orchestra, Brevo esegue. L'agente suggerisce, l'umano approva.
+- **6 tabelle DB nuove/modificate**: crm_contact_tags, crm_lead_magnets, crm_events, crm_event_attendees + modifiche a crm_contacts e email_sequences
+- **~15 endpoint API nuovi**
+- **File creati**: `specs/03-user-stories-pivot9b-elevia-framework.md`, `specs/05-sprint-plan-pivot9b.md`, `brainstorm/01-brainstorm.md`
+- **File aggiornati**: `specs/_status.md`, `specs/_changelog.md`
+- **Nota sprint**: Sprint 46-47 (dopo Pivot 10 completato su Sprint 42-45). Dipende da Pivot 9 completato.
+
+---
+
 ## 2026-04-07 — PIVOT 10: Integrazione AgentFlow ↔ PortalJS.be
 
 - **Causa**: AgentFlow gestisce il ciclo commerciale fino all'ordine, PortalJS.be gestisce l'operativo (commesse, rapportini, dipendenti). Serve ponte tra i due sistemi.
@@ -148,7 +164,7 @@
 - **File wireframe**: `specs/ux/wireframes-pivot8.md`
 - **Brainstorming**: 85 idee (divergenza), analisi critica (sfida), 3 concept (sintesi)
 - **Spec prodotto**: `Docs/Spec_Modulo_Social_Selling.md`
-- **Contesto**: NExadata attiva vendita LinkedIn con fractional account. Il modulo è progettato generico per qualsiasi PMI.
+- **Contesto**: Nexa Data attiva vendita LinkedIn con fractional account. Il modulo è progettato generico per qualsiasi PMI.
 - **Principio**: Tutto configurabile dall'admin, nessun riferimento hardcoded a clienti/prodotti specifici
 
 ---

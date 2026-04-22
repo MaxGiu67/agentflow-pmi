@@ -37,7 +37,7 @@ Il motore generico gestisce:
 
 Ogni PMI configura:
 
-| Cosa si configura | Esempio NExadata | Esempio PMI manifatturiera |
+| Cosa si configura | Esempio Nexa Data | Esempio PMI manifatturiera |
 |-------------------|------------------|---------------------------|
 | Origini contatto | linkedin_organico, linkedin_dm, linkedin_inmail | fiera_mecspe, linkedin_dm, sito_web |
 | Tipi di attività | social_connection, social_dm, social_engagement | visita_stabilimento, social_dm, call_tecnica |
@@ -78,7 +78,7 @@ L'admin definisce una **lista di origini custom** con:
 - Il "canale padre" permette analytics aggregate (tutti i social, tutti gli eventi)
 - L'admin può aggiungere, rinominare, disattivare origini — mai cancellare (integrità dati storici)
 
-**Configurazione NExadata:** linkedin_organico, linkedin_dm, linkedin_inmail, linkedin_evento, linkedin_ads, linkedin_referral, web, referral, evento, cold
+**Configurazione Nexa Data:** linkedin_organico, linkedin_dm, linkedin_inmail, linkedin_evento, linkedin_ads, linkedin_referral, web, referral, evento, cold
 
 ---
 
@@ -256,9 +256,9 @@ Il sistema calcola automaticamente il compenso e genera report mensile/trimestra
 
 ---
 
-## 6. Configurazione di esempio: NExadata
+## 6. Configurazione di esempio: Nexa Data
 
-Per validare che l'architettura regge, ecco come NExadata configurerebbe il sistema:
+Per validare che l'architettura regge, ecco come Nexa Data configurerebbe il sistema:
 
 **Origini:** linkedin_organico, linkedin_dm, linkedin_inmail, web, referral, evento
 **Attività social:** social_connection, social_dm, social_engagement, social_content
@@ -289,7 +289,7 @@ Per validare che l'architettura regge, ecco come NExadata configurerebbe il sist
 Questo documento nasce da un processo strutturato:
 
 - **Guida CRM AgentFlow** — analisi dello stato attuale del sistema
-- **Gap Analysis v1** — 8 gap specifici per NExadata/elevia
+- **Gap Analysis v1** — 8 gap specifici per Nexa Data/elevia
 - **Brainstorming strutturato** — 85 idee (divergenza), analisi critica (sfida), 3 concept (sintesi)
 - **Spec di prodotto v2 (questo documento)** — riscrittura come piattaforma configurabile generica
 

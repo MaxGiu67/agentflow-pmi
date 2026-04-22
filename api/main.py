@@ -21,6 +21,8 @@ from api.modules.reports.router import router as reports_router
 from api.modules.notifications.router import router as notifications_router
 from api.modules.active_invoices.router import router as active_invoices_router
 from api.modules.banking.router import router as banking_router
+from api.modules.banking.acube_ob_router import router as acube_ob_router
+from api.modules.banking.acube_ob_webhooks import router as acube_ob_webhooks_router
 from api.modules.cashflow.router import router as cashflow_router
 from api.modules.reconciliation.router import router as reconciliation_router
 from api.modules.withholding.router import router as withholding_router
@@ -121,6 +123,32 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS portal_project_id INTEGER",
             "ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS portal_offer_id INTEGER",
             "ALTER TABLE crm_products ADD COLUMN IF NOT EXISTS requires_resources BOOLEAN DEFAULT FALSE",
+            # Pivot 11: A-Cube Open Banking AISP (ADR-012) — Sprint 48 US-OB-03
+            "ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS acube_uuid VARCHAR(64)",
+            "ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS acube_connection_id UUID",
+            "ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS acube_provider_name VARCHAR(255)",
+            "ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS acube_nature VARCHAR(50)",
+            "ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS acube_enabled BOOLEAN DEFAULT TRUE",
+            "ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS acube_extra JSON",
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS acube_transaction_id VARCHAR(255)",
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS acube_status VARCHAR(20)",
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS acube_duplicated BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS acube_category VARCHAR(100)",
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS acube_fetched_at TIMESTAMP",
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS acube_counterparty VARCHAR(255)",
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS enriched_cro VARCHAR(50)",
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS enriched_invoice_ref VARCHAR(100)",
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS acube_extra JSON",
+            # Indici utili per dedup/lookup
+            "CREATE UNIQUE INDEX IF NOT EXISTS ix_bank_accounts_acube_uuid ON bank_accounts (acube_uuid) WHERE acube_uuid IS NOT NULL",
+            "CREATE INDEX IF NOT EXISTS ix_bank_accounts_acube_connection_id ON bank_accounts (acube_connection_id)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS ix_bank_tx_acube_id ON bank_transactions (bank_account_id, acube_transaction_id) WHERE acube_transaction_id IS NOT NULL",
+            "CREATE INDEX IF NOT EXISTS ix_bank_connections_tenant_fiscal ON bank_connections (tenant_id, fiscal_id)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS ix_bank_connections_acube_br_uuid ON bank_connections (acube_br_uuid) WHERE acube_br_uuid IS NOT NULL",
+            # Pivot 11 US-OB-05: webhook_events idempotency + audit
+            "CREATE INDEX IF NOT EXISTS ix_webhook_events_status ON webhook_events (processing_status)",
+            "CREATE INDEX IF NOT EXISTS ix_webhook_events_received_at ON webhook_events (received_at)",
+            "CREATE INDEX IF NOT EXISTS ix_webhook_events_source_type ON webhook_events (source, event_type)",
         ]:
             try:
                 await conn.execute(text(stmt))
@@ -289,6 +317,8 @@ app.include_router(reports_router, prefix="/api/v1")
 app.include_router(notifications_router, prefix="/api/v1")
 app.include_router(active_invoices_router, prefix="/api/v1")
 app.include_router(banking_router, prefix="/api/v1")
+app.include_router(acube_ob_router, prefix="/api/v1")
+app.include_router(acube_ob_webhooks_router, prefix="/api/v1")
 app.include_router(cashflow_router, prefix="/api/v1")
 app.include_router(reconciliation_router, prefix="/api/v1")
 app.include_router(withholding_router, prefix="/api/v1")

@@ -21,7 +21,9 @@ Ultimo aggiornamento: 2026-04-07
 | **7** | **2026-04** | **CRM Sales interno + Brevo email marketing + Kanban** |
 | **8** | **2026-04** | **Social Selling configurabile + Ruoli fractional + Catalogo prodotti + Analytics multi-canale** |
 | **9** | **2026-04** | **v3.0: Dual pipeline (T&M+Corpo+Elevia), Sales Agent AI, Resource Matching, ATECO Engine, Cross-sell** |
+| **9b** | **2026-04** | **Framework CRM ElevIA: tag awareness, 9 sequenze, orchestratore, eventi INTRO/INSIGHT, KPI funnel** |
 | **10** | **2026-04** | **Integrazione PortalJS.be: commesse, rapportini, dipendenti, margine reale (ADR-011)** |
+| **11** | **2026-04** | **Finance Cockpit: A-Cube Open Banking AISP + Scarico Massivo Fatture (ADR-012)** |
 
 ## Numeri del Progetto
 
@@ -269,6 +271,43 @@ Ultimo aggiornamento: 2026-04-07
 - `specs/ux/wireframes-pivot8.md` — 10 wireframe ASCII
 - `brainstorm/13-15-social-selling-*.md` — Brainstorming strutturato
 
+## Pivot 11 — Finance Cockpit (in pianificazione, 2026-04-19)
+
+**Contratto A-Cube firmato 10/04/2026 (€1.800/anno listino):**
+- Open Banking AISP — lettura conti bancari PSD2 (€1.200 canone + €900 setup)
+- Scarico Massivo Fatture Cassetto Fiscale (€600 canone)
+
+**Piano sprint 48-55 (8 sprint, ~140 SP):**
+
+| Sprint | Focus | Traccia | SP |
+|--------|-------|---------|-----|
+| 48 | Fondamenta OB (adapter, auth JWT, DB, connect) | A | 22 |
+| 49 | Sync conti e movimenti | A | 21 |
+| 50 | Provisioning tenant + Consenso lifecycle | A+D | 20 |
+| 51 | Riconciliazione automatica movimenti↔fatture | A | 18 |
+| 52 | Cash flow predittivo + chatbot tool | A | 16 |
+| 53 | Usage Monitor + admin dashboard | C | 12 |
+| 54 | Scarico Massivo (post call tecnica) — parte 1 | B | 18 |
+| 55 | Scarico Massivo — parte 2 + corrispettivi placeholder | B | 13 |
+
+**Tracce:**
+- **A** — Open Banking AISP (5 sprint)
+- **B** — Scarico Massivo Cassetto Fiscale (2 sprint, bloccato da call tecnica)
+- **C** — Usage Monitor interno (evita sforamento soglie contrattuali)
+- **D** — Tenant Provisioning (1 BR A-Cube per cliente AgentFlow, modalità trasparente)
+
+**Blocchi operativi:**
+- Credenziali sandbox A-Cube da richiedere (email kick-off inviata)
+- Firma HMAC webhook (algoritmo/header/payload canonico) — attesa conferma A-Cube
+- Call tecnica Scarico Massivo da prenotare (contratto lo prevede — sandbox non disponibile)
+- Lista banche supportate + profondità storico da confermare
+
+**Documenti creati 2026-04-19:**
+- `specs/technical/ADR-012-acube-openbanking.md` — ADR completa
+- `specs/03-user-stories-pivot11-openbanking.md` — 42 user stories, 140 SP
+- `Docs/acube-openbanking-kb/` — Knowledge base 13 file (schemi, endpoint, webhooks, gotchas, open questions)
+- `Docs/Email_A-Cube_Kickoff_Tecnico.md` — Email tecnica kick-off
+
 ## Prossimi Passi
 1. ~~User Stories Pivot 8~~ ✅ 21 stories, 120 SP
 2. ~~Tech Spec Pivot 8~~ ✅ 32+ endpoint, 11 tabelle, 21 BR
@@ -283,11 +322,10 @@ Ultimo aggiornamento: 2026-04-07
 11. **Account Brevo** — creare, API key, webhook
 12. ~~Test E2E CRM + Calendar~~ ✅ 220 test (182 CRM + 38 Calendar)
 13. **Deploy** su Railway
-14. **Pivot 10 — Portal Integration (Sprint 42-45):**
-    - Sprint 42: Portal Client + Read (US-230/231/232/233, 16 SP) — **READY TO START**
-    - Sprint 43: Create Commessa (US-234/235/236, 14 SP)
-    - Sprint 44: Assign Collaborators (US-237/238, 11 SP)
-    - Sprint 45: Sync Timesheets + Dashboard (US-239/240/241, 11 SP)
+14. ~~Pivot 10 — Portal Integration (Sprint 42-45)~~ ✅ COMPLETATO
+15. **Pivot 9b — Framework CRM ElevIA (Sprint 46-47):**
+    - Sprint 46: Tag System + Lead Magnet + Seed 9 Sequenze (US-222/223/226, 21 SP)
+    - Sprint 47: Eventi + Orchestratore + Agent Tool + KPI (US-224/227/228/225, 26 SP)
 
 ---
-_Ultimo aggiornamento: 2026-04-07 — Pivot 10 Portal Integration spec completate (12 stories, 52 SP, Sprint 42-45). Pivot 8 implementato, Pivot 9 in spec._
+_Ultimo aggiornamento: 2026-04-09 — Pivot 9b Framework CRM ElevIA creato (7 stories, 47 SP, Sprint 46-47). Pivot 10 completato. Pivot 9 in spec. Pivot 8 implementato._

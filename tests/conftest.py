@@ -10,8 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from api.db.models import (
     Base, Tenant, User, Invoice, AgentEvent, CategorizationFeedback,
     JournalEntry, JournalLine, OnboardingState, FiscalRule, ChartAccount,
-    EmailConnection, NotificationConfig, NotificationLog,
-    ActiveInvoice, BankAccount, BankTransaction, VatSettlement,
+    EmailConnection, NotificationConfig, NotificationLog, WebhookEvent,
+    ActiveInvoice, BankConnection, BankAccount, BankTransaction, VatSettlement,
     FiscalDeadline, WithholdingTax, Reconciliation, StampDuty,
     Expense, ExpensePolicy, Asset, Accrual,
     CertificazioneUnica, DigitalPreservation, Payment, NormativeAlert,

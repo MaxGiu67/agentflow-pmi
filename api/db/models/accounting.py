@@ -132,26 +132,59 @@ class ActiveInvoice(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class BankConnection(Base):
+    """A-Cube Business Registry connection per tenant (ADR-012, Pivot 11 US-OB-03).
+
+    1 BankConnection per tenant/cliente finale. Ciascuno corrisponde a un Business Registry
+    sul lato A-Cube (identificato da fiscal_id = P.IVA cliente).
+    """
+    __tablename__ = "bank_connections"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    fiscal_id: Mapped[str] = mapped_column(String(20), nullable=False)  # P.IVA / CF
+    business_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    acube_br_uuid: Mapped[str | None] = mapped_column(String(64), nullable=True)  # UUID assegnato da A-Cube
+    acube_email: Mapped[str | None] = mapped_column(String(255), nullable=True)  # email univoca per BR (vincolo A-Cube)
+    status: Mapped[str] = mapped_column(String(20), default="pending")  # pending, active, expired, disabled
+    acube_enabled: Mapped[bool] = mapped_column(Boolean, default=False)  # toggle lato A-Cube (impatto fee)
+    consent_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    reconnect_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    notice_level: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 0=20gg, 1=10gg, 2=oggi
+    last_reconnect_webhook_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_connect_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    environment: Mapped[str] = mapped_column(String(20), default="sandbox")  # sandbox, production
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class BankAccount(Base):
-    """Connected bank account via Open Banking (US-24)."""
+    """Connected bank account via Open Banking (US-24, Pivot 11)."""
     __tablename__ = "bank_accounts"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     iban: Mapped[str] = mapped_column(String(34), nullable=False)
     bank_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    provider: Mapped[str] = mapped_column(String(50), nullable=False, default="cbi_globe")  # cbi_globe, manual
+    provider: Mapped[str] = mapped_column(String(50), nullable=False, default="cbi_globe")  # cbi_globe, acube_aisp, manual
     consent_token: Mapped[str | None] = mapped_column(Text, nullable=True)
     consent_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     balance: Mapped[float | None] = mapped_column(Float, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="pending")  # pending, connected, revoked, expired
     last_sync_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Pivot 11 — A-Cube Open Banking (ADR-012)
+    acube_uuid: Mapped[str | None] = mapped_column(String(64), nullable=True)  # Account UUID su A-Cube
+    acube_connection_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # FK logico → bank_connections.id
+    acube_provider_name: Mapped[str | None] = mapped_column(String(255), nullable=True)  # es. "Intesa Sanpaolo"
+    acube_nature: Mapped[str | None] = mapped_column(String(50), nullable=True)  # account, card, loan, investment
+    acube_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    acube_extra: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # campi banca-specific
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
 class BankTransaction(Base):
-    """Bank transaction from Open Banking sync or PDF import (US-24, US-44)."""
+    """Bank transaction from Open Banking sync or PDF import (US-24, US-44, Pivot 11)."""
     __tablename__ = "bank_transactions"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -165,6 +198,17 @@ class BankTransaction(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     reconciled: Mapped[bool] = mapped_column(Boolean, default=False)
     source: Mapped[str] = mapped_column(String(20), nullable=False, default="open_banking")
+    # Pivot 11 — A-Cube Open Banking (ADR-012)
+    acube_transaction_id: Mapped[str | None] = mapped_column(String(255), nullable=True)  # id A-Cube (unique per account)
+    acube_status: Mapped[str | None] = mapped_column(String(20), nullable=True)  # pending, booked, canceled
+    acube_duplicated: Mapped[bool] = mapped_column(Boolean, default=False)  # flag duplicato da A-Cube
+    acube_category: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    acube_fetched_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    acube_counterparty: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # CRO/TRN estratti dal parser extra (per riconciliazione)
+    enriched_cro: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    enriched_invoice_ref: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    acube_extra: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # payload originale A-Cube
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 

@@ -27,6 +27,21 @@ class Settings(BaseSettings):
     saltedge_app_id: str = ""
     saltedge_secret: str = ""
     saltedge_base_url: str = "https://www.saltedge.com/api/v6"
+
+    # A-Cube Open Banking (AISP) — ADR-012
+    acube_ob_env: str = "sandbox"  # sandbox | production
+    acube_ob_login_email: str = ""
+    acube_ob_login_password: str = ""
+    acube_ob_login_url_sandbox: str = "https://common-sandbox.api.acubeapi.com/login"
+    acube_ob_login_url_prod: str = "https://common.api.acubeapi.com/login"
+    acube_ob_base_url_sandbox: str = "https://ob-sandbox.api.acubeapi.com"
+    acube_ob_base_url_prod: str = "https://ob.api.acubeapi.com"
+    acube_ob_webhook_secret: str = ""  # chiave HMAC verifica webhook (da A-Cube, TBD)
+    acube_ob_webhook_verify_signature: bool = False  # false in sandbox finché A-Cube non ci dà la chiave reale
+    acube_ob_webhook_signature_header: str = "X-Acube-Signature"  # da confermare ticket 05
+    acube_ob_webhook_signature_algo: str = "sha256"  # hmac-sha256 (ipotesi più comune)
+    acube_ob_webhook_signature_prefix: str = ""  # es. "sha256=" (Stripe-style); vuoto se firma hex puro
+    acube_ob_webhook_max_age_seconds: int = 300  # replay protection: rifiuta eventi più vecchi di 5 min
     email_from: str = "AgentFlow <noreply@nexadata.it>"
 
     app_name: str = "AgentFlow"
