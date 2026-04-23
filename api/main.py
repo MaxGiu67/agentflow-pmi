@@ -62,6 +62,7 @@ from api.modules.portal.router import router as portal_router
 from api.modules.pipeline_templates.router import router as pipeline_templates_router
 from api.modules.resources.router import router as resources_router
 from api.modules.elevia.router import router as elevia_router
+from api.modules.pec.router import router as pec_router
 
 from contextlib import asynccontextmanager
 
@@ -358,3 +359,4 @@ app.include_router(pipeline_templates_router, prefix="/api/v1")
 app.include_router(resources_router, prefix="/api/v1")
 app.include_router(elevia_router, prefix="/api/v1")
 app.include_router(portal_router, prefix="/api/v1")
+app.include_router(pec_router, prefix="/api/v1")

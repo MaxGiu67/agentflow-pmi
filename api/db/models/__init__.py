@@ -75,6 +75,11 @@ from api.db.models.email import (
     EmailSequenceEnrollment,
 )
 
+from api.db.models.pec import (
+    TenantPecConfig,
+    PecMessage,
+)
+
 from api.db.models.other import (
     WebhookEvent,
     NotificationConfig,
@@ -133,6 +138,8 @@ __all__ = [
     # email
     "EmailTemplate", "EmailCampaign", "EmailSend", "EmailEvent",
     "EmailSequenceStep", "EmailSequenceEnrollment",
+    # pec
+    "TenantPecConfig", "PecMessage",
     # other
     "NotificationConfig", "NotificationLog", "EmailConnection", "Corrispettivo",
     "ImportPromptTemplate", "ImportException", "CompletenessScore",

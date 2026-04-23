@@ -162,6 +162,34 @@ async def list_active_invoices(
     )
 
 
+@router.get("/{invoice_id}/xml")
+async def download_invoice_xml(
+    invoice_id: UUID,
+    user: User = Depends(get_current_user),
+    service: ActiveInvoiceService = Depends(get_service),
+) -> Response:
+    """Download raw FatturaPA XML ready to be signed (CAdES) and sent to SDI via PEC."""
+    if not user.tenant_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Profilo azienda non configurato")
+
+    inv = await service.get_invoice(invoice_id, user.tenant_id)
+    if not inv or not inv.get("raw_xml"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="XML fattura non disponibile")
+
+    # SDI filename pattern: IT{piva-emittente}_{progressive5}.xml
+    import re as _re
+    m = _re.search(r"<IdTrasmittente>.*?<IdCodice>([^<]+)</IdCodice>", inv["raw_xml"], _re.DOTALL)
+    emit_piva = m.group(1) if m else "00000000000"
+    numero = (inv.get("numero_fattura") or "").split("-")[-1] or "00001"
+    filename = f"IT{emit_piva}_{numero}.xml"
+
+    return Response(
+        content=inv["raw_xml"],
+        media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.get("/{invoice_id}/pdf")
 async def get_invoice_pdf(
     invoice_id: UUID,

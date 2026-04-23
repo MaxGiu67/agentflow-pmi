@@ -1,6 +1,7 @@
+import { useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, FileText } from 'lucide-react'
-import { useInvoice } from '../../api/hooks'
+import { ArrowLeft, FileText, Download, Upload, Send, CheckCircle2, AlertCircle } from 'lucide-react'
+import { useInvoice, useSendInvoicePec, usePollPecReceipts, buildInvoiceXmlUrl } from '../../api/hooks'
 import { formatCurrency, formatDate } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
 import Card from '../../components/ui/Card'
@@ -11,6 +12,68 @@ export default function FatturaDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data: invoice, isLoading, error } = useInvoice(id ?? '')
+  const sendPec = useSendInvoicePec()
+  const pollReceipts = usePollPecReceipts()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [pecFeedback, setPecFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const isAttiva = invoice?.type === 'attiva'
+
+  const handleDownloadXml = async () => {
+    if (!id) return
+    const token = localStorage.getItem('access_token')
+    const r = await fetch(buildInvoiceXmlUrl(id), {
+      headers: { Authorization: `Bearer ${token ?? ''}` },
+    })
+    if (!r.ok) {
+      setPecFeedback({ type: 'error', text: 'Impossibile scaricare XML' })
+      return
+    }
+    const disposition = r.headers.get('Content-Disposition') || ''
+    const match = /filename="([^"]+)"/.exec(disposition)
+    const filename = match?.[1] || 'fattura.xml'
+    const blob = await r.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleSendPec = async () => {
+    if (!id || !selectedFile) return
+    setPecFeedback(null)
+    try {
+      const r = await sendPec.mutateAsync({ invoiceId: id, file: selectedFile })
+      setPecFeedback({
+        type: 'success',
+        text: `Inviato a SDI (${r.recipient}) — Message-ID ${r.pec_message_id}`,
+      })
+      setSelectedFile(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    } catch (e: unknown) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setPecFeedback({ type: 'error', text: detail ?? 'Invio fallito' })
+    }
+  }
+
+  const handlePollReceipts = async () => {
+    setPecFeedback(null)
+    try {
+      const r = await pollReceipts.mutateAsync()
+      setPecFeedback({
+        type: 'success',
+        text: r.new_receipts > 0
+          ? `${r.new_receipts} nuove ricevute SDI trovate`
+          : 'Nessuna nuova ricevuta SDI',
+      })
+    } catch (e: unknown) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setPecFeedback({ type: 'error', text: detail ?? 'Errore poll PEC' })
+    }
+  }
 
   if (isLoading) return <LoadingSpinner className="mt-20" size="lg" />
 
@@ -45,6 +108,82 @@ export default function FatturaDetailPage() {
           </button>
         }
       />
+
+      {isAttiva && (
+        <Card className="mb-6 border-blue-200 bg-blue-50/40">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-base font-semibold text-gray-900">Invio a SDI via PEC</h3>
+              <p className="mt-1 text-sm text-gray-600">
+                Scarica l'XML → firmalo con firma digitale (CAdES .p7m) → caricalo e invia al SDI tramite
+                la tua PEC configurata.
+              </p>
+              <a
+                href="/impostazioni/pec"
+                className="mt-1 inline-block text-xs text-blue-600 hover:underline"
+              >
+                Configurazione PEC e guida firma →
+              </a>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleDownloadXml}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <Download className="h-4 w-4" />
+              Scarica XML
+            </button>
+
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+              <Upload className="h-4 w-4" />
+              {selectedFile ? selectedFile.name : 'Seleziona .p7m firmato'}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".p7m,.xml"
+                className="hidden"
+                onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+              />
+            </label>
+
+            <button
+              onClick={handleSendPec}
+              disabled={!selectedFile || sendPec.isPending}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              <Send className="h-4 w-4" />
+              {sendPec.isPending ? 'Invio…' : 'Invia a SDI via PEC'}
+            </button>
+
+            <button
+              onClick={handlePollReceipts}
+              disabled={pollReceipts.isPending}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {pollReceipts.isPending ? 'Lettura…' : 'Controlla ricevute'}
+            </button>
+          </div>
+
+          {pecFeedback && (
+            <div
+              className={`mt-3 flex items-start gap-2 rounded-lg border px-3 py-2 text-sm ${
+                pecFeedback.type === 'success'
+                  ? 'border-green-200 bg-green-50 text-green-800'
+                  : 'border-red-200 bg-red-50 text-red-800'
+              }`}
+            >
+              {pecFeedback.type === 'success' ? (
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+              ) : (
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              )}
+              <span>{pecFeedback.text}</span>
+            </div>
+          )}
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Info card */}

@@ -89,6 +89,7 @@ const ResourcesPage = lazy(() => import('./pages/resources/ResourcesPage'))
 const EleviaUseCasesPage = lazy(() => import('./pages/elevia/EleviaUseCasesPage'))
 const PipelineTemplatesPage = lazy(() => import('./pages/social/PipelineTemplatesPage'))
 const PortalSetupPage = lazy(() => import('./pages/portal/PortalSetupPage'))
+const PecConfigPage = lazy(() => import('./pages/impostazioni/PecConfigPage'))
 
 import { setQueryClient } from './store/auth'
 
@@ -233,6 +234,7 @@ export default function App() {
               <Route path="/elevia/use-cases" element={<EleviaUseCasesPage />} />
               <Route path="/impostazioni/pipeline-templates" element={<PipelineTemplatesPage />} />
               <Route path="/impostazioni/portal" element={<PortalSetupPage />} />
+              <Route path="/impostazioni/pec" element={<PecConfigPage />} />
 
               {/* Test */}
               <Route path="/test/chatbot" element={<ChatTestPage />} />
