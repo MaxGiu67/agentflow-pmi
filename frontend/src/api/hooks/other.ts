@@ -234,6 +234,65 @@ export function useConnectBank() {
   })
 }
 
+// ── A-Cube Open Banking (Pivot 11) ──
+export interface BankConnection {
+  id: string
+  tenant_id: string
+  fiscal_id: string
+  business_name: string | null
+  status: 'pending' | 'active' | 'expired' | 'disabled'
+  acube_br_uuid: string | null
+  acube_enabled: boolean
+  consent_expires_at: string | null
+  notice_level: number | null
+  reconnect_url: string | null
+  last_reconnect_webhook_at: string | null
+  environment: 'sandbox' | 'production'
+  created_at: string | null
+  updated_at: string | null
+}
+
+export function useBankConnections() {
+  return useQuery<{ items: BankConnection[]; total: number }>({
+    queryKey: ['bank-connections'],
+    queryFn: () => api.get('/banking/connections').then((r) => r.data),
+  })
+}
+
+export function useInitBankConnection() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { return_url: string; fiscal_id?: string }) =>
+      api.post('/banking/connections/init', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['bank-connections'] }),
+  })
+}
+
+export function useSyncBankConnection() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ connectionId, since }: { connectionId: string; since?: string }) =>
+      api
+        .post(`/banking/connections/${connectionId}/sync-now`, null, {
+          params: since ? { since } : undefined,
+        })
+        .then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['bank-connections'] })
+      qc.invalidateQueries({ queryKey: ['bank-accounts'] })
+    },
+  })
+}
+
+export function useReconnectBankConnection() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (connectionId: string) =>
+      api.post(`/banking/connections/${connectionId}/reconnect`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['bank-connections'] }),
+  })
+}
+
 // ── Reconciliation ──
 export function usePendingReconciliation() {
   return useQuery({

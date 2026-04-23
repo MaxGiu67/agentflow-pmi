@@ -5,9 +5,10 @@ Endpoint esposti sotto `/api/v1/banking/connections`.
 
 from __future__ import annotations
 
+from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import User
@@ -18,7 +19,11 @@ from api.modules.banking.acube_ob_schemas import (
     BankConnectionResponse,
     InitConnectionRequest,
     InitConnectionResponse,
+    ReconnectResponse,
+    SyncAccountsResponse,
     SyncNowResponse,
+    SyncTransactionsRequest,
+    SyncTransactionsResponse,
 )
 from api.modules.banking.acube_ob_service import (
     ACubeOBServiceError,
@@ -93,15 +98,82 @@ async def get_connection(
     return BankConnectionResponse.model_validate(conn)
 
 
-@router.post("/{connection_id}/sync-now", response_model=SyncNowResponse)
-async def sync_now(
+@router.post("/{connection_id}/sync-accounts", response_model=SyncAccountsResponse)
+async def sync_accounts(
     connection_id: UUID,
     user: User = Depends(get_current_user),
     service: ACubeOpenBankingService = Depends(get_service),
-) -> SyncNowResponse:
+) -> SyncAccountsResponse:
+    """US-OB-06: recupera i conti A-Cube del BR e fa upsert su `bank_accounts`."""
     tenant_id = _require_tenant(user)
     try:
-        result = await service.sync_now(connection_id, tenant_id)
+        result = await service.sync_accounts(connection_id, tenant_id)
+    except ACubeOBServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
+    return SyncAccountsResponse(**result)
+
+
+@router.post("/{connection_id}/sync-transactions", response_model=SyncTransactionsResponse)
+async def sync_transactions(
+    connection_id: UUID,
+    body: SyncTransactionsRequest | None = None,
+    since: date | None = Query(None, description="Backfill da questa data (ISO). Default: 30gg fa."),
+    user: User = Depends(get_current_user),
+    service: ACubeOpenBankingService = Depends(get_service),
+) -> SyncTransactionsResponse:
+    """US-OB-07: scarica transazioni A-Cube con backfill. Idempotente per (account, acube_transaction_id)."""
+    tenant_id = _require_tenant(user)
+    effective_since = (body.since if body and body.since else since)
+    effective_until = body.until if body else None
+    effective_status = body.status if body else None
+    try:
+        result = await service.sync_transactions(
+            connection_id,
+            tenant_id,
+            since=effective_since,
+            until=effective_until,
+            status_filter=effective_status,
+        )
+    except ACubeOBServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
+    return SyncTransactionsResponse(**result)
+
+
+@router.post("/{connection_id}/reconnect", response_model=ReconnectResponse)
+async def request_reconnect(
+    connection_id: UUID,
+    user: User = Depends(get_current_user),
+    service: ACubeOpenBankingService = Depends(get_service),
+) -> ReconnectResponse:
+    """US-OB-11: richiedi URL SCA per rinnovare consenso PSD2.
+
+    Ritorna l'url dal webhook Reconnect se presente, altrimenti chiama A-Cube on-demand.
+    """
+    tenant_id = _require_tenant(user)
+    try:
+        result = await service.request_reconnect(connection_id, tenant_id)
+    except ACubeOBServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
+    return ReconnectResponse(**result)
+
+
+@router.post("/{connection_id}/sync-now", response_model=SyncNowResponse)
+async def sync_now(
+    connection_id: UUID,
+    since: date | None = Query(None, description="Backfill transazioni da questa data. Default: 30gg fa."),
+    user: User = Depends(get_current_user),
+    service: ACubeOpenBankingService = Depends(get_service),
+) -> SyncNowResponse:
+    """Sync completo: accounts + transactions in sequenza."""
+    tenant_id = _require_tenant(user)
+    try:
+        result = await service.sync_now(connection_id, tenant_id, since=since)
     except ACubeOBServiceError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

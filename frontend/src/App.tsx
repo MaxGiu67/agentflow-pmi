@@ -49,6 +49,7 @@ const CUPage = lazy(() => import('./pages/fisco/CUPage'))
 const ConservazionePage = lazy(() => import('./pages/fisco/ConservazionePage'))
 const BolloPage = lazy(() => import('./pages/fisco/BolloPage'))
 const BankAccountsPage = lazy(() => import('./pages/banca/BankAccountsPage'))
+const BankConnectionsPage = lazy(() => import('./pages/banca/BankConnectionsPage'))
 const MovimentiPage = lazy(() => import('./pages/banca/MovimentiPage'))
 const RiconciliazionePage = lazy(() => import('./pages/banca/RiconciliazionePage'))
 const CashFlowPage = lazy(() => import('./pages/banca/CashFlowPage'))
@@ -154,6 +155,7 @@ export default function App() {
 
               {/* Banca */}
               <Route path="/banca" element={<BankAccountsPage />} />
+              <Route path="/banca/connessioni" element={<BankConnectionsPage />} />
               <Route path="/banca/movimenti/:accountId" element={<MovimentiPage />} />
               <Route path="/banca/riconciliazione" element={<RiconciliazionePage />} />
               <Route path="/banca/cashflow" element={<CashFlowPage />} />

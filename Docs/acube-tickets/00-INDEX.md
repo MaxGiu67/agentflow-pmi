@@ -25,7 +25,7 @@
 |---|---|---|---|
 | 01 | 2026-04-20 | ✅ chiuso | [Risposte](./01-credenziali-auth-RISPOSTE.md) |
 | 02 | — | da inviare | Info via ticket, no call |
-| 03 | — | da inviare | Verificare se SDI già contrattualizzato |
+| 03 | 2026-04-23 | ⏳ in attesa risposta | Checklist operativo Scarico Massivo + SDI emissione |
 | 04 | — | da inviare | |
 | 05 | — | da inviare | |
 | 06 | — | da inviare | Dopo prime risposte |

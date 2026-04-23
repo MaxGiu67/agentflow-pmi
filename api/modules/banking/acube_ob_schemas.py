@@ -5,7 +5,7 @@ Separati da `schemas.py` (Salt Edge-based) per chiarezza.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -42,6 +42,8 @@ class BankConnectionResponse(BaseModel):
     acube_enabled: bool
     consent_expires_at: datetime | None = None
     notice_level: int | None = None
+    reconnect_url: str | None = None
+    last_reconnect_webhook_at: datetime | None = None
     environment: str
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -49,12 +51,55 @@ class BankConnectionResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ReconnectResponse(BaseModel):
+    connection_id: UUID
+    reconnect_url: str
+    source: str  # webhook_cached | on_demand
+    notice_level: int | None = None
+    consent_expires_at: datetime | None = None
+
+
 class BankConnectionListResponse(BaseModel):
     items: list[BankConnectionResponse]
     total: int
 
 
+class SyncAccountsResponse(BaseModel):
+    connection_id: UUID
+    accounts_created: int
+    accounts_updated: int
+    accounts_revoked: int
+    message: str
+
+
+class SyncTransactionsRequest(BaseModel):
+    since: date | None = Field(
+        default=None,
+        description="Backfill da questa data (ISO). Default: 30 giorni fa. A-Cube di default filtra solo mese corrente.",
+    )
+    until: date | None = Field(default=None, description="Limite superiore (ISO).")
+    status: list[str] | None = Field(
+        default=None,
+        description="Filtra per status A-Cube: pending | booked | canceled.",
+    )
+
+
+class SyncTransactionsResponse(BaseModel):
+    connection_id: UUID
+    accounts_processed: int
+    tx_created: int
+    tx_updated: int
+    since: str | None = None
+    until: str | None = None
+    message: str
+
+
 class SyncNowResponse(BaseModel):
     connection_id: UUID
-    accounts_synced: int
+    accounts_created: int
+    accounts_updated: int
+    accounts_revoked: int
+    accounts_synced: int  # back-compat: created + updated
+    tx_created: int
+    tx_updated: int
     message: str

@@ -1,100 +1,40 @@
-# Ticket 03 — Fatturazione SDI: emissione fatture attive
+# Ticket 03 — Fatturazione elettronica: attivazione operativa
 
-**Area:** e-Invoicing Italia / SDI
+**Area:** e-Invoicing / SDI + Cassetto Fiscale
 **Priorità:** P0
-**Oggetto:** [NexaData] Fatturazione elettronica SDI — emissione fatture attive via API
+**Oggetto:** [NexaData] Attivazione Scarico Massivo + Emissione SDI — checklist operativo
 
 ---
 
-## Contesto
+Buongiorno,
 
-AgentFlow PMI integra A-Cube per la gestione fiscale dei clienti. Abbiamo già un adapter stub (`ACubeSDIAdapter`) nel codice, pronto per essere cablato con le vostre API SDI in produzione.
+sono Massimiliano Giurtelli, CTO di **NexaData S.r.l.** Abbiamo firmato il contratto il **10/04/2026** che include Open Banking AISP + Scarico Massivo Fatture + servizio SDI (il contesto "SDI - Italy" è visibile nella nostra dashboard sandbox).
 
-Il contratto firmato il 10/04/2026 copre **AISP + Scarico Massivo**. Vorremmo chiarire il perimetro commerciale/tecnico per la **fatturazione SDI in uscita** (emissione fatture attive).
-
----
-
-## Richieste
-
-### 1. Stato commerciale
-
-Il servizio di **emissione fatture SDI** è:
-
-- **a)** già attivo nel contratto esistente? (non lo vediamo esplicitamente menzionato nell'offerta firmata)
-- **b)** un contratto separato già presente da un'attivazione precedente?
-- **c)** un servizio da attivare con offerta/addendum aggiuntivo?
-
-Ci potete confermare lo stato? In caso **(c)**, potete inviarci offerta commerciale con:
-- Costo setup
-- Canone annuo
-- Pricing per volume (fatture/mese)
-
-### 2. Perimetro servizio
-
-Il servizio copre:
-- ✅ Trasmissione fattura XML FatturaPA a SDI
-- ✅ Ricezione notifiche SDI (RC, NS, MC, NE, EC, DT)
-- ✅ Firma digitale qualificata (inclusa o separata?)
-- ✅ Conservazione digitale a norma (inclusa?)
-- ✅ Supporto TD01-TD28 (inclusi reverse charge, autofatture)
-
-### 3. Endpoint principali
-
-Dove si trova la documentazione dettagliata per:
-- `POST` trasmissione fattura (payload XML o JSON?)
-- `GET` stato trasmissione (notifiche SDI)
-- Webhook notifiche SDI real-time
-
-URL documentazione: https://docs.acubeapi.com/documentation/italy/gov-it/invoices/composing-invoice è quello corretto?
-
-### 4. Sandbox
-
-Lo sandbox è disponibile? Ambiente di test per:
-- Inviare fatture con P.IVA test
-- Simulare esiti SDI (accettato / scartato)
-
-### 5. Flusso operativo
-
-Modello di invio: **síncrono** (call API → aspetta risposta SDI) o **asíncrono** (call API → risposta immediata con ID → webhook stato)?
-
-### 6. Firma digitale
-
-Se non inclusa, quale modalità raccomandate:
-- Firma automatica server-side con certificato condiviso?
-- Firma client-side pre-upload?
-- Firma remota OTP?
-
-### 7. Conservazione digitale
-
-Separata o inclusa? Se separata, prezzo?
-Durata legale (10 anni) rispettata a norma?
-
-### 8. Relazione con Scarico Massivo
-
-Se emettiamo fatture attive via A-Cube SDI, vengono poi automaticamente visibili anche nello scarico massivo dal cassetto fiscale? O c'è doppio contatore?
-
-### 9. Notifica eventi SDI
-
-Webhook disponibili per:
-- `RC` (Ricevuta Consegna)
-- `NS` (Notifica Scarto)
-- `MC` (Mancata Consegna)
-- `NE` (Notifica Esito — accettazione/rifiuto cliente PA)
-- `EC` (Esito Cessionario)
-- `DT` (Decorrenza Termini)
-
-### 10. Limiti contrattuali
-
-Esiste un limite massimo fatture/anno incluso nel canone base? Pricing per excedente?
+Per andare in produzione con il primo cliente ci serve il **checklist operativo** di entrambi i servizi fatturazione. Cosa deve fare il cliente, cosa dobbiamo fare noi.
 
 ---
 
-## Riferimenti
+## A. Scarico Massivo Fatture (Cassetto Fiscale)
 
-- Contratto firmato 10/04/2026 (non menziona SDI emissione esplicitamente)
-- Adapter AgentFlow esistente: `api/adapters/acube.py` (stub attivo, da cablare)
-- Documentazione consultata: https://docs.acubeapi.com/documentation/italy
+1. Tra le 3 modalità di onboarding (proxy A-Cube / credenziali Fisconline dirette / incaricato), quale raccomandate per un SaaS multi-cliente come il nostro?
+2. **Lato cliente finale (PMI):** oltre ai 2 PDF che ci avete fornito (delega/incarico), servono altri passaggi?
+3. **Lato NexaData:** dobbiamo creare `BusinessRegistry` + `BusinessRegistryConfiguration` via API per ciascun cliente? Altre configurazioni?
+4. Endpoint principali per scaricare le fatture + esempio payload risposta.
+5. Tempo tipico dall'attivazione della delega al primo download possibile?
+6. Webhook disponibile per "nuova fattura" o solo polling?
+
+## B. Emissione fatture SDI
+
+1. **Lato cliente finale:** serve registrare un codice destinatario A-Cube nel suo portale AdE? Altri passaggi?
+2. **Lato NexaData:** quali configurazioni dobbiamo fare sul nostro account per abilitare l'invio?
+3. Endpoint di trasmissione fattura XML + esempio cURL (payload + risposta).
+4. Firma digitale: gestita da voi server-side o dobbiamo firmare noi?
+5. Notifiche SDI (RC / NS / MC / NE / EC / DT): webhook dedicati? Payload?
+6. Sandbox SDI è attivo sul nostro stesso account sandbox?
+
+---
 
 Grazie,
-Massimiliano Giurtelli — CTO Nexa Data
+Massimiliano Giurtelli
+CTO — NexaData S.r.l.
 mgiurelli@taal.it

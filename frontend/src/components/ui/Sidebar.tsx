@@ -73,6 +73,7 @@ const navSections: NavSection[] = [
     items: [
       { to: '/fatture', label: 'Fatture', icon: FileText, roles: ['owner', 'admin'] },
       { to: '/banca', label: 'Banca', icon: Landmark, roles: ['owner', 'admin'] },
+      { to: '/banca/connessioni', label: 'Open Banking', icon: Link2, roles: ['owner', 'admin'] },
       { to: '/personale', label: 'Personale', icon: Users, roles: ['owner', 'admin'] },
       { to: '/spese', label: 'Spese', icon: CreditCard, roles: ['owner', 'admin'] },
       { to: '/corrispettivi', label: 'Corrispettivi', icon: Receipt, roles: ['owner', 'admin'] },
