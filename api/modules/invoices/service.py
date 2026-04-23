@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.adapters.fiscoapi import FiscoAPIClient
 from api.adapters.odoo import PIANO_CONTI_SRL_ORDINARIO
 from api.agents.learning_agent import LearningAgent
-from api.db.models import Invoice, User
+from api.db.models import ActiveInvoice, Invoice, User
 
 logger = logging.getLogger(__name__)
 
@@ -244,27 +244,81 @@ class InvoiceService:
                 )
             )
 
-        # Count total
-        count_query = select(func.count(Invoice.id)).where(and_(*conditions))
-        total_result = await self.db.execute(count_query)
-        total = total_result.scalar() or 0
-
-        # Fetch page
-        offset = (page - 1) * page_size
-        query = (
+        # Fetch all passive matching (pagination applied after merge with active)
+        passive_q = (
             select(Invoice)
             .where(and_(*conditions))
             .order_by(Invoice.created_at.desc())
-            .offset(offset)
-            .limit(page_size)
         )
-        result = await self.db.execute(query)
-        invoices = result.scalars().all()
+        passive_res = await self.db.execute(passive_q)
+        passive_rows: list = list(passive_res.scalars().all())
+
+        # Include active invoices unless type_filter explicitly requests "passiva"
+        active_rows: list[dict] = []
+        if type_filter != "passiva":
+            a_conditions = [ActiveInvoice.tenant_id == tenant_id]
+            if date_from:
+                a_conditions.append(ActiveInvoice.data_fattura >= date_from)
+            if date_to:
+                a_conditions.append(ActiveInvoice.data_fattura <= date_to)
+            if emittente:
+                a_search = f"%{emittente}%"
+                from sqlalchemy import or_ as _or
+                a_conditions.append(
+                    _or(
+                        ActiveInvoice.cliente_nome.ilike(a_search),
+                        ActiveInvoice.numero_fattura.ilike(a_search),
+                    )
+                )
+            active_q = (
+                select(ActiveInvoice)
+                .where(and_(*a_conditions))
+                .order_by(ActiveInvoice.created_at.desc())
+            )
+            active_res = await self.db.execute(active_q)
+            for a in active_res.scalars().all():
+                active_rows.append({
+                    "id": a.id,
+                    "tenant_id": a.tenant_id,
+                    "type": "attiva",
+                    "document_type": a.document_type,
+                    "source": "manual",
+                    "numero_fattura": a.numero_fattura,
+                    "emittente_piva": a.cliente_piva,
+                    "emittente_nome": None,
+                    "data_fattura": a.data_fattura,
+                    "importo_netto": a.importo_netto,
+                    "importo_iva": a.importo_iva,
+                    "importo_totale": a.importo_totale,
+                    "category": None,
+                    "category_confidence": None,
+                    "verified": a.sdi_status in ("sent", "delivered"),
+                    "processing_status": a.sdi_status,
+                    "has_ritenuta": False,
+                    "has_bollo": False,
+                    "structured_data": {
+                        "destinatario_nome": a.cliente_nome,
+                        "cessionario_nome": a.cliente_nome,
+                        "descrizione": a.descrizione,
+                    },
+                    "created_at": a.created_at,
+                    "updated_at": a.updated_at,
+                })
+
+        # Merge + sort by created_at desc
+        merged: list = list(passive_rows) + active_rows
+        def _ts(row):
+            return getattr(row, "created_at", None) if not isinstance(row, dict) else row.get("created_at")
+        merged.sort(key=lambda r: _ts(r) or datetime.min, reverse=True)
+
+        total = len(merged)
+        offset = (page - 1) * page_size
+        items = merged[offset : offset + page_size]
 
         pages = ceil(total / page_size) if page_size > 0 else 0
 
         return {
-            "items": invoices,
+            "items": items,
             "total": total,
             "page": page,
             "page_size": page_size,
