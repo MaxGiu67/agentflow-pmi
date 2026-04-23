@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.adapters import pec_client
@@ -126,6 +126,11 @@ async def test_config(
 async def send_invoice_pec(
     invoice_id: UUID,
     file: UploadFile = File(..., description="Fattura firmata .xml.p7m"),
+    test_mode: bool = Query(
+        False,
+        description="Se true, invia la PEC al mittente stesso invece che a sdi01@pec.fatturapa.it — "
+                    "utile per validare SMTP/firma senza impatti fiscali",
+    ),
     user: User = Depends(get_current_user),
     service: PecService = Depends(get_service),
 ) -> PecSendResponse:
@@ -143,6 +148,7 @@ async def send_invoice_pec(
             invoice_id=invoice_id,
             filename=filename,
             p7m_content=content,
+            test_mode=test_mode,
         )
     except PecServiceError as e:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e)) from e
@@ -153,7 +159,7 @@ async def send_invoice_pec(
         recipient=msg.recipient or pec_client.SDI_PEC_ADDRESS,
         filename=filename,
         sent_at=msg.sent_at,
-        sdi_status="sent",
+        sdi_status="test" if test_mode else "sent",
     )
 
 

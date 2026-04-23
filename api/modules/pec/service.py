@@ -113,6 +113,7 @@ class PecService:
         invoice_id: uuid.UUID,
         filename: str,
         p7m_content: bytes,
+        test_mode: bool = False,
     ) -> PecMessage:
         cfg = await self.get_config(tenant_id)
         if not cfg:
@@ -135,6 +136,11 @@ class PecService:
 
         pw = decrypt_value(cfg.password_encrypted)
 
+        # In test mode: send the PEC to the sender's own address (validates SMTP + firma without
+        # touching Agenzia Entrate / SDI)
+        recipient = cfg.pec_address if test_mode else pec_client.SDI_PEC_ADDRESS
+        subject_prefix = "[TEST] " if test_mode else ""
+
         try:
             result = await asyncio.to_thread(
                 pec_client.send_signed_invoice,
@@ -142,6 +148,9 @@ class PecService:
                 cfg.username, pw,
                 cfg.pec_address,
                 filename, p7m_content,
+                recipient,
+                f"{subject_prefix}Invio fattura {filename}",
+                None,
             )
         except Exception as e:
             logger.exception("PEC send failed")
@@ -149,8 +158,8 @@ class PecService:
                 tenant_id=tenant_id,
                 active_invoice_id=invoice_id,
                 direction="sent",
-                subject=f"Invio fattura {filename}",
-                recipient=pec_client.SDI_PEC_ADDRESS,
+                subject=f"{subject_prefix}Invio fattura {filename}",
+                recipient=recipient,
                 sender=cfg.pec_address,
                 attachment_name=filename,
                 error=f"{type(e).__name__}: {e}",
@@ -163,7 +172,7 @@ class PecService:
             tenant_id=tenant_id,
             active_invoice_id=invoice_id,
             direction="sent",
-            subject=f"Invio fattura {filename}",
+            subject=f"{subject_prefix}Invio fattura {filename}",
             message_id=result.message_id,
             recipient=result.recipient,
             sender=cfg.pec_address,
@@ -172,9 +181,11 @@ class PecService:
         )
         self.db.add(msg)
 
-        inv.sdi_status = "sent"
-        inv.sdi_id = result.message_id
-        inv.updated_at = datetime.utcnow()
+        # Only update invoice status on REAL sends — test sends shouldn't touch fiscal status
+        if not test_mode:
+            inv.sdi_status = "sent"
+            inv.sdi_id = result.message_id
+            inv.updated_at = datetime.utcnow()
 
         await self.db.commit()
         await self.db.refresh(msg)

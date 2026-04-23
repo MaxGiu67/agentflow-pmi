@@ -85,13 +85,23 @@ export function useTestPecConfig() {
 export function useSendInvoicePec() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ invoiceId, file }: { invoiceId: string; file: File }) => {
+    mutationFn: ({
+      invoiceId,
+      file,
+      testMode = false,
+    }: {
+      invoiceId: string
+      file: File
+      testMode?: boolean
+    }) => {
       const fd = new FormData()
       fd.append('file', file)
       return api
-        .post<PecSendResult>(`/pec/invoices/${invoiceId}/send`, fd, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        })
+        .post<PecSendResult>(
+          `/pec/invoices/${invoiceId}/send?test_mode=${testMode ? 'true' : 'false'}`,
+          fd,
+          { headers: { 'Content-Type': 'multipart/form-data' } },
+        )
         .then((r) => r.data)
     },
     onSuccess: () => {

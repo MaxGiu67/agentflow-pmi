@@ -42,14 +42,16 @@ export default function FatturaDetailPage() {
     URL.revokeObjectURL(url)
   }
 
-  const handleSendPec = async () => {
+  const handleSendPec = async (testMode: boolean) => {
     if (!id || !selectedFile) return
     setPecFeedback(null)
     try {
-      const r = await sendPec.mutateAsync({ invoiceId: id, file: selectedFile })
+      const r = await sendPec.mutateAsync({ invoiceId: id, file: selectedFile, testMode })
       setPecFeedback({
         type: 'success',
-        text: `Inviato a SDI (${r.recipient}) — Message-ID ${r.pec_message_id}`,
+        text: testMode
+          ? `Test inviato a te stesso (${r.recipient}) — Message-ID ${r.pec_message_id}`
+          : `Inviato a SDI (${r.recipient}) — Message-ID ${r.pec_message_id}`,
       })
       setSelectedFile(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -149,7 +151,21 @@ export default function FatturaDetailPage() {
             </label>
 
             <button
-              onClick={handleSendPec}
+              onClick={() => handleSendPec(true)}
+              disabled={!selectedFile || sendPec.isPending}
+              className="inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+              title="Invia la PEC al tuo stesso indirizzo — zero impatto SDI"
+            >
+              <Send className="h-4 w-4" />
+              {sendPec.isPending ? 'Invio…' : 'Invio test (a me)'}
+            </button>
+
+            <button
+              onClick={() => {
+                if (confirm('Confermi l\'invio REALE al Sistema di Interscambio? La fattura avrà effetti fiscali.')) {
+                  handleSendPec(false)
+                }
+              }}
               disabled={!selectedFile || sendPec.isPending}
               className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
