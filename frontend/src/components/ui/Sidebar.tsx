@@ -117,6 +117,7 @@ const navSections: NavSection[] = [
       { to: '/impostazioni/prodotti', label: 'Prodotti', icon: Package, roles: ['owner', 'admin'] },
       { to: '/impostazioni/portal', label: 'Portal', icon: Link2, roles: ['owner', 'admin'] },
       { to: '/impostazioni/pec', label: 'PEC / SDI', icon: Mail, roles: ['owner', 'admin'] },
+      { to: '/impostazioni/scarico-massivo', label: 'Scarico Fatture', icon: FileSearch, roles: ['owner', 'admin'] },
       { to: '/impostazioni/audit', label: 'Audit Log', icon: FileSearch, roles: ['owner', 'admin'] },
     ],
   },

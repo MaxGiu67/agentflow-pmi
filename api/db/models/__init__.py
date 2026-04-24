@@ -80,6 +80,11 @@ from api.db.models.pec import (
     PecMessage,
 )
 
+from api.db.models.scarico_massivo import (
+    ScaricoMassivoConfig,
+    ScaricoFatturaLog,
+)
+
 from api.db.models.other import (
     WebhookEvent,
     NotificationConfig,
@@ -140,6 +145,8 @@ __all__ = [
     "EmailSequenceStep", "EmailSequenceEnrollment",
     # pec
     "TenantPecConfig", "PecMessage",
+    # scarico massivo
+    "ScaricoMassivoConfig", "ScaricoFatturaLog",
     # other
     "NotificationConfig", "NotificationLog", "EmailConnection", "Corrispettivo",
     "ImportPromptTemplate", "ImportException", "CompletenessScore",

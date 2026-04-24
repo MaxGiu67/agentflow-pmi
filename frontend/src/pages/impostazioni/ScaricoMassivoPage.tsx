@@ -1,0 +1,323 @@
+import { useState } from 'react'
+import {
+  Plus,
+  RefreshCw,
+  Trash2,
+  ExternalLink,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
+  Ban,
+  Info,
+} from 'lucide-react'
+import {
+  useScaricoConfigs,
+  useDelegaGuide,
+  useRegisterClient,
+  useDeleteScaricoConfig,
+  useSyncScarico,
+  type ScaricoConfig,
+} from '../../api/hooks'
+import PageHeader from '../../components/ui/PageHeader'
+import Card from '../../components/ui/Card'
+import LoadingSpinner from '../../components/ui/LoadingSpinner'
+import EmptyState from '../../components/ui/EmptyState'
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
+  pending: { label: 'Delega pendente', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
+  active: { label: 'Attivo', color: 'bg-green-100 text-green-800', icon: CheckCircle2 },
+  expired: { label: 'Delega scaduta', color: 'bg-red-100 text-red-800', icon: AlertTriangle },
+  error: { label: 'Errore sync', color: 'bg-red-100 text-red-800', icon: AlertTriangle },
+  disabled: { label: 'Disabilitato', color: 'bg-gray-100 text-gray-700', icon: Ban },
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pending
+  const Icon = cfg.icon
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${cfg.color}`}>
+      <Icon className="h-3.5 w-3.5" />
+      {cfg.label}
+    </span>
+  )
+}
+
+export default function ScaricoMassivoPage() {
+  const { data: configData, isLoading } = useScaricoConfigs()
+  const { data: guide } = useDelegaGuide()
+  const registerClient = useRegisterClient()
+  const deleteConfig = useDeleteScaricoConfig()
+  const syncConfig = useSyncScarico()
+
+  const [showForm, setShowForm] = useState(false)
+  const [fiscalId, setFiscalId] = useState('')
+  const [clientName, setClientName] = useState('')
+  const [formError, setFormError] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [syncMessage, setSyncMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(
+    null,
+  )
+
+  const configs = configData?.items ?? []
+
+  const handleRegister = async () => {
+    setFormError(null)
+    if (!fiscalId || !clientName) {
+      setFormError('Compila P.IVA/CF e denominazione')
+      return
+    }
+    try {
+      await registerClient.mutateAsync({
+        client_fiscal_id: fiscalId.trim(),
+        client_name: clientName.trim(),
+        onboarding_mode: 'proxy',
+      })
+      setFiscalId('')
+      setClientName('')
+      setShowForm(false)
+    } catch (e: unknown) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setFormError(detail ?? 'Errore registrazione')
+    }
+  }
+
+  const handleDelete = async (c: ScaricoConfig) => {
+    if (!confirm(`Rimuovere la registrazione per ${c.client_name} (${c.client_fiscal_id})?`)) return
+    setBusyId(c.id)
+    try {
+      await deleteConfig.mutateAsync(c.id)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleSync = async (c: ScaricoConfig) => {
+    setSyncMessage(null)
+    setBusyId(c.id)
+    try {
+      const r = await syncConfig.mutateAsync(c.id)
+      setSyncMessage({
+        type: 'success',
+        text: `Sync ${c.client_name}: ${(r as { new_invoices?: number }).new_invoices ?? 0} nuove fatture`,
+      })
+    } catch (e: unknown) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setSyncMessage({ type: 'error', text: detail ?? 'Sync fallito' })
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  if (isLoading) return <LoadingSpinner className="mt-20" size="lg" />
+
+  return (
+    <div>
+      <PageHeader
+        title="Scarico Massivo Fatture"
+        subtitle="Scarica automaticamente le fatture dal cassetto fiscale dei tuoi clienti via A-Cube"
+        actions={
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            <Plus className="h-4 w-4" />
+            Registra cliente
+          </button>
+        }
+      />
+
+      <Card className="mb-4 border-blue-200 bg-blue-50/40">
+        <div className="flex items-start gap-3">
+          <Info className="h-5 w-5 shrink-0 text-blue-600" />
+          <div className="text-sm text-gray-700">
+            <p className="font-medium">Integrazione in attesa di attivazione</p>
+            <p className="mt-1">
+              Il modulo è pronto ma lo scarico reale è in attesa della risposta tecnica A-Cube (Ticket 02
+              inviato 2026-04-24). Nel frattempo puoi registrare i clienti e fare la delega sul portale AdE.
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      {syncMessage && (
+        <div
+          className={`mb-4 rounded-lg border px-4 py-2 text-sm ${
+            syncMessage.type === 'success'
+              ? 'border-green-200 bg-green-50 text-green-800'
+              : 'border-red-200 bg-red-50 text-red-800'
+          }`}
+        >
+          {syncMessage.text}
+        </div>
+      )}
+
+      {showForm && (
+        <Card className="mb-4">
+          <h3 className="mb-3 text-base font-semibold">Nuovo cliente da monitorare</h3>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">P.IVA / Codice Fiscale *</label>
+              <input
+                type="text"
+                value={fiscalId}
+                onChange={(e) => setFiscalId(e.target.value)}
+                placeholder="12345678901"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Denominazione *</label>
+              <input
+                type="text"
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                placeholder="TAAL S.r.l."
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+          </div>
+          {formError && <p className="mt-2 text-sm text-red-600">{formError}</p>}
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={handleRegister}
+              disabled={registerClient.isPending}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+            >
+              {registerClient.isPending ? 'Salvataggio…' : 'Registra'}
+            </button>
+            <button
+              onClick={() => {
+                setShowForm(false)
+                setFormError(null)
+              }}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Annulla
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {configs.length === 0 ? (
+        <EmptyState
+          title="Nessun cliente registrato"
+          description="Registra un cliente e segui la procedura di delega AdE per iniziare lo scarico massivo delle sue fatture."
+          action={
+            <button
+              onClick={() => setShowForm(true)}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              Registra il primo cliente
+            </button>
+          }
+        />
+      ) : (
+        <div className="space-y-3">
+          {configs.map((c) => {
+            const isBusy = busyId === c.id
+            return (
+              <Card key={c.id}>
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-lg font-semibold text-gray-900">{c.client_name}</h3>
+                      <StatusBadge status={c.status} />
+                      <span className="text-xs text-gray-500">{c.client_fiscal_id}</span>
+                    </div>
+                    <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-sm text-gray-600 md:grid-cols-3">
+                      <div>
+                        <dt className="text-xs uppercase tracking-wide text-gray-400">Modalità</dt>
+                        <dd>{c.onboarding_mode}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs uppercase tracking-wide text-gray-400">Ultimo sync</dt>
+                        <dd>{c.last_sync_at ? new Date(c.last_sync_at).toLocaleString('it-IT') : '—'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs uppercase tracking-wide text-gray-400">Fatture scaricate (anno)</dt>
+                        <dd>
+                          {c.invoices_downloaded_ytd} / 5.000 (tot: {c.invoices_downloaded_total})
+                        </dd>
+                      </div>
+                    </dl>
+                    {c.last_sync_error && (
+                      <p className="mt-2 rounded bg-yellow-50 px-2 py-1 text-xs text-yellow-800">
+                        {c.last_sync_error}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => handleSync(c)}
+                      disabled={isBusy}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${isBusy ? 'animate-spin' : ''}`} />
+                      Sync ora
+                    </button>
+                    <button
+                      onClick={() => handleDelete(c)}
+                      disabled={isBusy}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Rimuovi
+                    </button>
+                  </div>
+                </div>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Delega guide */}
+      {guide && (
+        <Card className="mt-6">
+          <h3 className="mb-3 text-lg font-semibold text-gray-900">Procedura delega AdE (proxy mode)</h3>
+          <p className="mb-3 text-sm text-gray-600">
+            Per ogni cliente devi far fare questa procedura sul portale AdE (una volta sola, dura fino al 31/12
+            del 4° anno successivo). Dopo la delega, A-Cube può scaricare le fatture del cliente automaticamente.
+          </p>
+          <a
+            href={guide.portale_ade_url}
+            target="_blank"
+            rel="noreferrer"
+            className="mb-3 inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Apri portale AdE
+          </a>
+          <div className="rounded-lg bg-gray-50 p-3">
+            <p className="text-sm font-medium text-gray-900">
+              Codice fiscale da delegare: <code className="rounded bg-white px-2 py-0.5">{guide.acube_fiscal_id}</code>
+            </p>
+          </div>
+
+          <ol className="mt-4 space-y-2">
+            {guide.steps.map((s, i) => (
+              <li key={i} className="flex gap-3 text-sm text-gray-700">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700">
+                  {i + 1}
+                </span>
+                <span>{s}</span>
+              </li>
+            ))}
+          </ol>
+
+          <div className="mt-4 rounded-lg border border-gray-200 p-3">
+            <p className="mb-2 text-sm font-medium text-gray-900">Servizi da spuntare:</p>
+            <ul className="space-y-1 text-sm text-gray-700">
+              {guide.services_to_delegate.map((s) => (
+                <li key={s} className="flex items-start gap-2">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+                  {s}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Card>
+      )}
+    </div>
+  )
+}
