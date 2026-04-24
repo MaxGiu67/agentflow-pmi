@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, FileText, Download, Upload, Send, CheckCircle2, AlertCircle } from 'lucide-react'
+import { ArrowLeft, FileText, Download, Upload, Send, CheckCircle2, AlertCircle, Zap } from 'lucide-react'
 import { useInvoice, useSendInvoicePec, usePollPecReceipts, buildInvoiceXmlUrl } from '../../api/hooks'
+import api from '../../api/client'
 import { formatCurrency, formatDate } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
 import Card from '../../components/ui/Card'
@@ -61,6 +62,27 @@ export default function FatturaDetailPage() {
     }
   }
 
+  const [acubeBusy, setAcubeBusy] = useState(false)
+  const handleSendAcube = async () => {
+    if (!id) return
+    if (!confirm('Invia la fattura al SDI via A-Cube (sandbox)? A-Cube firma server-side e inoltra al SDI.')) return
+    setPecFeedback(null)
+    setAcubeBusy(true)
+    try {
+      const r = await api.post(`/invoices/active/${id}/send`, {})
+      const d = r.data as { sdi_id: string; sdi_status: string; message: string }
+      setPecFeedback({
+        type: 'success',
+        text: `A-Cube: ${d.message} — UUID ${d.sdi_id}`,
+      })
+    } catch (e: unknown) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setPecFeedback({ type: 'error', text: detail ?? 'Errore invio A-Cube' })
+    } finally {
+      setAcubeBusy(false)
+    }
+  }
+
   const handlePollReceipts = async () => {
     setPecFeedback(null)
     try {
@@ -112,21 +134,34 @@ export default function FatturaDetailPage() {
       />
 
       {isAttiva && (
-        <Card className="mb-6 border-blue-200 bg-blue-50/40">
+        <Card className="mb-6 border-indigo-200 bg-indigo-50/40">
           <div className="flex items-start justify-between gap-4">
-            <div>
-              <h3 className="text-base font-semibold text-gray-900">Invio a SDI via PEC</h3>
+            <div className="flex-1">
+              <h3 className="text-base font-semibold text-gray-900">Invio a SDI — via A-Cube (raccomandato)</h3>
               <p className="mt-1 text-sm text-gray-600">
-                Scarica l'XML → firmalo con firma digitale (CAdES .p7m) → caricalo e invia al SDI tramite
-                la tua PEC configurata.
+                A-Cube firma la fattura server-side (CAdES) e la inoltra al SDI. Nessuna firma o PEC
+                necessarie — ambiente attuale: <b>sandbox</b>.
               </p>
-              <a
-                href="/impostazioni/pec"
-                className="mt-1 inline-block text-xs text-blue-600 hover:underline"
-              >
-                Configurazione PEC e guida firma →
-              </a>
             </div>
+            <button
+              onClick={handleSendAcube}
+              disabled={acubeBusy}
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+            >
+              <Zap className="h-4 w-4" />
+              {acubeBusy ? 'Invio…' : 'Invia via A-Cube'}
+            </button>
+          </div>
+
+          <div className="mt-4 rounded-lg bg-white p-3">
+            <h4 className="text-sm font-semibold text-gray-900">Alternativa — Invio manuale via PEC</h4>
+            <p className="mt-1 text-xs text-gray-600">
+              Scarica l'XML → firmalo con firma digitale (CAdES .p7m) → caricalo e invia al SDI tramite la
+              tua PEC configurata. Usa questo flusso se A-Cube non è attivo.
+              <a href="/impostazioni/pec" className="ml-1 text-blue-600 hover:underline">
+                Configura PEC →
+              </a>
+            </p>
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-3">

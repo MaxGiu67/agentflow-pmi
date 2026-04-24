@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     acube_ob_webhook_signature_algo: str = "sha256"  # hmac-sha256 (ipotesi più comune)
     acube_ob_webhook_signature_prefix: str = ""  # es. "sha256=" (Stripe-style); vuoto se firma hex puro
     acube_ob_webhook_max_age_seconds: int = 300  # replay protection: rifiuta eventi più vecchi di 5 min
+
+    # A-Cube E-Invoicing Italy (SDI send/receive + Cassetto Fiscale bulk download)
+    # Shared JWT auth with AISP (same account).
+    acube_einvoicing_base_url_sandbox: str = "https://api-sandbox.acubeapi.com"
+    acube_einvoicing_base_url_prod: str = "https://api.acubeapi.com"
     email_from: str = "AgentFlow <noreply@nexadata.it>"
 
     app_name: str = "AgentFlow"

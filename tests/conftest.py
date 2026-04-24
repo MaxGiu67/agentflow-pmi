@@ -1,6 +1,11 @@
+import os
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import date, datetime, timedelta, UTC
+
+# Force A-Cube e-invoicing adapter into mock mode for the entire test suite.
+# Production uses ACUBE_OB_LOGIN_* credentials from .env — tests must not hit sandbox.
+os.environ.setdefault("ACUBE_EINVOICING_MOCK", "true")
 
 import pytest
 from httpx import ASGITransport, AsyncClient
