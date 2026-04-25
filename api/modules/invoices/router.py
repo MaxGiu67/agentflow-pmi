@@ -67,6 +67,7 @@ async def sync_status(
 
 @router.get("/invoices", response_model=InvoiceListResponse)
 async def list_invoices(
+    year: int | None = Query(None, ge=2000, le=2100),
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     type: str | None = Query(None),
@@ -78,12 +79,20 @@ async def list_invoices(
     user: User = Depends(get_current_user),
     service: InvoiceService = Depends(get_invoice_service),
 ) -> InvoiceListResponse:
-    """List invoices with filters and pagination."""
+    """List invoices with filters and pagination.
+
+    `year` is a convenience filter that sets date range to Jan 1 → Dec 31 of that year,
+    overriding date_from/date_to when present.
+    """
     if not user.tenant_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Profilo azienda non configurato",
         )
+
+    if year is not None:
+        date_from = date(year, 1, 1)
+        date_to = date(year, 12, 31)
 
     result = await service.get_invoices(
         tenant_id=user.tenant_id,

@@ -58,6 +58,7 @@ export function useResetDashboardLayout() {
 
 // ── Invoices ──
 interface InvoiceFilters {
+  year?: number
   date_from?: string
   date_to?: string
   type?: string
@@ -69,9 +70,16 @@ interface InvoiceFilters {
 }
 
 export function useInvoices(filters: InvoiceFilters = {}) {
+  // Strip undefined/empty values from query params so the cache key is stable
+  const cleaned: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== undefined && v !== null && v !== '') cleaned[k] = v
+  }
   return useQuery({
-    queryKey: ['invoices', filters],
-    queryFn: () => api.get('/invoices', { params: filters }).then((r) => r.data),
+    queryKey: ['invoices', cleaned],
+    queryFn: () => api.get('/invoices', { params: cleaned }).then((r) => r.data),
+    placeholderData: (prev) => prev,  // React Query v5: keepPreviousData equivalent — no flash
+    staleTime: 10_000,
   })
 }
 
