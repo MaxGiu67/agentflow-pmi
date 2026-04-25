@@ -48,8 +48,8 @@ export default function PieChartWidget({ title, data, config }: PieChartWidgetPr
   return (
     <div className="flex h-full flex-col rounded-lg bg-white p-4 shadow-sm">
       <h3 className="mb-2 text-sm font-semibold text-gray-900">{title}</h3>
-      <div className="flex-1">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="min-h-[220px] flex-1">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
           <PieChart>
             <Pie
               data={data}
