@@ -8,7 +8,6 @@ import {
   Clock,
   AlertTriangle,
   Ban,
-  Info,
 } from 'lucide-react'
 import {
   useScaricoConfigs,
