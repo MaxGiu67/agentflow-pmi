@@ -16,12 +16,167 @@ import {
   useRegisterClient,
   useDeleteScaricoConfig,
   useSyncScarico,
+  useDownloadedInvoices,
   type ScaricoConfig,
 } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import Card from '../../components/ui/Card'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
+
+function formatCurrency(n: number | null): string {
+  if (n == null) return '—'
+  return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(n)
+}
+
+function formatDate(s: string | null): string {
+  if (!s) return '—'
+  try {
+    return new Date(s).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  } catch {
+    return s
+  }
+}
+
+function ConfigCard({
+  c,
+  isBusy,
+  onSync,
+  onDelete,
+}: {
+  c: ScaricoConfig
+  isBusy: boolean
+  onSync: () => void
+  onDelete: () => void
+}) {
+  const [showInvoices, setShowInvoices] = useState(false)
+  const { data: invoicesData, isLoading: invoicesLoading } = useDownloadedInvoices(showInvoices ? c.id : null)
+  const invoices = invoicesData?.items ?? []
+
+  return (
+    <Card>
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-lg font-semibold text-gray-900">{c.client_name}</h3>
+            <StatusBadge status={c.status} />
+            <span className="text-xs text-gray-500">{c.client_fiscal_id}</span>
+          </div>
+          <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-sm text-gray-600 md:grid-cols-3">
+            <div>
+              <dt className="text-xs uppercase tracking-wide text-gray-400">Modalità</dt>
+              <dd>{c.onboarding_mode}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase tracking-wide text-gray-400">Ultimo sync</dt>
+              <dd>{c.last_sync_at ? new Date(c.last_sync_at).toLocaleString('it-IT') : '—'}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase tracking-wide text-gray-400">Fatture scaricate (anno)</dt>
+              <dd>
+                {c.invoices_downloaded_ytd} / 5.000 (tot: {c.invoices_downloaded_total})
+              </dd>
+            </div>
+          </dl>
+          {c.last_sync_error && (
+            <p className="mt-2 rounded bg-yellow-50 px-2 py-1 text-xs text-yellow-800">{c.last_sync_error}</p>
+          )}
+          {c.last_sync_new_count !== null && c.last_sync_new_count !== undefined && (
+            <p className="mt-2 text-xs text-green-700">
+              Ultimo sync: {c.last_sync_new_count} nuove fatture
+            </p>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={onSync}
+            disabled={isBusy}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+          >
+            <RefreshCw className={`h-4 w-4 ${isBusy ? 'animate-spin' : ''}`} />
+            {isBusy ? 'Sync…' : 'Sync ora'}
+          </button>
+          <button
+            onClick={onDelete}
+            disabled={isBusy}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+          >
+            <Trash2 className="h-4 w-4" />
+            Rimuovi
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 border-t border-gray-100 pt-3">
+        <button
+          onClick={() => setShowInvoices(!showInvoices)}
+          className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline"
+        >
+          {showInvoices ? '▲ Nascondi fatture scaricate' : `▼ Mostra fatture scaricate (${c.invoices_downloaded_total})`}
+        </button>
+
+        {showInvoices && (
+          <div className="mt-3">
+            {invoicesLoading ? (
+              <p className="text-sm text-gray-500">Caricamento…</p>
+            ) : invoices.length === 0 ? (
+              <p className="text-sm text-gray-500">
+                Nessuna fattura scaricata. Click "Sync ora" per recuperarle da A-Cube.
+              </p>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-gray-200">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Numero</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Data</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Tipo</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Direzione</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Controparte</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium uppercase text-gray-500">Importo</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Codice SDI</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 bg-white">
+                    {invoices.map((inv) => (
+                      <tr key={inv.id}>
+                        <td className="whitespace-nowrap px-3 py-2 font-medium text-gray-900">
+                          {inv.numero_fattura ?? '—'}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-gray-700">{formatDate(inv.data_fattura)}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-gray-700">{inv.tipo_documento ?? '—'}</td>
+                        <td className="whitespace-nowrap px-3 py-2">
+                          <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                              inv.direction === 'active'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-orange-100 text-orange-800'
+                            }`}
+                          >
+                            {inv.direction === 'active' ? '↑ Emessa' : '↓ Ricevuta'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-gray-700">{inv.controparte_nome ?? '—'}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right font-medium text-gray-900">
+                          {formatCurrency(inv.importo_totale)}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-500">
+                          {inv.codice_univoco_sdi.length > 30
+                            ? inv.codice_univoco_sdi.slice(0, 30) + '…'
+                            : inv.codice_univoco_sdi}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </Card>
+  )
+}
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
   pending: { label: 'Delega pendente', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
@@ -213,61 +368,15 @@ export default function ScaricoMassivoPage() {
         />
       ) : (
         <div className="space-y-3">
-          {configs.map((c) => {
-            const isBusy = busyId === c.id
-            return (
-              <Card key={c.id}>
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-lg font-semibold text-gray-900">{c.client_name}</h3>
-                      <StatusBadge status={c.status} />
-                      <span className="text-xs text-gray-500">{c.client_fiscal_id}</span>
-                    </div>
-                    <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-sm text-gray-600 md:grid-cols-3">
-                      <div>
-                        <dt className="text-xs uppercase tracking-wide text-gray-400">Modalità</dt>
-                        <dd>{c.onboarding_mode}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs uppercase tracking-wide text-gray-400">Ultimo sync</dt>
-                        <dd>{c.last_sync_at ? new Date(c.last_sync_at).toLocaleString('it-IT') : '—'}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs uppercase tracking-wide text-gray-400">Fatture scaricate (anno)</dt>
-                        <dd>
-                          {c.invoices_downloaded_ytd} / 5.000 (tot: {c.invoices_downloaded_total})
-                        </dd>
-                      </div>
-                    </dl>
-                    {c.last_sync_error && (
-                      <p className="mt-2 rounded bg-yellow-50 px-2 py-1 text-xs text-yellow-800">
-                        {c.last_sync_error}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => handleSync(c)}
-                      disabled={isBusy}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-                    >
-                      <RefreshCw className={`h-4 w-4 ${isBusy ? 'animate-spin' : ''}`} />
-                      Sync ora
-                    </button>
-                    <button
-                      onClick={() => handleDelete(c)}
-                      disabled={isBusy}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Rimuovi
-                    </button>
-                  </div>
-                </div>
-              </Card>
-            )
-          })}
+          {configs.map((c) => (
+            <ConfigCard
+              key={c.id}
+              c={c}
+              isBusy={busyId === c.id}
+              onSync={() => handleSync(c)}
+              onDelete={() => handleDelete(c)}
+            />
+          ))}
         </div>
       )}
 
