@@ -120,10 +120,7 @@ async def sync_now(
             direction=body.direction,
         )
     except ScaricoMassivoServiceError as e:
-        # Expected while awaiting A-Cube Ticket 02 response
-        raise HTTPException(status_code=503, detail=str(e)) from e
-    except NotImplementedError as e:
-        raise HTTPException(status_code=503, detail=str(e)) from e
+        raise HTTPException(status_code=502, detail=str(e)) from e
     return SyncResponse(**result)
 
 
