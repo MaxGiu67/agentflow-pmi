@@ -281,14 +281,15 @@ export default function ScaricoMassivoPage() {
         }
       />
 
-      <Card className="mb-4 border-blue-200 bg-blue-50/40">
+      <Card className="mb-4 border-green-200 bg-green-50/40">
         <div className="flex items-start gap-3">
-          <Info className="h-5 w-5 shrink-0 text-blue-600" />
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
           <div className="text-sm text-gray-700">
-            <p className="font-medium">Integrazione in attesa di attivazione</p>
+            <p className="font-medium">Integrazione A-Cube attiva</p>
             <p className="mt-1">
-              Il modulo è pronto ma lo scarico reale è in attesa della risposta tecnica A-Cube (Ticket 02
-              inviato 2026-04-24). Nel frattempo puoi registrare i clienti e fare la delega sul portale AdE.
+              Sandbox A-Cube collegato. Per ogni cliente: registra la P.IVA → fai delega sul portale AdE
+              (codice fiscale delegato <code className="rounded bg-white px-1">10442360961</code>) → click
+              "Sync ora" per scaricare le fatture dal cassetto fiscale.
             </p>
           </div>
         </div>
