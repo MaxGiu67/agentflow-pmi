@@ -191,13 +191,17 @@ class ScaricoMassivoService:
         direction: str,
         item: dict[str, Any],
     ) -> bool:
-        """Insert a new invoice log row if not already present. Returns True if inserted."""
-        # Identify the dedupe key — A-Cube returns "uuid" + "number" + sometimes "sdiId"
+        """Insert a new invoice log row if not already present. Returns True if inserted.
+
+        A-Cube response shape (`GET /invoices`) — top-level fields:
+          uuid, created_at, type, payload (JSON string of full FatturaPA),
+          sender (dict), recipient (dict), notifications, sdi_file_name,
+          sdi_file_id, marking, document_type, transmission_format
+        """
         codice_univoco = (
-            item.get("sdiId")
+            item.get("sdi_file_name")  # SDI-assigned filename, unique once delivered
             or item.get("uuid")
             or item.get("@id", "").split("/")[-1]
-            or item.get("number")
         )
         if not codice_univoco:
             logger.warning("Invoice without identifiable dedupe key: %s", item)
@@ -208,21 +212,46 @@ class ScaricoMassivoService:
                 and_(
                     ScaricoFatturaLog.tenant_id == cfg.tenant_id,
                     ScaricoFatturaLog.config_id == cfg.id,
-                    ScaricoFatturaLog.codice_univoco_sdi == codice_univoco,
+                    ScaricoFatturaLog.codice_univoco_sdi == str(codice_univoco),
                 )
             )
         )
         if existing_res.scalar_one_or_none():
             return False
 
-        # Try to extract canonical fields — A-Cube responses can have multiple shapes
-        date_str = item.get("date") or item.get("invoiceDate") or item.get("data")
-        try:
-            data_fattura = date.fromisoformat(date_str[:10]) if date_str else None
-        except (ValueError, TypeError):
-            data_fattura = None
+        # Parse the FatturaPA payload (stringified JSON) for canonical fields
+        numero_fattura = None
+        data_fattura = None
+        importo_totale = None
+        tipo_documento = item.get("document_type")
 
-        controparte = item.get("counterparty") or item.get("recipient") or item.get("supplier") or {}
+        payload = item.get("payload")
+        if isinstance(payload, str):
+            try:
+                import json as _json
+                payload = _json.loads(payload)
+            except (ValueError, TypeError):
+                payload = None
+
+        if isinstance(payload, dict):
+            body = payload.get("fattura_elettronica_body") or {}
+            if isinstance(body, list):
+                body = body[0] if body else {}
+            doc = ((body.get("dati_generali") or {}).get("dati_generali_documento")) or {}
+            numero_fattura = doc.get("numero")
+            tipo_documento = tipo_documento or doc.get("tipo_documento")
+            date_str = doc.get("data")
+            try:
+                data_fattura = date.fromisoformat(date_str[:10]) if date_str else None
+            except (ValueError, TypeError):
+                data_fattura = None
+            try:
+                importo_totale = float(doc.get("importo_totale_documento")) if doc.get("importo_totale_documento") else None
+            except (ValueError, TypeError):
+                importo_totale = None
+
+        # Controparte: for passive invoices it's the sender; for active it's the recipient
+        controparte = item.get("sender") if direction == "passive" else item.get("recipient")
         if not isinstance(controparte, dict):
             controparte = {}
 
@@ -231,12 +260,12 @@ class ScaricoMassivoService:
             config_id=cfg.id,
             client_fiscal_id=cfg.client_fiscal_id,
             codice_univoco_sdi=str(codice_univoco),
-            numero_fattura=item.get("number") or item.get("numero"),
-            tipo_documento=item.get("type") or item.get("documentType"),
+            numero_fattura=numero_fattura,
+            tipo_documento=tipo_documento,
             direction=direction,
             data_fattura=data_fattura,
-            importo_totale=item.get("total") or item.get("totalAmount"),
-            controparte_piva=controparte.get("fiscalId") or controparte.get("piva"),
+            importo_totale=importo_totale,
+            controparte_piva=controparte.get("fiscal_id") or controparte.get("vat_number") or controparte.get("piva"),
             controparte_nome=controparte.get("name") or controparte.get("denominazione"),
             acube_invoice_id=item.get("uuid"),
         )
