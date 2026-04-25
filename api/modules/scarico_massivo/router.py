@@ -44,6 +44,59 @@ async def delega_guide() -> DelegaGuideResponse:
     return DelegaGuideResponse(**ScaricoMassivoService.get_delega_guide())
 
 
+@router.get("/me", response_model=ConfigResponse)
+async def get_my_config(
+    user: User = Depends(get_current_user),
+    service: ScaricoMassivoService = Depends(get_service),
+) -> ConfigResponse:
+    """Get the scarico massivo config for the current tenant — auto-creates on first call."""
+    tenant_id = _require_tenant(user)
+    try:
+        cfg = await service.ensure_self_config(tenant_id)
+    except ScaricoMassivoServiceError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return ConfigResponse.model_validate(cfg)
+
+
+@router.post("/me/sync", response_model=SyncResponse)
+async def sync_my_config(
+    body: SyncRequest | None = None,
+    user: User = Depends(get_current_user),
+    service: ScaricoMassivoService = Depends(get_service),
+) -> SyncResponse:
+    """Trigger a sync for the current tenant's own P.IVA."""
+    tenant_id = _require_tenant(user)
+    body = body or SyncRequest()
+    try:
+        cfg = await service.ensure_self_config(tenant_id)
+        result = await service.sync_now(
+            config_id=cfg.id,
+            tenant_id=tenant_id,
+            since=body.since,
+            until=body.until,
+            direction=body.direction,
+        )
+    except ScaricoMassivoServiceError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    return SyncResponse(**result)
+
+
+@router.get("/me/invoices", response_model=InvoiceLogListResponse)
+async def list_my_downloaded_invoices(
+    limit: int = Query(100, ge=1, le=500),
+    user: User = Depends(get_current_user),
+    service: ScaricoMassivoService = Depends(get_service),
+) -> InvoiceLogListResponse:
+    """List the invoices downloaded for the current tenant."""
+    tenant_id = _require_tenant(user)
+    cfg = await service.ensure_self_config(tenant_id)
+    items = await service.list_invoice_log(tenant_id, config_id=cfg.id, limit=limit)
+    return InvoiceLogListResponse(
+        items=[InvoiceLogResponse.model_validate(i) for i in items],
+        total=len(items),
+    )
+
+
 @router.get("/configs", response_model=ConfigListResponse)
 async def list_configs(
     user: User = Depends(get_current_user),

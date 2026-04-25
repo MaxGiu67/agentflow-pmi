@@ -21,7 +21,7 @@ from api.adapters.acube_einvoicing import (
     ACubeEInvoicingClient,
 )
 from api.adapters.acube_scarico_massivo import ACUBE_PROXY_FISCAL_ID
-from api.db.models import ScaricoFatturaLog, ScaricoMassivoConfig
+from api.db.models import ScaricoFatturaLog, ScaricoMassivoConfig, Tenant
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +63,42 @@ class ScaricoMassivoService:
             )
         )
         return res.scalar_one_or_none()
+
+    async def ensure_self_config(self, tenant_id: uuid.UUID) -> ScaricoMassivoConfig:
+        """Get-or-create the self-tenant config — each AgentFlow tenant monitors ONLY its own P.IVA.
+
+        Reads tenant.piva and tenant.name to populate the config automatically.
+        """
+        # Look for existing config (any) for this tenant
+        existing_res = await self.db.execute(
+            select(ScaricoMassivoConfig).where(ScaricoMassivoConfig.tenant_id == tenant_id)
+        )
+        existing = existing_res.scalar_one_or_none()
+        if existing:
+            return existing
+
+        # Read tenant data to seed the new config
+        tenant_res = await self.db.execute(select(Tenant).where(Tenant.id == tenant_id))
+        tenant = tenant_res.scalar_one_or_none()
+        if not tenant:
+            raise ScaricoMassivoServiceError("Tenant non trovato")
+        if not tenant.piva:
+            raise ScaricoMassivoServiceError(
+                "P.IVA azienda non configurata — completa il profilo prima di abilitare lo scarico massivo"
+            )
+
+        cfg = ScaricoMassivoConfig(
+            tenant_id=tenant_id,
+            client_fiscal_id=tenant.piva,
+            client_name=tenant.name or f"Tenant {tenant.piva}",
+            onboarding_mode="proxy",
+            status="pending",
+            environment=self.client.env,
+        )
+        self.db.add(cfg)
+        await self.db.commit()
+        await self.db.refresh(cfg)
+        return cfg
 
     async def register_client(
         self,

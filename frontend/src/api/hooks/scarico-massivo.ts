@@ -54,6 +54,37 @@ export function useScaricoConfigs() {
   })
 }
 
+// ── Self-tenant single-config hooks (multi-tenant isolated model) ──
+
+export function useMyScaricoConfig() {
+  return useQuery({
+    queryKey: ['scarico-massivo', 'me'],
+    queryFn: () => api.get<ScaricoConfig>('/scarico-massivo/me').then((r) => r.data),
+  })
+}
+
+export function useSyncMyScarico() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () =>
+      api
+        .post<{ new_invoices: number; total_scanned: number; errors: number; message: string }>(
+          '/scarico-massivo/me/sync',
+          {},
+        )
+        .then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['scarico-massivo'] }),
+  })
+}
+
+export function useMyDownloadedInvoices() {
+  return useQuery({
+    queryKey: ['scarico-massivo', 'me', 'invoices'],
+    queryFn: () =>
+      api.get<{ items: InvoiceLog[]; total: number }>('/scarico-massivo/me/invoices').then((r) => r.data),
+  })
+}
+
 export function useDelegaGuide() {
   return useQuery({
     queryKey: ['scarico-massivo', 'delega-guide'],
