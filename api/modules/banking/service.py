@@ -192,6 +192,18 @@ class BankingService:
                 "counterpart": tx.counterpart,
                 "description": tx.description,
                 "reconciled": tx.reconciled,
+                # Sprint 50 — AI parsed fields
+                "parsed_counterparty": tx.parsed_counterparty,
+                "parsed_counterparty_iban": tx.parsed_counterparty_iban,
+                "parsed_invoice_ref": tx.parsed_invoice_ref,
+                "parsed_category": tx.parsed_category,
+                "parsed_subcategory": tx.parsed_subcategory,
+                "parsed_confidence": tx.parsed_confidence,
+                "parsed_method": tx.parsed_method,
+                "parsed_notes": tx.parsed_notes,
+                "user_corrected": tx.user_corrected,
+                "enriched_cro": tx.enriched_cro,
+                "linked_invoice_id": str(tx.linked_invoice_id) if tx.linked_invoice_id else None,
             }
             for tx in transactions
         ]
