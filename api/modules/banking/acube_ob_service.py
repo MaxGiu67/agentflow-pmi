@@ -191,9 +191,12 @@ class ACubeOpenBankingService:
             await self.db.commit()
             raise ACubeOBServiceError(f"Avvio connect fallito: HTTP {exc.status_code}") from exc
 
-        connect_url = result.get("redirectUrl") or result.get("url")
+        # A-Cube returns "connectUrl" in production (not "redirectUrl" as old docs said)
+        connect_url = result.get("connectUrl") or result.get("redirectUrl") or result.get("url")
         if not connect_url:
-            raise ACubeOBServiceError("A-Cube non ha restituito redirectUrl per il connect")
+            raise ACubeOBServiceError(
+                f"A-Cube non ha restituito connect URL: {str(result)[:200]}"
+            )
 
         conn.last_connect_error = None
         await self.db.commit()
