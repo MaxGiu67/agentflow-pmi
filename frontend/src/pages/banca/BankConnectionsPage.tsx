@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link2, RefreshCw, AlertTriangle, CheckCircle2, Clock, Ban } from 'lucide-react'
 import {
   useBankConnections,
@@ -70,28 +70,31 @@ export default function BankConnectionsPage() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [backfillFor, setBackfillFor] = useState<string | null>(null)
+  const [waitingPSD2, setWaitingPSD2] = useState<{ connectionId: string; connectUrl: string; bankWindow: Window | null } | null>(null)
 
   const handleInit = async () => {
     setErr(null)
     setBusyId('init')
-    // Pre-open a new tab synchronously inside the click handler so popup blockers
-    // don't block it. We'll set its URL when the API responds.
-    const newTab = window.open('about:blank', '_blank', 'noopener,noreferrer')
+    // Pre-open a popup window synchronously to bypass popup blockers
+    const bankWindow = window.open('about:blank', 'acubeConnect', 'width=600,height=750,menubar=no,toolbar=no')
     try {
       const returnUrl = `${window.location.origin}/banca/connessioni?callback=1`
       const res = await initConn.mutateAsync({ return_url: returnUrl })
       if (res.connect_url) {
-        if (newTab) {
-          newTab.location.href = res.connect_url
-        } else {
-          // popup blocked → fallback: open in same tab
-          window.location.href = res.connect_url
+        if (bankWindow) {
+          bankWindow.location.href = res.connect_url
         }
-      } else if (newTab) {
-        newTab.close()
+        // Open the "in attesa" modal that polls connection status
+        setWaitingPSD2({
+          connectionId: res.connection_id,
+          connectUrl: res.connect_url,
+          bankWindow,
+        })
+      } else if (bankWindow) {
+        bankWindow.close()
       }
     } catch (e: unknown) {
-      if (newTab) newTab.close()
+      if (bankWindow) bankWindow.close()
       const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setErr(detail ?? 'Impossibile avviare la connessione')
     } finally {
@@ -122,20 +125,19 @@ export default function BankConnectionsPage() {
   const handleReconnect = async (id: string) => {
     setErr(null)
     setBusyId(id)
-    const newTab = window.open('about:blank', '_blank', 'noopener,noreferrer')
+    const bankWindow = window.open('about:blank', 'acubeReconnect', 'width=600,height=750,menubar=no,toolbar=no')
     try {
       const res = await reconnect.mutateAsync(id)
       if (res.reconnect_url) {
-        if (newTab) {
-          newTab.location.href = res.reconnect_url
-        } else {
-          window.location.href = res.reconnect_url
+        if (bankWindow) {
+          bankWindow.location.href = res.reconnect_url
         }
-      } else if (newTab) {
-        newTab.close()
+        setWaitingPSD2({ connectionId: id, connectUrl: res.reconnect_url, bankWindow })
+      } else if (bankWindow) {
+        bankWindow.close()
       }
     } catch (e: unknown) {
-      if (newTab) newTab.close()
+      if (bankWindow) bankWindow.close()
       const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setErr(detail ?? 'Reconnect fallito')
     } finally {
@@ -283,6 +285,139 @@ export default function BankConnectionsPage() {
           isLoading={busyId === backfillFor}
         />
       )}
+
+      {waitingPSD2 && (
+        <PSD2WaitingModal
+          connectionId={waitingPSD2.connectionId}
+          connectUrl={waitingPSD2.connectUrl}
+          bankWindow={waitingPSD2.bankWindow}
+          onClose={() => {
+            if (waitingPSD2.bankWindow && !waitingPSD2.bankWindow.closed) {
+              waitingPSD2.bankWindow.close()
+            }
+            setWaitingPSD2(null)
+          }}
+          onCompleted={() => {
+            setWaitingPSD2(null)
+            // Trigger a sync immediately so accounts populate
+            handleSync(waitingPSD2.connectionId)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function PSD2WaitingModal({
+  connectionId,
+  connectUrl,
+  bankWindow,
+  onClose,
+  onCompleted,
+}: {
+  connectionId: string
+  connectUrl: string
+  bankWindow: Window | null
+  onClose: () => void
+  onCompleted: () => void
+}) {
+  const [seconds, setSeconds] = useState(0)
+  const [pollErr, setPollErr] = useState<string | null>(null)
+
+  useEffect(() => {
+    const tick = setInterval(() => setSeconds((s) => s + 1), 1000)
+    return () => clearInterval(tick)
+  }, [])
+
+  // Poll connection status every 5s — when status flips to active or accounts appear, close
+  useEffect(() => {
+    let stopped = false
+    const poll = async () => {
+      try {
+        const token = localStorage.getItem('access_token')
+        const r = await fetch(
+          `${import.meta.env.VITE_API_URL || ''}/api/v1/banking/connections/${connectionId}`,
+          { headers: { Authorization: `Bearer ${token ?? ''}` } },
+        )
+        if (!r.ok) return
+        const data = await r.json()
+        if (data.status === 'active' && !stopped) {
+          onCompleted()
+        }
+      } catch (e) {
+        setPollErr(String(e))
+      }
+    }
+    const id = setInterval(poll, 5000)
+    poll() // first call immediate
+    return () => {
+      stopped = true
+      clearInterval(id)
+    }
+  }, [connectionId, onCompleted])
+
+  const reopenBankWindow = () => {
+    if (bankWindow && !bankWindow.closed) {
+      bankWindow.focus()
+    } else {
+      window.open(connectUrl, 'acubeConnect', 'width=600,height=750')
+    }
+  }
+
+  const min = Math.floor(seconds / 60)
+  const sec = seconds % 60
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 animate-pulse items-center justify-center rounded-full bg-blue-100">
+            <RefreshCw className="h-5 w-5 animate-spin text-blue-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Attendo conferma dalla banca</h3>
+            <p className="text-xs text-gray-500">
+              Tempo trascorso: {min}:{String(sec).padStart(2, '0')}
+            </p>
+          </div>
+        </div>
+
+        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+          <p>
+            <b>Step da completare nella finestra appena aperta:</b>
+          </p>
+          <ol className="mt-2 list-decimal pl-5 space-y-1">
+            <li>Click "Procedi" sul portale A-Cube</li>
+            <li>Seleziona la tua banca (es. Intesa Sanpaolo)</li>
+            <li>Login web banking + SCA via app/SMS</li>
+            <li>Conferma consenso PSD2 (durata 90 giorni)</li>
+          </ol>
+        </div>
+
+        <p className="mb-3 text-sm text-gray-600">
+          Quando hai completato, AgentFlow rileva automaticamente il consenso entro pochi secondi e
+          chiude questa finestra. Non serve fare niente qui.
+        </p>
+
+        {pollErr && (
+          <p className="mb-3 text-xs text-yellow-700">⚠️ {pollErr}</p>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={reopenBankWindow}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+          >
+            🔍 Mostra finestra banca
+          </button>
+          <button
+            onClick={onClose}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Annulla / Chiudi
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
