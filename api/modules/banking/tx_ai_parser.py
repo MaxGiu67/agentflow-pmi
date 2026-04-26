@@ -182,10 +182,16 @@ def _clean_party(name: str) -> str:
 
 _LLM_PROMPT_SYSTEM = """Sei un esperto di contabilità italiana. Estrai dati strutturati da una descrizione di bonifico bancario italiana grezza.
 
+IMPORTANTE — IDENTITÀ DEL TITOLARE:
+Ti verrà comunicato il TITOLARE del conto (nome azienda + P.IVA). La "controparte"
+è SEMPRE chi NON è il titolare. Se vedi MITT.:X e BENEF.:Y dove X è il titolare,
+la controparte è Y. Se vedi MITT.:X dove X NON è il titolare, la controparte è X.
+NON ritornare mai il titolare come counterparty.
+
 Rispondi SOLO in JSON con questa struttura:
 {
-  "counterparty": "nome controparte pulito (es. 'QUBIKA SRL' senza prefissi tipo 'MITT.:')",
-  "counterparty_iban": "IBAN controparte se presente, altrimenti null",
+  "counterparty": "nome controparte pulito (es. 'QUBIKA SRL') — MAI il titolare del conto",
+  "counterparty_iban": "IBAN controparte SOLO se è un vero IBAN (formato 'IT' + 25 char alfanumerici), altrimenti null",
   "invoice_ref": "riferimento fattura se presente (es. 'FT 2025/123'), altrimenti null",
   "category": "una di: income_invoice, expense_invoice, payroll, tax_f24, tax_iva, fee, transfer, loan_payment, interest, atm, pos, sepa_dd, refund, other",
   "subcategory": "sottocategoria opzionale (es. 'stipendio', 'mutuo', 'commissione')",
@@ -193,11 +199,18 @@ Rispondi SOLO in JSON con questa struttura:
   "notes": "note libere (max 100 char)"
 }
 
-Regole:
-- Se è un bonifico ricevuto da un'azienda → category='income_invoice'
-- Se è un bonifico inviato a un'azienda → category='expense_invoice'
-- Se manca il nome controparte → counterparty=null
-- confidence: 0.95+ se chiaro, 0.7-0.9 se buono ma incerto, < 0.7 se ambiguo
+Regole categorizzazione:
+- Bonifico ricevuto da CLIENTE/altra azienda → category='income_invoice'
+- Bonifico inviato a FORNITORE/altra azienda → category='expense_invoice'
+- Stipendio/emolumenti → category='payroll'
+- F24/Agenzia Entrate → category='tax_f24'
+- Commissione/canone/imposta bollo/spese → category='fee'
+- Premio polizza assicurativa → category='fee', subcategory='polizza'
+- Rata mutuo/prestito/finanziamento → category='loan_payment'
+- Interessi attivi/passivi → category='interest'
+- Movimento senza controparte chiara (commissione automatica banca) → counterparty=null, category='fee'
+- IMPORTANTE: codici dispositivi tipo "0126040163715019" NON sono IBAN — IBAN inizia con 'IT' + 25 caratteri
+- confidence: 0.95+ se chiaro, 0.7-0.9 buono, < 0.7 ambiguo
 """
 
 
@@ -205,6 +218,9 @@ async def parse_with_llm(
     description: str,
     direction: str,
     amount: float,
+    *,
+    tenant_name: str | None = None,
+    tenant_piva: str | None = None,
 ) -> ParsedTx:
     """Step 2: chiamata OpenAI GPT-4o-mini per parsing strutturato.
 
@@ -215,8 +231,16 @@ async def parse_with_llm(
         logger.warning("OPENAI_API_KEY non configurata — LLM parser disabled")
         return ParsedTx(category="other", confidence=0.0, method="llm", notes="LLM not configured")
 
+    titolare_info = ""
+    if tenant_name or tenant_piva:
+        titolare_info = (
+            f"TITOLARE DEL CONTO: {tenant_name or ''} (P.IVA {tenant_piva or 'N/A'}). "
+            "La controparte è SEMPRE diversa dal titolare.\n\n"
+        )
+
     user_msg = (
-        f"Descrizione: {description}\n"
+        titolare_info
+        + f"Descrizione: {description}\n"
         f"Direzione: {'ricevuto (credit)' if direction == 'credit' else 'inviato (debit)'}\n"
         f"Importo: {amount} EUR"
     )
@@ -278,6 +302,8 @@ async def parse_transaction(
     *,
     use_llm: bool = True,
     use_cache: bool = True,
+    tenant_name: str | None = None,
+    tenant_piva: str | None = None,
 ) -> ParsedTx:
     """Pipeline completa: cache → rules → LLM se needed.
 
@@ -287,11 +313,14 @@ async def parse_transaction(
         amount: importo (signed)
         use_llm: se False salta lo step LLM
         use_cache: se False ignora cache (per re-parse)
+        tenant_name: nome azienda titolare conto (per LLM context)
+        tenant_piva: P.IVA titolare (per LLM context)
     """
     if not description:
         return ParsedTx(category="other", confidence=0.0, method="rules")
 
-    cache_key = _hash(f"{description}|{direction}")
+    # Cache key include tenant per evitare cross-contamination
+    cache_key = _hash(f"{description}|{direction}|{tenant_piva or ''}")
     if use_cache and cache_key in _PARSE_CACHE:
         cached = _PARSE_CACHE[cache_key]
         return ParsedTx(**cached.__dict__)
@@ -299,16 +328,42 @@ async def parse_transaction(
     # Step 1: rules
     result = parse_with_rules(description, direction, amount)
 
+    # Filtro: se rules ha estratto un counterparty che è il titolare stesso, scartiamolo
+    if tenant_name and result.counterparty:
+        if _normalize_name(result.counterparty) == _normalize_name(tenant_name):
+            result.counterparty = None
+            result.confidence = max(result.confidence - 0.4, 0.0)
+
     # Step 2: LLM fallback se rules incerti
     if use_llm and result.confidence < LLM_THRESHOLD:
-        llm_result = await parse_with_llm(description, direction, amount)
+        llm_result = await parse_with_llm(
+            description, direction, amount,
+            tenant_name=tenant_name, tenant_piva=tenant_piva,
+        )
+        # Filtro tenant: scartiamo se LLM ha messo il titolare come counterparty
+        if tenant_name and llm_result.counterparty:
+            if _normalize_name(llm_result.counterparty) == _normalize_name(tenant_name):
+                llm_result.counterparty = None
         if llm_result.confidence > result.confidence:
             result = llm_result
+
+    # Sanity check: counterparty_iban deve essere IBAN reale (IT + 25)
+    if result.counterparty_iban and not re.match(r"^IT[0-9A-Z]{25}$", result.counterparty_iban.upper().strip()):
+        result.counterparty_iban = None
 
     if use_cache:
         _PARSE_CACHE[cache_key] = result
 
     return result
+
+
+def _normalize_name(name: str) -> str:
+    """Normalizza nome azienda per confronto: upper, no punteggiatura, no SRL/SPA."""
+    s = name.upper().strip()
+    s = re.sub(r"[.,&'/-]", " ", s)
+    s = re.sub(r"\b(S\.?R\.?L\.?|S\.?P\.?A\.?|SOC|SOCIETA|S\.?A\.?S\.?|S\.?N\.?C\.?)\b", "", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
 
 
 def cache_size() -> int:

@@ -618,6 +618,12 @@ class ACubeOpenBankingService:
 
         conn = await self.get_connection(connection_id, tenant_id)
 
+        # Carica tenant info per identità (LLM context)
+        tenant_res = await self.db.execute(select(Tenant).where(Tenant.id == tenant_id))
+        tenant = tenant_res.scalar_one_or_none()
+        tenant_name = tenant.name if tenant else None
+        tenant_piva = tenant.piva if tenant else None
+
         # Trova accounts della connection
         accounts = (
             await self.db.execute(
@@ -649,6 +655,7 @@ class ACubeOpenBankingService:
         for tx in txs:
             res = await parse_transaction(
                 tx.description, tx.direction, tx.amount or 0.0, use_llm=use_llm,
+                tenant_name=tenant_name, tenant_piva=tenant_piva,
             )
             tx.parsed_counterparty = res.counterparty
             tx.parsed_counterparty_iban = res.counterparty_iban
