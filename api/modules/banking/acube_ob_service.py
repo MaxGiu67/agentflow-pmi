@@ -143,7 +143,7 @@ class ACubeOpenBankingService:
                     fiscal_id=resolved_fiscal_id,
                     email=conn.acube_email or self._generate_br_email(resolved_fiscal_id),
                     business_name=business_name,
-                    enabled=False,  # attivato solo al connect riuscito
+                    enabled=True,  # required by A-Cube to start /connect (PSD2 SCA)
                 )
                 # A-Cube non sempre ritorna 'uuid' — a seconda della versione potrebbe essere '@id' o altro
                 conn.acube_br_uuid = br.get("uuid") or br.get("@id") or br.get("fiscalId")
