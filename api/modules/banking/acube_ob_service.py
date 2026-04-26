@@ -575,11 +575,33 @@ class ACubeOpenBankingService:
         tenant_id: uuid.UUID,
         *,
         since: date | None = None,
+        until: date | None = None,
     ) -> dict[str, Any]:
-        """Comodità: esegue sync_accounts seguito da sync_transactions."""
+        """Comodità: esegue sync_accounts seguito da sync_transactions.
+
+        Se since è None: usa connection.last_sync_at - 1gg (delta + safety overlap)
+        oppure 30gg fa se è la prima sync.
+        """
         acc_result = await self.sync_accounts(connection_id, tenant_id)
+
+        # Smart default for `since`: delta from last sync of any account on this connection,
+        # or None (which falls back to 30 days inside sync_transactions) if first sync
+        if since is None:
+            conn = await self.get_connection(connection_id, tenant_id)
+            last_sync_row = (
+                await self.db.execute(
+                    select(BankAccount.last_sync_at)
+                    .where(BankAccount.acube_connection_id == conn.id)
+                    .order_by(BankAccount.last_sync_at.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            if last_sync_row:
+                # Delta sync with 1-day overlap to catch late-posted transactions
+                since = (last_sync_row - timedelta(days=1)).date()
+
         tx_result = await self.sync_transactions(
-            connection_id, tenant_id, since=since
+            connection_id, tenant_id, since=since, until=until
         )
         return {
             "connection_id": connection_id,

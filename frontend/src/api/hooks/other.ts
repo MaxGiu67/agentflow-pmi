@@ -279,12 +279,24 @@ export function useInitBankConnection() {
 export function useSyncBankConnection() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ connectionId, since }: { connectionId: string; since?: string }) =>
-      api
+    mutationFn: ({
+      connectionId,
+      since,
+      until,
+    }: {
+      connectionId: string
+      since?: string
+      until?: string
+    }) => {
+      const params: Record<string, string> = {}
+      if (since) params.since = since
+      if (until) params.until = until
+      return api
         .post(`/banking/connections/${connectionId}/sync-now`, null, {
-          params: since ? { since } : undefined,
+          params: Object.keys(params).length > 0 ? params : undefined,
         })
-        .then((r) => r.data),
+        .then((r) => r.data)
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['bank-connections'] })
       qc.invalidateQueries({ queryKey: ['bank-accounts'] })

@@ -166,14 +166,23 @@ async def request_reconnect(
 @router.post("/{connection_id}/sync-now", response_model=SyncNowResponse)
 async def sync_now(
     connection_id: UUID,
-    since: date | None = Query(None, description="Backfill transazioni da questa data. Default: 30gg fa."),
+    since: date | None = Query(
+        None, description="Backfill transazioni da questa data. Default: delta dall'ultimo sync (o 30gg)."
+    ),
+    until: date | None = Query(
+        None, description="Backfill transazioni fino a questa data. Default: oggi."
+    ),
     user: User = Depends(get_current_user),
     service: ACubeOpenBankingService = Depends(get_service),
 ) -> SyncNowResponse:
-    """Sync completo: accounts + transactions in sequenza."""
+    """Sync completo: accounts + transactions in sequenza.
+
+    Se `since` è omesso e la connection ha già fatto un sync precedente, parte
+    dall'ultimo sync_at - 1gg (overlap di sicurezza). Altrimenti default 30gg.
+    """
     tenant_id = _require_tenant(user)
     try:
-        result = await service.sync_now(connection_id, tenant_id, since=since)
+        result = await service.sync_now(connection_id, tenant_id, since=since, until=until)
     except ACubeOBServiceError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

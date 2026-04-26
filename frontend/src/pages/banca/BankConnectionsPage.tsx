@@ -69,6 +69,7 @@ export default function BankConnectionsPage() {
 
   const [busyId, setBusyId] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [backfillFor, setBackfillFor] = useState<string | null>(null)
 
   const handleInit = async () => {
     setErr(null)
@@ -98,11 +99,18 @@ export default function BankConnectionsPage() {
     }
   }
 
-  const handleSync = async (id: string) => {
+  const handleSync = async (id: string, since?: string, until?: string) => {
     setErr(null)
     setBusyId(id)
     try {
-      await syncConn.mutateAsync({ connectionId: id })
+      const r = await syncConn.mutateAsync({ connectionId: id, since, until })
+      const newTx = (r as { tx_created?: number }).tx_created ?? 0
+      const message = since
+        ? `Backfill completato: ${newTx} movimenti scaricati dal ${since}.`
+        : `Aggiornamento ok: ${newTx} nuovi movimenti.`
+      setErr(null)
+      // Use err state as a feedback channel (success will be styled differently if needed)
+      if (newTx === 0) setErr(message + ' (Nessuna nuova transazione)')
     } catch (e: unknown) {
       const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setErr(detail ?? 'Sync fallito')
@@ -227,14 +235,25 @@ export default function BankConnectionsPage() {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {conn.status === 'active' && (
-                      <button
-                        onClick={() => handleSync(conn.id)}
-                        disabled={isBusy}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-                      >
-                        <RefreshCw className={`h-4 w-4 ${isBusy ? 'animate-spin' : ''}`} />
-                        {isBusy ? 'Sync…' : 'Sync ora'}
-                      </button>
+                      <>
+                        <button
+                          onClick={() => handleSync(conn.id)}
+                          disabled={isBusy}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                          title="Aggiorna delta dall'ultimo sync"
+                        >
+                          <RefreshCw className={`h-4 w-4 ${isBusy ? 'animate-spin' : ''}`} />
+                          {isBusy ? 'Sync…' : 'Aggiorna'}
+                        </button>
+                        <button
+                          onClick={() => setBackfillFor(conn.id)}
+                          disabled={isBusy}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-60"
+                          title="Scarica storico con range custom"
+                        >
+                          📥 Backfill storico
+                        </button>
+                      </>
                     )}
                     {needsReconnect && (
                       <button
@@ -253,6 +272,118 @@ export default function BankConnectionsPage() {
           })}
         </div>
       )}
+
+      {backfillFor && (
+        <BackfillModal
+          onClose={() => setBackfillFor(null)}
+          onSubmit={async (since, until) => {
+            await handleSync(backfillFor, since, until || undefined)
+            setBackfillFor(null)
+          }}
+          isLoading={busyId === backfillFor}
+        />
+      )}
+    </div>
+  )
+}
+
+function BackfillModal({
+  onClose,
+  onSubmit,
+  isLoading,
+}: {
+  onClose: () => void
+  onSubmit: (since: string, until: string) => void | Promise<void>
+  isLoading: boolean
+}) {
+  const today = new Date().toISOString().slice(0, 10)
+  const oneYearAgo = (() => {
+    const d = new Date()
+    d.setFullYear(d.getFullYear() - 1)
+    return d.toISOString().slice(0, 10)
+  })()
+  const [since, setSince] = useState<string>(oneYearAgo)
+  const [until, setUntil] = useState<string>(today)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-gray-900">Scarica storico movimenti</h3>
+        <p className="mt-1 text-sm text-gray-600">
+          Seleziona il periodo da scaricare. Le banche italiane tipicamente espongono fino a
+          12-24 mesi di storico (il limite dipende dalla banca). Default: ultimi 12 mesi.
+        </p>
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-700">Da (incluso)</label>
+            <input
+              type="date"
+              value={since}
+              onChange={(e) => setSince(e.target.value)}
+              max={until}
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700">A (incluso)</label>
+            <input
+              type="date"
+              value={until}
+              onChange={(e) => setUntil(e.target.value)}
+              min={since}
+              max={today}
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            onClick={() => {
+              const d = new Date()
+              d.setMonth(d.getMonth() - 3)
+              setSince(d.toISOString().slice(0, 10))
+            }}
+            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+          >
+            Ultimi 3 mesi
+          </button>
+          <button
+            onClick={() => setSince(oneYearAgo)}
+            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+          >
+            Ultimi 12 mesi
+          </button>
+          <button
+            onClick={() => {
+              const d = new Date()
+              d.setFullYear(d.getFullYear() - 2)
+              setSince(d.toISOString().slice(0, 10))
+            }}
+            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+          >
+            Ultimi 2 anni
+          </button>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            disabled={isLoading}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            Annulla
+          </button>
+          <button
+            onClick={() => onSubmit(since, until)}
+            disabled={isLoading || !since}
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {isLoading ? 'Scarico in corso…' : 'Scarica storico'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
