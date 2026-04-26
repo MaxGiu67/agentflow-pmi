@@ -198,9 +198,11 @@ export default function MovimentiPage() {
                     </td>
                     <td className="px-3 py-3 text-sm">
                       <CategoryBadge category={(tx.parsed_category as string) ?? null} />
-                      {tx.parsed_subcategory && (
-                        <div className="mt-0.5 text-[10px] text-gray-500">{tx.parsed_subcategory as string}</div>
-                      )}
+                      {tx.parsed_subcategory ? (
+                        <div className="mt-0.5 text-[10px] text-gray-500">
+                          {String(tx.parsed_subcategory)}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-3 py-3 text-sm text-gray-700">
                       {(tx.parsed_invoice_ref as string) || '—'}
