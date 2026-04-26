@@ -266,10 +266,16 @@ class ACubeOpenBankingClient:
     async def start_connect(
         self, fiscal_id: str, redirect_url: str, locale: str = "it"
     ) -> dict[str, Any]:
-        """POST /business-registry/{fiscalId}/connect → restituisce URL SCA."""
-        return await self._post(
+        """POST /business-registry/{fiscalId}/connect → restituisce URL SCA.
+
+        Note: questo endpoint NON supporta application/ld+json (risponde 406).
+        Usiamo application/json puro.
+        """
+        return await self._request(
+            "POST",
             f"/business-registry/{fiscal_id}/connect",
-            {"redirectUrl": redirect_url, "locale": locale},
+            json={"redirectUrl": redirect_url, "locale": locale},
+            hydra=False,
         )
 
     # ── Accounts ───────────────────────────────────────────
