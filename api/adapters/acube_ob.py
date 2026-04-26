@@ -52,8 +52,14 @@ class ACubeOpenBankingClient:
 
     def __init__(self) -> None:
         self.env = (settings.acube_ob_env or "sandbox").lower()
-        self.email = settings.acube_ob_login_email
-        self.password = settings.acube_ob_login_password
+        # In production, prefer dedicated prod credentials if set (sandbox + prod
+        # accounts can be different on A-Cube)
+        if self.env == "production" and settings.acube_prod_login_email:
+            self.email = settings.acube_prod_login_email
+            self.password = settings.acube_prod_login_password
+        else:
+            self.email = settings.acube_ob_login_email
+            self.password = settings.acube_ob_login_password
         self.login_url = (
             settings.acube_ob_login_url_prod
             if self.env == "production"

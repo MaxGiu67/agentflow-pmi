@@ -47,6 +47,14 @@ class Settings(BaseSettings):
     # Shared JWT auth with AISP (same account).
     acube_einvoicing_base_url_sandbox: str = "https://api-sandbox.acubeapi.com"
     acube_einvoicing_base_url_prod: str = "https://api.acubeapi.com"
+    # Optional override: separate env for e-invoicing vs AISP.
+    # Use case: AISP in production while e-invoicing still in sandbox (waiting A-Cube provisioning).
+    # Empty value = falls back to acube_ob_env.
+    acube_einvoicing_env: str = ""
+    # Optional separate credentials for prod (sandbox + prod accounts can differ).
+    # Empty = use acube_ob_login_email / acube_ob_login_password.
+    acube_prod_login_email: str = ""
+    acube_prod_login_password: str = ""
     email_from: str = "AgentFlow <noreply@nexadata.it>"
 
     app_name: str = "AgentFlow"

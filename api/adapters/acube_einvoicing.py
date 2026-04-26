@@ -72,7 +72,24 @@ class ACubeEInvoicingClient(ACubeOpenBankingClient):
 
     def __init__(self) -> None:
         super().__init__()
-        # Override base URL for the e-invoicing domain — auth URL stays the same
+        # Override env for e-invoicing if configured separately
+        # (AISP can run in production while e-invoicing stays in sandbox)
+        einv_env_override = (settings.acube_einvoicing_env or "").lower()
+        if einv_env_override in ("sandbox", "production"):
+            self.env = einv_env_override
+            # If overriding to a different env, use prod credentials when needed
+            if einv_env_override == "production" and settings.acube_prod_login_email:
+                self.email = settings.acube_prod_login_email
+                self.password = settings.acube_prod_login_password
+                self.login_url = settings.acube_ob_login_url_prod
+                self.enabled = bool(self.email and self.password)
+                # Reset cached token since credentials changed
+                self._token = None
+                self._token_expires_at = 0
+            elif einv_env_override == "sandbox":
+                self.login_url = settings.acube_ob_login_url_sandbox
+
+        # Set base URL for the e-invoicing domain (separate from OB)
         self.base_url = (
             settings.acube_einvoicing_base_url_prod
             if self.env == "production"
