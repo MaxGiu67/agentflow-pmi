@@ -8,7 +8,8 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import User
@@ -189,3 +190,84 @@ async def sync_now(
             detail=str(exc),
         ) from exc
     return SyncNowResponse(**result)
+
+
+# ── Sprint 50 — AI parser endpoints ─────────────────────────
+
+
+class ParseResponse(BaseModel):
+    connection_id: UUID
+    parsed: int
+    rules_count: int
+    llm_count: int
+    use_llm: bool
+    force: bool
+    message: str
+
+
+class CorrectTxRequest(BaseModel):
+    counterparty: str | None = None
+    category: str | None = None
+    invoice_ref: str | None = None
+
+
+class CorrectTxResponse(BaseModel):
+    id: UUID
+    parsed_counterparty: str | None
+    parsed_category: str | None
+    parsed_invoice_ref: str | None
+    user_corrected: bool
+
+
+@router.post("/{connection_id}/parse", response_model=ParseResponse)
+async def parse_transactions(
+    connection_id: UUID,
+    use_llm: bool = Query(True, description="Use LLM fallback per low-confidence (costo ~$0.0005/tx)"),
+    force: bool = Query(False, description="Re-parse anche tx già parsate (escluse user_corrected)"),
+    limit: int | None = Query(None, ge=1, le=2000, description="Max tx da parsare in questa chiamata"),
+    user: User = Depends(get_current_user),
+    service: ACubeOpenBankingService = Depends(get_service),
+) -> ParseResponse:
+    """Esegui parsing AI sulle transazioni di una connection.
+
+    Pipeline: cache → rules (gratis) → LLM se confidence < 0.65.
+    Categorie: income_invoice, expense_invoice, payroll, tax_f24, tax_iva, fee,
+    transfer, loan_payment, interest, atm, pos, sepa_dd, refund, other.
+    """
+    tenant_id = _require_tenant(user)
+    try:
+        result = await service.parse_transactions(
+            connection_id, tenant_id, force=force, use_llm=use_llm, limit=limit,
+        )
+    except ACubeOBServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return ParseResponse(**result)
+
+
+@router.patch("/transactions/{tx_id}/correct", response_model=CorrectTxResponse)
+async def correct_tx_parse(
+    tx_id: UUID,
+    body: CorrectTxRequest,
+    user: User = Depends(get_current_user),
+    service: ACubeOpenBankingService = Depends(get_service),
+) -> CorrectTxResponse:
+    """Correzione manuale del parse di una transazione.
+
+    Imposta user_corrected=True così non viene sovrascritta da reparse successivi.
+    Salvata anche per future fine-tuning del parser (feedback loop).
+    """
+    tenant_id = _require_tenant(user)
+    try:
+        tx = await service.correct_transaction_parse(
+            tx_id, tenant_id,
+            counterparty=body.counterparty, category=body.category, invoice_ref=body.invoice_ref,
+        )
+    except ACubeOBServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return CorrectTxResponse(
+        id=tx.id,
+        parsed_counterparty=tx.parsed_counterparty,
+        parsed_category=tx.parsed_category,
+        parsed_invoice_ref=tx.parsed_invoice_ref,
+        user_corrected=tx.user_corrected,
+    )

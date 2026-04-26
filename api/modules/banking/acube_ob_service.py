@@ -557,6 +557,35 @@ class ACubeOpenBankingService:
             acc.last_sync_at = now
 
         await self.db.commit()
+
+        # Auto-parse new transactions with rules-only (free, fast). LLM upgrade
+        # è on-demand via /parse endpoint per non rallentare il sync.
+        if tx_created > 0:
+            try:
+                from api.modules.banking.tx_ai_parser import parse_with_rules
+                tenant_accounts = [a.id for a in accounts]
+                unparsed = (
+                    await self.db.execute(
+                        select(BankTransaction).where(
+                            BankTransaction.bank_account_id.in_(tenant_accounts),
+                            BankTransaction.parsed_at.is_(None),
+                        )
+                    )
+                ).scalars().all()
+                for tx in unparsed:
+                    res = parse_with_rules(tx.description, tx.direction, tx.amount or 0.0)
+                    tx.parsed_counterparty = res.counterparty
+                    tx.parsed_counterparty_iban = res.counterparty_iban
+                    tx.parsed_invoice_ref = res.invoice_ref
+                    tx.parsed_category = res.category
+                    tx.parsed_subcategory = res.subcategory
+                    tx.parsed_confidence = res.confidence
+                    tx.parsed_method = res.method
+                    tx.parsed_at = now
+                await self.db.commit()
+                logger.info("Auto-parsed %d new transactions (rules-only)", len(unparsed))
+            except Exception as e:
+                logger.warning("Auto-parse failed (non-blocking): %s", e)
         return {
             "connection_id": connection_id,
             "accounts_processed": len(accounts),
@@ -566,6 +595,129 @@ class ACubeOpenBankingService:
             "until": until.isoformat() if until else None,
             "message": f"Sync transazioni: {tx_created} nuove, {tx_updated} aggiornate su {len(accounts)} conti",
         }
+
+    # ── Parse AI (rules + LLM upgrade) ────────────────────
+
+    async def parse_transactions(
+        self,
+        connection_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        *,
+        force: bool = False,
+        use_llm: bool = True,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        """Esegui parsing AI sulle transazioni di una connection.
+
+        Args:
+            force: se True ri-parsa anche tx già parsate (escluse user_corrected)
+            use_llm: se True applica fallback LLM per low-confidence (costo ~$0.0005/tx)
+            limit: max transazioni da parsare in questa chiamata
+        """
+        from api.modules.banking.tx_ai_parser import parse_transaction
+
+        conn = await self.get_connection(connection_id, tenant_id)
+
+        # Trova accounts della connection
+        accounts = (
+            await self.db.execute(
+                select(BankAccount).where(BankAccount.acube_connection_id == conn.id)
+            )
+        ).scalars().all()
+        account_ids = [a.id for a in accounts]
+        if not account_ids:
+            return {"connection_id": connection_id, "parsed": 0, "skipped": 0, "message": "Nessun conto"}
+
+        # Query tx da parsare
+        conditions = [BankTransaction.bank_account_id.in_(account_ids)]
+        if not force:
+            conditions.append(BankTransaction.parsed_at.is_(None))
+        else:
+            # Anche con force, NON sovrascrivere correzioni manuali
+            conditions.append(BankTransaction.user_corrected == False)  # noqa: E712
+
+        q = select(BankTransaction).where(and_(*conditions))
+        if limit:
+            q = q.limit(limit)
+        txs = (await self.db.execute(q)).scalars().all()
+
+        parsed_count = 0
+        llm_count = 0
+        rules_count = 0
+        now = datetime.utcnow()
+
+        for tx in txs:
+            res = await parse_transaction(
+                tx.description, tx.direction, tx.amount or 0.0, use_llm=use_llm,
+            )
+            tx.parsed_counterparty = res.counterparty
+            tx.parsed_counterparty_iban = res.counterparty_iban
+            tx.parsed_invoice_ref = res.invoice_ref
+            tx.parsed_category = res.category
+            tx.parsed_subcategory = res.subcategory
+            tx.parsed_confidence = res.confidence
+            tx.parsed_method = res.method
+            tx.parsed_notes = res.notes
+            tx.parsed_at = now
+            parsed_count += 1
+            if res.method == "llm":
+                llm_count += 1
+            else:
+                rules_count += 1
+
+        await self.db.commit()
+        return {
+            "connection_id": connection_id,
+            "parsed": parsed_count,
+            "rules_count": rules_count,
+            "llm_count": llm_count,
+            "use_llm": use_llm,
+            "force": force,
+            "message": f"Parsed {parsed_count} transazioni ({rules_count} rules, {llm_count} LLM)",
+        }
+
+    async def correct_transaction_parse(
+        self,
+        tx_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        *,
+        counterparty: str | None = None,
+        category: str | None = None,
+        invoice_ref: str | None = None,
+    ) -> BankTransaction:
+        """Correzione manuale del parse — alza user_corrected=True (non sovrascritto da reparse).
+
+        Anche scrive in CategorizationFeedback per future fine-tuning del parser.
+        """
+        # Trova la tx + verifica tenant ownership via account → connection
+        tx_res = await self.db.execute(
+            select(BankTransaction, BankAccount, BankConnection)
+            .join(BankAccount, BankAccount.id == BankTransaction.bank_account_id)
+            .outerjoin(BankConnection, BankConnection.id == BankAccount.acube_connection_id)
+            .where(
+                BankTransaction.id == tx_id,
+                BankAccount.tenant_id == tenant_id,
+            )
+        )
+        row = tx_res.first()
+        if not row:
+            raise ACubeOBServiceError("Transazione non trovata")
+        tx: BankTransaction = row[0]
+
+        if counterparty is not None:
+            tx.parsed_counterparty = counterparty
+        if category is not None:
+            tx.parsed_category = category
+        if invoice_ref is not None:
+            tx.parsed_invoice_ref = invoice_ref
+        tx.user_corrected = True
+        tx.parsed_method = "manual"
+        tx.parsed_confidence = 1.0
+        tx.parsed_at = datetime.utcnow()
+
+        await self.db.commit()
+        await self.db.refresh(tx)
+        return tx
 
     # ── Sync combinato accounts + transazioni ──────────────
 

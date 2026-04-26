@@ -141,6 +141,18 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS enriched_cro VARCHAR(50)",
             "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS enriched_invoice_ref VARCHAR(100)",
             "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS acube_extra JSON",
+            # Sprint 50 — AI parser per movimenti bancari
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS parsed_counterparty VARCHAR(255)",
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS parsed_counterparty_iban VARCHAR(34)",
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS parsed_invoice_ref VARCHAR(100)",
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS parsed_category VARCHAR(50)",
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS parsed_subcategory VARCHAR(50)",
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS parsed_confidence REAL",
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS parsed_method VARCHAR(20)",
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS parsed_at TIMESTAMP",
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS parsed_notes TEXT",
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS user_corrected BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS linked_invoice_id UUID",
             # Indici utili per dedup/lookup
             "CREATE UNIQUE INDEX IF NOT EXISTS ix_bank_accounts_acube_uuid ON bank_accounts (acube_uuid) WHERE acube_uuid IS NOT NULL",
             "CREATE INDEX IF NOT EXISTS ix_bank_accounts_acube_connection_id ON bank_accounts (acube_connection_id)",

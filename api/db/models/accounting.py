@@ -209,6 +209,20 @@ class BankTransaction(Base):
     enriched_cro: Mapped[str | None] = mapped_column(String(50), nullable=True)
     enriched_invoice_ref: Mapped[str | None] = mapped_column(String(100), nullable=True)
     acube_extra: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # payload originale A-Cube
+    # AI-powered parsing fields (Sprint 50 — pipeline regex+LLM)
+    parsed_counterparty: Mapped[str | None] = mapped_column(String(255), nullable=True)  # nome pulito controparte
+    parsed_counterparty_iban: Mapped[str | None] = mapped_column(String(34), nullable=True)
+    parsed_invoice_ref: Mapped[str | None] = mapped_column(String(100), nullable=True)  # rif. fattura estratto
+    parsed_category: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # category enum: income_invoice, expense_invoice, payroll, tax_f24, tax_iva, fee, transfer,
+    # loan_payment, interest, atm, pos, sepa_dd, other
+    parsed_subcategory: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    parsed_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)  # 0.0-1.0
+    parsed_method: Mapped[str | None] = mapped_column(String(20), nullable=True)  # rules|llm|manual
+    parsed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    parsed_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    user_corrected: Mapped[bool] = mapped_column(Boolean, default=False)
+    linked_invoice_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 

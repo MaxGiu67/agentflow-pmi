@@ -75,6 +75,18 @@ class BankTransactionResponse(BaseModel):
     counterpart: str | None = None
     description: str | None = None
     reconciled: bool = False
+    # Sprint 50 — AI parser
+    parsed_counterparty: str | None = None
+    parsed_counterparty_iban: str | None = None
+    parsed_invoice_ref: str | None = None
+    parsed_category: str | None = None
+    parsed_subcategory: str | None = None
+    parsed_confidence: float | None = None
+    parsed_method: str | None = None
+    parsed_notes: str | None = None
+    user_corrected: bool = False
+    enriched_cro: str | None = None
+    linked_invoice_id: UUID | None = None
 
     model_config = {"from_attributes": True}
 
