@@ -136,7 +136,7 @@ class ACubeOpenBankingService:
             self.db.add(conn)
             await self.db.flush()  # ottiene conn.id senza commit completo
 
-        # Create BR on A-Cube if missing (⚠️ fee charged)
+        # Create BR on A-Cube if missing — idempotent (handles "already exists" 422)
         if not conn.acube_br_uuid:
             try:
                 br = await self.client.create_business_registry(
@@ -145,15 +145,35 @@ class ACubeOpenBankingService:
                     business_name=business_name,
                     enabled=True,  # required by A-Cube to start /connect (PSD2 SCA)
                 )
-                # A-Cube non sempre ritorna 'uuid' — a seconda della versione potrebbe essere '@id' o altro
                 conn.acube_br_uuid = br.get("uuid") or br.get("@id") or br.get("fiscalId")
                 logger.info("A-Cube BR creato per fiscal_id=%s", resolved_fiscal_id)
             except ACubeAPIError as exc:
-                conn.last_connect_error = f"BR create failed HTTP {exc.status_code}: {exc.body[:200]}"
-                await self.db.commit()
-                raise ACubeOBServiceError(
-                    f"Creazione Business Registry fallita: HTTP {exc.status_code}"
-                ) from exc
+                # Idempotent fallback: if BR already exists on A-Cube (422 "already used"),
+                # adopt the existing one instead of failing
+                if exc.status_code == 422 and "already used" in (exc.body or ""):
+                    logger.info("A-Cube BR già esistente per fiscal_id=%s — adopting", resolved_fiscal_id)
+                    try:
+                        existing = await self.client.get_business_registry(resolved_fiscal_id)
+                        conn.acube_br_uuid = (
+                            existing.get("uuid") or existing.get("@id") or existing.get("fiscalId")
+                        )
+                        # Ensure enabled=true so /connect works
+                        if not existing.get("enabled"):
+                            await self.client.update_business_registry(resolved_fiscal_id, enabled=True)
+                    except ACubeAPIError as exc2:
+                        conn.last_connect_error = (
+                            f"BR exists but cannot adopt: HTTP {exc2.status_code}: {exc2.body[:200]}"
+                        )
+                        await self.db.commit()
+                        raise ACubeOBServiceError(
+                            f"BR già esistente ma adozione fallita: HTTP {exc2.status_code}"
+                        ) from exc2
+                else:
+                    conn.last_connect_error = f"BR create failed HTTP {exc.status_code}: {exc.body[:200]}"
+                    await self.db.commit()
+                    raise ACubeOBServiceError(
+                        f"Creazione Business Registry fallita: HTTP {exc.status_code}"
+                    ) from exc
             except ACubeAuthError as exc:
                 conn.last_connect_error = f"Auth error: {exc}"
                 await self.db.commit()

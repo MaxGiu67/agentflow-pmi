@@ -267,6 +267,24 @@ class ACubeOpenBankingClient:
             },
         )
 
+    async def update_business_registry(
+        self,
+        fiscal_id: str,
+        *,
+        enabled: bool | None = None,
+        email: str | None = None,
+        business_name: str | None = None,
+    ) -> dict[str, Any]:
+        """PUT /business-registry/{fiscalId} — update fields. Used to flip enabled flag."""
+        body: dict[str, Any] = {"fiscalId": fiscal_id}
+        if enabled is not None:
+            body["enabled"] = enabled
+        if email is not None:
+            body["email"] = email
+        if business_name is not None:
+            body["businessName"] = business_name
+        return await self._put(f"/business-registry/{fiscal_id}", body)
+
     # ── Connect PSD2 ───────────────────────────────────────
 
     async def start_connect(
