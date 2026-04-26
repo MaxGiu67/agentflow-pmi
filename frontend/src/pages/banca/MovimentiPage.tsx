@@ -97,49 +97,67 @@ export default function MovimentiPage() {
     setPage(1)
   }, [categoryFilter, directionFilter, yearFilter])
 
-  if (isLoading) return <LoadingSpinner className="mt-20" size="lg" />
+  // ⚠️ TUTTI gli hook DEVONO essere prima di qualsiasi early return (rules of hooks).
+  const allTransactions: TxRow[] = useMemo(() => data?.items ?? [], [data])
 
-  const allTransactions: TxRow[] = data?.items ?? []
-
-  // Years available from data
-  const yearsAvailable = Array.from(
-    new Set(
-      allTransactions
-        .map((t) => (t.date as string)?.slice(0, 4))
-        .filter(Boolean) as string[],
-    ),
+  const yearsAvailable = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          allTransactions.map((t) => (t.date as string)?.slice(0, 4)).filter(Boolean) as string[],
+        ),
+      )
+        .sort()
+        .reverse(),
+    [allTransactions],
   )
-    .sort()
-    .reverse()
 
-  // Apply filters
-  const transactions = allTransactions.filter((tx) => {
-    if (categoryFilter && tx.parsed_category !== categoryFilter) return false
-    if (directionFilter === 'in' && (tx.amount as number) < 0) return false
-    if (directionFilter === 'out' && (tx.amount as number) >= 0) return false
-    if (yearFilter && !(tx.date as string)?.startsWith(String(yearFilter))) return false
-    if (searchApplied) {
-      const haystack = [
-        tx.parsed_counterparty,
-        tx.counterpart,
-        tx.description,
-        tx.parsed_invoice_ref,
-      ]
-        .filter(Boolean)
-        .map((s) => String(s).toLowerCase())
-        .join(' ')
-      if (!haystack.includes(searchApplied)) return false
-    }
-    return true
-  })
+  const transactions = useMemo(
+    () =>
+      allTransactions.filter((tx) => {
+        if (categoryFilter && tx.parsed_category !== categoryFilter) return false
+        if (directionFilter === 'in' && (tx.amount as number) < 0) return false
+        if (directionFilter === 'out' && (tx.amount as number) >= 0) return false
+        if (yearFilter && !(tx.date as string)?.startsWith(String(yearFilter))) return false
+        if (searchApplied) {
+          const haystack = [
+            tx.parsed_counterparty,
+            tx.counterpart,
+            tx.description,
+            tx.parsed_invoice_ref,
+          ]
+            .filter(Boolean)
+            .map((s) => String(s).toLowerCase())
+            .join(' ')
+          if (!haystack.includes(searchApplied)) return false
+        }
+        return true
+      }),
+    [allTransactions, categoryFilter, directionFilter, yearFilter, searchApplied],
+  )
 
-  // Pagination
   const totalFiltered = transactions.length
   const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize))
   const pageStart = (page - 1) * pageSize
   const pagedTx = transactions.slice(pageStart, pageStart + pageSize)
   const startRecord = totalFiltered === 0 ? 0 : pageStart + 1
   const endRecord = Math.min(pageStart + pageSize, totalFiltered)
+
+  const totals = useMemo(
+    () => ({
+      in: transactions.filter((t) => (t.amount as number) > 0).reduce((s, t) => s + (t.amount as number), 0),
+      out: transactions.filter((t) => (t.amount as number) < 0).reduce((s, t) => s + (t.amount as number), 0),
+    }),
+    [transactions],
+  )
+
+  const allCategories = useMemo(
+    () => Array.from(new Set(allTransactions.map((t) => t.parsed_category as string).filter(Boolean))),
+    [allTransactions],
+  )
+
+  // Hooks finished — early return safe now.
+  if (isLoading) return <LoadingSpinner className="mt-20" size="lg" />
 
   const toggle = (id: string) => {
     setExpanded((s) => {
@@ -185,17 +203,6 @@ export default function MovimentiPage() {
     }
   }
 
-  const totals = useMemo(
-    () => ({
-      in: transactions.filter((t) => (t.amount as number) > 0).reduce((s, t) => s + (t.amount as number), 0),
-      out: transactions.filter((t) => (t.amount as number) < 0).reduce((s, t) => s + (t.amount as number), 0),
-    }),
-    [transactions],
-  )
-
-  const allCategories = Array.from(
-    new Set(allTransactions.map((t) => t.parsed_category as string).filter(Boolean)),
-  )
 
   return (
     <div>
