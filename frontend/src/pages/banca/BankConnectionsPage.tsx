@@ -73,13 +73,24 @@ export default function BankConnectionsPage() {
   const handleInit = async () => {
     setErr(null)
     setBusyId('init')
+    // Pre-open a new tab synchronously inside the click handler so popup blockers
+    // don't block it. We'll set its URL when the API responds.
+    const newTab = window.open('about:blank', '_blank', 'noopener,noreferrer')
     try {
       const returnUrl = `${window.location.origin}/banca/connessioni?callback=1`
       const res = await initConn.mutateAsync({ return_url: returnUrl })
       if (res.connect_url) {
-        window.location.href = res.connect_url
+        if (newTab) {
+          newTab.location.href = res.connect_url
+        } else {
+          // popup blocked → fallback: open in same tab
+          window.location.href = res.connect_url
+        }
+      } else if (newTab) {
+        newTab.close()
       }
     } catch (e: unknown) {
+      if (newTab) newTab.close()
       const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setErr(detail ?? 'Impossibile avviare la connessione')
     } finally {
@@ -103,12 +114,20 @@ export default function BankConnectionsPage() {
   const handleReconnect = async (id: string) => {
     setErr(null)
     setBusyId(id)
+    const newTab = window.open('about:blank', '_blank', 'noopener,noreferrer')
     try {
       const res = await reconnect.mutateAsync(id)
       if (res.reconnect_url) {
-        window.location.href = res.reconnect_url
+        if (newTab) {
+          newTab.location.href = res.reconnect_url
+        } else {
+          window.location.href = res.reconnect_url
+        }
+      } else if (newTab) {
+        newTab.close()
       }
     } catch (e: unknown) {
+      if (newTab) newTab.close()
       const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setErr(detail ?? 'Reconnect fallito')
     } finally {
