@@ -1,6 +1,15 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Sparkles, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react'
+import {
+  ArrowLeft,
+  Sparkles,
+  RefreshCw,
+  ChevronDown,
+  ChevronRight,
+  Search,
+  X as XIcon,
+  Filter,
+} from 'lucide-react'
 import { useBankTransactions } from '../../api/hooks'
 import api from '../../api/client'
 import { formatCurrency, formatDate } from '../../lib/utils'
@@ -62,9 +71,75 @@ export default function MovimentiPage() {
   const [parsing, setParsing] = useState(false)
   const [parseMsg, setParseMsg] = useState<string | null>(null)
 
+  // Filtri
+  const [search, setSearch] = useState('')
+  const [searchApplied, setSearchApplied] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [directionFilter, setDirectionFilter] = useState<'' | 'in' | 'out'>('')
+  const [yearFilter, setYearFilter] = useState<number | ''>('')
+  const [showFilters, setShowFilters] = useState(false)
+
+  // Paginazione
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(50)
+
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearchApplied(search.trim().toLowerCase())
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [search])
+
+  // Reset page on filter change
+  useEffect(() => {
+    setPage(1)
+  }, [categoryFilter, directionFilter, yearFilter])
+
   if (isLoading) return <LoadingSpinner className="mt-20" size="lg" />
 
-  const transactions: TxRow[] = data?.items ?? []
+  const allTransactions: TxRow[] = data?.items ?? []
+
+  // Years available from data
+  const yearsAvailable = Array.from(
+    new Set(
+      allTransactions
+        .map((t) => (t.date as string)?.slice(0, 4))
+        .filter(Boolean) as string[],
+    ),
+  )
+    .sort()
+    .reverse()
+
+  // Apply filters
+  const transactions = allTransactions.filter((tx) => {
+    if (categoryFilter && tx.parsed_category !== categoryFilter) return false
+    if (directionFilter === 'in' && (tx.amount as number) < 0) return false
+    if (directionFilter === 'out' && (tx.amount as number) >= 0) return false
+    if (yearFilter && !(tx.date as string)?.startsWith(String(yearFilter))) return false
+    if (searchApplied) {
+      const haystack = [
+        tx.parsed_counterparty,
+        tx.counterpart,
+        tx.description,
+        tx.parsed_invoice_ref,
+      ]
+        .filter(Boolean)
+        .map((s) => String(s).toLowerCase())
+        .join(' ')
+      if (!haystack.includes(searchApplied)) return false
+    }
+    return true
+  })
+
+  // Pagination
+  const totalFiltered = transactions.length
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize))
+  const pageStart = (page - 1) * pageSize
+  const pagedTx = transactions.slice(pageStart, pageStart + pageSize)
+  const startRecord = totalFiltered === 0 ? 0 : pageStart + 1
+  const endRecord = Math.min(pageStart + pageSize, totalFiltered)
 
   const toggle = (id: string) => {
     setExpanded((s) => {
@@ -110,16 +185,23 @@ export default function MovimentiPage() {
     }
   }
 
-  const totals = {
-    in: transactions.filter((t) => (t.amount as number) > 0).reduce((s, t) => s + (t.amount as number), 0),
-    out: transactions.filter((t) => (t.amount as number) < 0).reduce((s, t) => s + (t.amount as number), 0),
-  }
+  const totals = useMemo(
+    () => ({
+      in: transactions.filter((t) => (t.amount as number) > 0).reduce((s, t) => s + (t.amount as number), 0),
+      out: transactions.filter((t) => (t.amount as number) < 0).reduce((s, t) => s + (t.amount as number), 0),
+    }),
+    [transactions],
+  )
+
+  const allCategories = Array.from(
+    new Set(allTransactions.map((t) => t.parsed_category as string).filter(Boolean)),
+  )
 
   return (
     <div>
       <PageHeader
         title="Movimenti bancari"
-        subtitle={`${transactions.length} movimenti — Entrate ${formatCurrency(totals.in)} · Uscite ${formatCurrency(totals.out)}`}
+        subtitle={`${totalFiltered} movimenti${totalFiltered !== allTransactions.length ? ` (di ${allTransactions.length})` : ''} — Entrate ${formatCurrency(totals.in)} · Uscite ${formatCurrency(totals.out)}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -155,6 +237,111 @@ export default function MovimentiPage() {
         </div>
       )}
 
+      {/* Filtri */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Cerca controparte, descrizione, fattura…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-9 text-sm focus:border-blue-500 focus:outline-none"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              aria-label="Cancella"
+            >
+              <XIcon className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        <button
+          onClick={() => setDirectionFilter(directionFilter === 'in' ? '' : 'in')}
+          className={`rounded-lg border px-3 py-2 text-sm font-medium ${
+            directionFilter === 'in'
+              ? 'border-green-500 bg-green-50 text-green-700'
+              : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          ↑ Entrate
+        </button>
+        <button
+          onClick={() => setDirectionFilter(directionFilter === 'out' ? '' : 'out')}
+          className={`rounded-lg border px-3 py-2 text-sm font-medium ${
+            directionFilter === 'out'
+              ? 'border-red-500 bg-red-50 text-red-700'
+              : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          ↓ Uscite
+        </button>
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          <Filter className="h-4 w-4" />
+          Filtri
+          {(categoryFilter || yearFilter) && (
+            <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs font-semibold text-white">
+              {[categoryFilter, yearFilter].filter(Boolean).length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {showFilters && (
+        <div className="mb-4 flex flex-wrap items-end gap-4 rounded-lg border border-gray-200 bg-white p-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-500">Categoria</label>
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="mt-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">Tutte</option>
+              {allCategories.map((c) => (
+                <option key={c} value={c}>
+                  {CATEGORY_LABELS[c]?.label || c}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500">Anno</label>
+            <select
+              value={yearFilter}
+              onChange={(e) =>
+                setYearFilter(e.target.value === '' ? '' : Number(e.target.value))
+              }
+              className="mt-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">Tutti</option>
+              {yearsAvailable.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
+          {(categoryFilter || yearFilter || directionFilter || searchApplied) && (
+            <button
+              onClick={() => {
+                setCategoryFilter('')
+                setYearFilter('')
+                setDirectionFilter('')
+                setSearch('')
+              }}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              Pulisci tutti
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -168,7 +355,7 @@ export default function MovimentiPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {transactions.map((tx) => {
+            {pagedTx.map((tx) => {
               const id = tx.id as string
               const isExpanded = expanded.has(id)
               const amount = tx.amount as number
@@ -250,10 +437,78 @@ export default function MovimentiPage() {
         </table>
       </div>
 
-      {transactions.length === 0 && (
+      {totalFiltered === 0 && allTransactions.length === 0 && (
         <p className="mt-6 text-center text-sm text-gray-500">
           Nessun movimento. Vai su <a href="/banca/connessioni" className="text-blue-600 hover:underline">Open Banking</a> e clicca "Aggiorna".
         </p>
+      )}
+
+      {totalFiltered === 0 && allTransactions.length > 0 && (
+        <p className="mt-6 text-center text-sm text-gray-500">
+          Nessun movimento corrisponde ai filtri. Prova a pulire i filtri.
+        </p>
+      )}
+
+      {/* Paginazione */}
+      {totalFiltered > 0 && (
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-gray-500">
+              {startRecord}–{endRecord} di {totalFiltered}
+            </p>
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-gray-400">Righe:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value))
+                  setPage(1)
+                }}
+                className="rounded border border-gray-300 px-2 py-1 text-xs focus:border-blue-500 focus:outline-none"
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+              </select>
+            </div>
+          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage(1)}
+                disabled={page <= 1}
+                className="rounded border border-gray-300 px-2 py-1 text-xs disabled:opacity-40"
+              >
+                ««
+              </button>
+              <button
+                onClick={() => setPage(Math.max(1, page - 1))}
+                disabled={page <= 1}
+                className="rounded border border-gray-300 px-3 py-1 text-xs disabled:opacity-40"
+              >
+                ‹ Prec.
+              </button>
+              <span className="px-3 text-sm font-medium text-gray-700">
+                {page} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(Math.min(totalPages, page + 1))}
+                disabled={page >= totalPages}
+                className="rounded border border-gray-300 px-3 py-1 text-xs disabled:opacity-40"
+              >
+                Succ. ›
+              </button>
+              <button
+                onClick={() => setPage(totalPages)}
+                disabled={page >= totalPages}
+                className="rounded border border-gray-300 px-2 py-1 text-xs disabled:opacity-40"
+              >
+                »»
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
