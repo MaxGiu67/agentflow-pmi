@@ -16,7 +16,16 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
-    if (error.response?.status === 401) {
+    const url: string = error.config?.url ?? ''
+    // Don't redirect on auth endpoints — let the form show the actual error message
+    const isAuthEndpoint =
+      url.includes('/auth/login') ||
+      url.includes('/auth/register') ||
+      url.includes('/auth/verify-email') ||
+      url.includes('/auth/forgot-password') ||
+      url.includes('/auth/reset-password')
+
+    if (error.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('access_token')
       window.location.href = '/login'
     }
