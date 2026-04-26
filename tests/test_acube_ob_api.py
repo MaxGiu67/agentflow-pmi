@@ -224,10 +224,13 @@ async def test_get_connection_404(client: AsyncClient, auth_headers):
     assert r.status_code == 404
 
 
-# ── AC-OB-04.6: sync-now bloccato se status != active ─────
+# ── AC-OB-04.6: sync-now self-heal pending→active quando A-Cube ha accounts
 
 @pytest.mark.asyncio
-async def test_sync_now_blocked_if_pending(client: AsyncClient, auth_headers, fake_client):
+async def test_sync_now_pending_no_accounts_returns_empty(
+    client: AsyncClient, auth_headers, fake_client
+):
+    """Se A-Cube non ha accounts, il sync ritorna stato vuoto (no errore)."""
     init_resp = await client.post(
         "/api/v1/banking/connections/init",
         headers=auth_headers,
@@ -239,8 +242,10 @@ async def test_sync_now_blocked_if_pending(client: AsyncClient, auth_headers, fa
         f"/api/v1/banking/connections/{conn_id}/sync-now",
         headers=auth_headers,
     )
-    assert r.status_code == 409
-    assert "non attiva" in r.json()["detail"].lower()
+    assert r.status_code == 200
+    data = r.json()
+    assert data["accounts_created"] == 0
+    assert data["tx_created"] == 0
 
 
 # ── AC-OB-04.7: sync-now ok quando status=active ──────────
@@ -626,9 +631,10 @@ async def test_reconnect_409_when_no_account(
 
 
 @pytest.mark.asyncio
-async def test_sync_transactions_blocked_if_pending(
+async def test_sync_transactions_pending_returns_empty(
     client: AsyncClient, auth_headers, fake_client
 ):
+    """sync-transactions su connection pending → 200 con risultato vuoto (no fail)."""
     init_resp = await client.post(
         "/api/v1/banking/connections/init",
         headers=auth_headers,
@@ -639,4 +645,5 @@ async def test_sync_transactions_blocked_if_pending(
         f"/api/v1/banking/connections/{conn_id}/sync-transactions",
         headers=auth_headers,
     )
-    assert r.status_code == 409
+    assert r.status_code == 200
+    assert "Nessun conto attivo" in r.json()["message"] or r.json()["tx_created"] == 0

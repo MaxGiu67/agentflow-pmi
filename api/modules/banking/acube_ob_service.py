@@ -439,10 +439,7 @@ class ACubeOpenBankingService:
           contiamo come "created" definitivi.
         """
         conn = await self.get_connection(connection_id, tenant_id)
-        if conn.status != "active":
-            raise ACubeOBServiceError(
-                f"Connection {connection_id} non attiva (status={conn.status})"
-            )
+        # No hard fail on pending — sync_accounts self-heals first
 
         if since is None:
             since = (datetime.utcnow() - timedelta(days=30)).date()
@@ -496,7 +493,12 @@ class ACubeOpenBankingService:
             }
 
             for tx_data in remote_txs:
-                acube_tx_id = tx_data.get("id")
+                # A-Cube returns "transactionId" (snake/camel mix); fallback to "id" or "@id"
+                acube_tx_id = (
+                    tx_data.get("transactionId")
+                    or tx_data.get("id")
+                    or (tx_data.get("@id") or "").split("/")[-1]
+                )
                 if not acube_tx_id:
                     continue
 
