@@ -334,12 +334,20 @@ class ACubeOpenBankingService:
         più ritornati da A-Cube → marcati `status=revoked` (consenso perso).
         """
         conn = await self.get_connection(connection_id, tenant_id)
-        if conn.status != "active":
-            raise ACubeOBServiceError(
-                f"Connection {connection_id} non attiva (status={conn.status}) — completare prima il consenso PSD2"
-            )
+        # Don't fail on pending — A-Cube is the source of truth. If it returns
+        # accounts, the consent is in place even if our webhook didn't fire.
+        # We auto-promote to "active" further below when we see remote accounts.
 
         remote_accounts = await self.client.list_accounts(conn.fiscal_id)
+
+        # Self-heal: A-Cube has accounts → consent confirmed → promote to active
+        if remote_accounts and conn.status != "active":
+            conn.status = "active"
+            conn.acube_enabled = True
+            logger.info(
+                "Connection %s self-healed pending→active (A-Cube returned %d accounts)",
+                connection_id, len(remote_accounts),
+            )
 
         # Mappa locale per connection
         existing_rows = (
