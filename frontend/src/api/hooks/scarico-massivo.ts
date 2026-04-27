@@ -77,6 +77,48 @@ export function useSyncMyScarico() {
   })
 }
 
+export interface AppointeeCredentialsInput {
+  appointee_fiscal_id: string
+  password: string
+  pin: string
+  username_or_fiscal_id?: string
+}
+
+export function useSaveAppointeeCredentials() {
+  return useMutation({
+    mutationFn: (data: AppointeeCredentialsInput) =>
+      api
+        .post<{ appointee_fiscal_id: string; saved: boolean; message: string }>(
+          '/scarico-massivo/admin/appointee-credentials',
+          data,
+        )
+        .then((r) => r.data),
+  })
+}
+
+export interface OnboardingResult {
+  config_id: string
+  acube_config_id: string
+  appointee_fiscal_id: string
+  client_fiscal_id: string
+  schedule_enabled: boolean
+  backfill_archive: boolean
+  message: string
+}
+
+export function useStartMyOnboarding() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (backfillArchive: boolean = true) =>
+      api
+        .post<OnboardingResult>(
+          `/scarico-massivo/me/onboarding?backfill_archive=${backfillArchive}`,
+        )
+        .then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['scarico-massivo'] }),
+  })
+}
+
 export function useMyDownloadedInvoices() {
   return useQuery({
     queryKey: ['scarico-massivo', 'me', 'invoices'],

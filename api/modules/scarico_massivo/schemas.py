@@ -75,6 +75,21 @@ class InvoiceLogListResponse(BaseModel):
     total: int
 
 
+class AppointeeCredentialsRequest(BaseModel):
+    """Credenziali Fisconline dell'incaricato — salvate cifrate lato A-Cube."""
+
+    appointee_fiscal_id: str = Field(..., min_length=11, max_length=16)
+    password: str = Field(..., min_length=8, max_length=64)
+    pin: str = Field(..., min_length=10, max_length=10, pattern=r"^\d{10}$")
+    username_or_fiscal_id: str | None = None
+
+
+class AppointeeCredentialsResponse(BaseModel):
+    appointee_fiscal_id: str
+    saved: bool
+    message: str
+
+
 class DelegaGuideResponse(BaseModel):
     """Step-by-step guide to shown in UI when registering a new client in proxy mode."""
 

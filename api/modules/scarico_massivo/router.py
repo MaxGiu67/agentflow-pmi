@@ -11,6 +11,8 @@ from api.db.models import User
 from api.db.session import get_db
 from api.middleware.auth import get_current_user
 from api.modules.scarico_massivo.schemas import (
+    AppointeeCredentialsRequest,
+    AppointeeCredentialsResponse,
     ClientRegisterRequest,
     ConfigListResponse,
     ConfigResponse,
@@ -64,6 +66,35 @@ async def onboarding_me(
     except ScaricoMassivoServiceError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
     return result
+
+
+def _require_admin(user: User) -> None:
+    if user.role not in ("owner", "admin"):
+        raise HTTPException(status_code=403, detail="Solo owner/admin possono salvare credenziali appointee")
+
+
+@router.post("/admin/appointee-credentials", response_model=AppointeeCredentialsResponse)
+async def save_appointee_credentials(
+    body: AppointeeCredentialsRequest,
+    user: User = Depends(get_current_user),
+    service: ScaricoMassivoService = Depends(get_service),
+) -> AppointeeCredentialsResponse:
+    """Salva credenziali Fisconline dell'incaricato su A-Cube — solo owner/admin.
+
+    Le credenziali NON sono persistite nel DB AgentFlow — vengono solo
+    trasmesse ad A-Cube via PUT /ade-appointees/{fiscal_id}/credentials/fisconline.
+    """
+    _require_admin(user)
+    try:
+        result = await service.save_appointee_credentials(
+            appointee_fiscal_id=body.appointee_fiscal_id,
+            password=body.password,
+            pin=body.pin,
+            username_or_fiscal_id=body.username_or_fiscal_id,
+        )
+    except ScaricoMassivoServiceError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    return AppointeeCredentialsResponse(**result)
 
 
 @router.get("/delega-guide", response_model=DelegaGuideResponse)

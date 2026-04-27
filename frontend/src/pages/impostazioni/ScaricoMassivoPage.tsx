@@ -6,12 +6,17 @@ import {
   Clock,
   AlertTriangle,
   Ban,
+  Rocket,
+  KeyRound,
+  X,
 } from 'lucide-react'
 import {
   useDelegaGuide,
   useMyScaricoConfig,
   useSyncMyScarico,
   useMyDownloadedInvoices,
+  useStartMyOnboarding,
+  useSaveAppointeeCredentials,
 } from '../../api/hooks'
 import PageHeader from '../../components/ui/PageHeader'
 import Card from '../../components/ui/Card'
@@ -55,8 +60,42 @@ export default function ScaricoMassivoPage() {
   const { data: guide } = useDelegaGuide()
   const { data: invoicesData } = useMyDownloadedInvoices()
   const sync = useSyncMyScarico()
+  const startOnboarding = useStartMyOnboarding()
+  const saveCredentials = useSaveAppointeeCredentials()
 
   const [syncMessage, setSyncMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [onboardingMessage, setOnboardingMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [credModalOpen, setCredModalOpen] = useState(false)
+  const [credForm, setCredForm] = useState({ appointee_fiscal_id: '', password: '', pin: '' })
+  const [credMessage, setCredMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const handleSaveCredentials = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setCredMessage(null)
+    try {
+      const r = await saveCredentials.mutateAsync(credForm)
+      setCredMessage({ type: 'success', text: r.message })
+      setCredForm({ appointee_fiscal_id: '', password: '', pin: '' })
+      setTimeout(() => setCredModalOpen(false), 1500)
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setCredMessage({ type: 'error', text: detail ?? 'Errore salvataggio credenziali' })
+    }
+  }
+
+  const handleStartOnboarding = async () => {
+    setOnboardingMessage(null)
+    try {
+      const r = await startOnboarding.mutateAsync(true)
+      setOnboardingMessage({
+        type: 'success',
+        text: r.message || 'Onboarding A-Cube avviato. Primo scarico massivo entro 72h.',
+      })
+    } catch (e: unknown) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setOnboardingMessage({ type: 'error', text: detail ?? 'Onboarding fallito' })
+    }
+  }
 
   const handleSync = async () => {
     setSyncMessage(null)
@@ -105,14 +144,35 @@ export default function ScaricoMassivoPage() {
         title="Sincronizzazione cassetto fiscale"
         subtitle="Scarica automaticamente le tue fatture dal cassetto fiscale via A-Cube"
         actions={
-          <button
-            onClick={handleSync}
-            disabled={sync.isPending}
-            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
-          >
-            <RefreshCw className={`h-4 w-4 ${sync.isPending ? 'animate-spin' : ''}`} />
-            {sync.isPending ? 'Sync in corso…' : 'Sync ora'}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setCredModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              title="Salva credenziali Fisconline dell'incaricato su A-Cube"
+            >
+              <KeyRound className="h-4 w-4" />
+              Credenziali appointee
+            </button>
+            {!cfg.acube_config_id && (
+              <button
+                onClick={handleStartOnboarding}
+                disabled={startOnboarding.isPending}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+                title="Da premere DOPO aver completato l'incarico sul portale AdE"
+              >
+                <Rocket className={`h-4 w-4 ${startOnboarding.isPending ? 'animate-pulse' : ''}`} />
+                {startOnboarding.isPending ? 'Avvio in corso…' : 'Avvia onboarding A-Cube'}
+              </button>
+            )}
+            <button
+              onClick={handleSync}
+              disabled={sync.isPending || !cfg.acube_config_id}
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+            >
+              <RefreshCw className={`h-4 w-4 ${sync.isPending ? 'animate-spin' : ''}`} />
+              {sync.isPending ? 'Sync in corso…' : 'Sync ora'}
+            </button>
+          </div>
         }
       />
 
@@ -152,6 +212,18 @@ export default function ScaricoMassivoPage() {
           </div>
         </div>
       </Card>
+
+      {onboardingMessage && (
+        <div
+          className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+            onboardingMessage.type === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : 'border-red-200 bg-red-50 text-red-800'
+          }`}
+        >
+          {onboardingMessage.text}
+        </div>
+      )}
 
       {syncMessage && (
         <div
@@ -218,6 +290,102 @@ export default function ScaricoMassivoPage() {
           </div>
         )}
       </Card>
+
+      {credModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Credenziali Fisconline incaricato</h3>
+                <p className="mt-1 text-xs text-gray-500">
+                  Salvate cifrate su A-Cube. Non vengono persistite in AgentFlow.
+                </p>
+              </div>
+              <button
+                onClick={() => setCredModalOpen(false)}
+                className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                aria-label="Chiudi"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCredentials} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700">Codice fiscale incaricato</label>
+                <input
+                  type="text"
+                  required
+                  value={credForm.appointee_fiscal_id}
+                  onChange={(e) =>
+                    setCredForm({ ...credForm, appointee_fiscal_id: e.target.value.toUpperCase() })
+                  }
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono uppercase focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  placeholder="GRLMSM67T11H501Z"
+                  maxLength={16}
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700">PIN (10 cifre)</label>
+                <input
+                  type="password"
+                  required
+                  inputMode="numeric"
+                  pattern="[0-9]{10}"
+                  value={credForm.pin}
+                  onChange={(e) => setCredForm({ ...credForm, pin: e.target.value.replace(/\D/g, '') })}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  maxLength={10}
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700">Password Fisconline</label>
+                <input
+                  type="password"
+                  required
+                  value={credForm.password}
+                  onChange={(e) => setCredForm({ ...credForm, password: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  minLength={8}
+                  maxLength={64}
+                  autoComplete="new-password"
+                />
+              </div>
+
+              {credMessage && (
+                <div
+                  className={`rounded border px-3 py-2 text-sm ${
+                    credMessage.type === 'success'
+                      ? 'border-green-200 bg-green-50 text-green-800'
+                      : 'border-red-200 bg-red-50 text-red-800'
+                  }`}
+                >
+                  {credMessage.text}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setCredModalOpen(false)}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="submit"
+                  disabled={saveCredentials.isPending}
+                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+                >
+                  {saveCredentials.isPending ? 'Salvataggio…' : 'Salva su A-Cube'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Delega guide — collapsed by default */}
       {guide && cfg.status === 'pending' && (

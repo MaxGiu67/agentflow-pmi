@@ -75,16 +75,26 @@ class ACubeScaricoMassivoClient(ACubeOpenBankingClient):
     # ── 1. Appointee credentials ──────────────────────────
 
     async def set_appointee_credentials(
-        self, appointee_id: str, password: str, pin: str
+        self,
+        appointee_fiscal_id: str,
+        password: str,
+        pin: str,
+        *,
+        username_or_fiscal_id: str | None = None,
     ) -> dict[str, Any]:
-        """PUT /ade-appointees/{id}/credentials/fisconline
+        """PUT /ade-appointees/{fiscal_id}/credentials/fisconline
 
         Salva password+PIN Fisconline dell'incaricato su A-Cube (cifrate lato loro).
         Lo stesso incaricato vale per tutti i clienti gestiti.
+
+        username_or_fiscal_id: opzionale, omettere se username == fiscal_id.
         """
+        body: dict[str, Any] = {"password": password, "pin": pin}
+        if username_or_fiscal_id:
+            body["username_or_fiscal_id"] = username_or_fiscal_id
         return await self._put(
-            f"/ade-appointees/{appointee_id}/credentials/fisconline",
-            {"password": password, "pin": pin},
+            f"/ade-appointees/{appointee_fiscal_id}/credentials/fisconline",
+            body,
         )
 
     # ── 2. BusinessRegistryConfiguration ──────────────────
@@ -107,16 +117,24 @@ class ACubeScaricoMassivoClient(ACubeOpenBankingClient):
         return await self._get(f"/business-registry-configurations/{config_id}")
 
     async def assign_to_appointee(
-        self, config_id: str, appointee_fiscal_id: str = "A-CUBE"
+        self,
+        appointee_fiscal_id: str,
+        client_fiscal_id: str,
+        *,
+        proxying_fiscal_id: str | None = None,
     ) -> dict[str, Any]:
-        """PUT /business-registry-configurations/{id}/assign
+        """POST /ade-appointees/{appointee_fiscal_id}/assign
 
-        Assegna la config all'incaricato. Per non-reseller usare "A-CUBE",
-        per noi (reseller) il CF dell'incaricato che abbiamo registrato via support.
+        Assegna una P.IVA cliente all'incaricato (modalità incarico).
+        Per modalità delega/proxy passare anche proxying_fiscal_id (es. CF persona fisica).
+        Conferma Antonio 2026-04-27: per incarico proxying_fiscal_id non serve.
         """
-        return await self._put(
-            f"/business-registry-configurations/{config_id}/assign",
-            {"fiscal_id": appointee_fiscal_id},
+        body: dict[str, Any] = {"fiscal_id": client_fiscal_id}
+        if proxying_fiscal_id:
+            body["proxying_fiscal_id"] = proxying_fiscal_id
+        return await self._post(
+            f"/ade-appointees/{appointee_fiscal_id}/assign",
+            body,
         )
 
     # ── 3. Massive download — schedule ────────────────────

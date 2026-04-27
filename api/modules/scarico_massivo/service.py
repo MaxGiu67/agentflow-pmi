@@ -45,6 +45,38 @@ class ScaricoMassivoService:
             self._cf_client = ACubeScaricoMassivoClient()
         return self._cf_client
 
+    async def save_appointee_credentials(
+        self,
+        *,
+        appointee_fiscal_id: str,
+        password: str,
+        pin: str,
+        username_or_fiscal_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Salva credenziali Fisconline dell'incaricato su A-Cube (cifrate lato loro).
+
+        Le credenziali NON vengono persistite nel nostro DB — solo trasmesse
+        ad A-Cube via PUT. Operazione idempotente.
+        """
+        client = self.cf_client
+        try:
+            await client.set_appointee_credentials(
+                appointee_fiscal_id=appointee_fiscal_id,
+                password=password,
+                pin=pin,
+                username_or_fiscal_id=username_or_fiscal_id,
+            )
+        except (ACubeAPIError, ACubeAuthError) as e:
+            logger.warning("set_appointee_credentials failed: %s", e)
+            raise ScaricoMassivoServiceError(
+                f"Salvataggio credenziali fallito: {e}"
+            ) from e
+        return {
+            "appointee_fiscal_id": appointee_fiscal_id,
+            "saved": True,
+            "message": "Credenziali salvate su A-Cube — incaricato pronto per onboarding clienti.",
+        }
+
     async def setup_client_onboarding(
         self,
         cfg: ScaricoMassivoConfig,
@@ -55,7 +87,7 @@ class ScaricoMassivoService:
 
         Sequenza (assume incaricato già configurato lato A-Cube via support):
           1. POST /business-registry-configuration   (crea config per P.IVA cliente)
-          2. PUT  /business-registry-configurations/{id}/assign  (assegna a incaricato)
+          2. POST /ade-appointees/{appointee_fid}/assign  (assegna P.IVA cliente all'incaricato)
           3. POST /schedule/invoice-download/{piva}  (daily schedule + archive backfill)
 
         Salva acube_config_id sulla ScaricoMassivoConfig.
@@ -79,10 +111,15 @@ class ScaricoMassivoService:
                 await self.db.commit()
                 raise ScaricoMassivoServiceError(f"Creazione configurazione fallita: {e}") from e
 
-        # Step 2: assegna a incaricato
+        # Step 2: assegna P.IVA cliente all'incaricato
         try:
-            await client.assign_to_appointee(cfg.acube_config_id, appointee_fiscal_id)
-            logger.info("BR config %s assegnata a incaricato %s", cfg.acube_config_id, appointee_fiscal_id)
+            await client.assign_to_appointee(
+                appointee_fiscal_id=appointee_fiscal_id,
+                client_fiscal_id=cfg.client_fiscal_id,
+            )
+            logger.info(
+                "P.IVA %s assegnata a incaricato %s", cfg.client_fiscal_id, appointee_fiscal_id
+            )
         except (ACubeAPIError, ACubeAuthError) as e:
             cfg.last_sync_error = f"assign_to_appointee failed: {e}"
             await self.db.commit()

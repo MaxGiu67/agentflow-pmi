@@ -64,6 +64,7 @@ from api.modules.resources.router import router as resources_router
 from api.modules.elevia.router import router as elevia_router
 from api.modules.pec.router import router as pec_router
 from api.modules.scarico_massivo.router import router as scarico_massivo_router
+from api.modules.scarico_massivo.webhooks import router as scarico_massivo_webhooks_router
 from api.modules.state.banking_snapshot import router as state_banking_router
 from api.modules.state.invoicing_snapshot import router as state_invoicing_router
 from api.modules.state.sales_snapshot import router as state_sales_router
@@ -378,6 +379,7 @@ app.include_router(elevia_router, prefix="/api/v1")
 app.include_router(portal_router, prefix="/api/v1")
 app.include_router(pec_router, prefix="/api/v1")
 app.include_router(scarico_massivo_router, prefix="/api/v1")
+app.include_router(scarico_massivo_webhooks_router, prefix="/api/v1")
 # State snapshots aggregati per agenti AI
 app.include_router(state_banking_router, prefix="/api/v1")
 app.include_router(state_invoicing_router, prefix="/api/v1")
