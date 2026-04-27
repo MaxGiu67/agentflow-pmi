@@ -102,13 +102,13 @@ class ACubeScaricoMassivoClient(ACubeOpenBankingClient):
     async def create_br_configuration(
         self, fiscal_id: str
     ) -> dict[str, Any]:
-        """POST /business-registry-configuration
+        """POST /business-registry-configurations
 
         Crea config per una P.IVA cliente. Step 1 dell'onboarding, prima
         dell'assignment all'incaricato.
         """
         return await self._post(
-            "/business-registry-configuration",
+            "/business-registry-configurations",
             {"fiscal_id": fiscal_id},
         )
 

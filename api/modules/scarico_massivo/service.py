@@ -454,23 +454,30 @@ class ScaricoMassivoService:
 
     @staticmethod
     def get_delega_guide() -> dict:
-        """Return the step-by-step delega procedure (A-Cube proxy mode)."""
+        """Return the step-by-step procedura di INCARICO sul portale AdE.
+
+        Modalità "incarico" (Appointee) raccomandata da A-Cube (Antonio 2026-04-27):
+        il cliente da incarico al CF dell'incaricato NexaData (configurato via
+        ACUBE_APPOINTEE_FISCAL_ID), non a una P.IVA proxy.
+        """
+        import os
+        appointee_fiscal_id = os.getenv("ACUBE_APPOINTEE_FISCAL_ID", "GRLMSM67T11H501Z")
         return {
-            "acube_fiscal_id": ACUBE_PROXY_FISCAL_ID,
+            "acube_fiscal_id": appointee_fiscal_id,
             "portale_ade_url": "https://www.agenziaentrate.gov.it/portale/area-riservata",
             "steps": [
-                "Accedi al portale AdE con SPID/CIE/CNS (o Fisconline/Entratel)",
+                "Accedi al portale AdE con SPID/CIE/CNS",
                 "In alto a destra verifica che l'utenza di lavoro sia l'azienda (non persona fisica)",
-                "Menu → Il tuo profilo",
-                "Menu laterale → Deleghe → Intermediari",
-                'Card "Delega unica ai servizi online" → clicca "Nuova delega →"',
-                f"Inserisci il codice fiscale del delegato: {ACUBE_PROXY_FISCAL_ID} (A-Cube S.r.l.)",
-                "Spunta i 3 servizi indicati qui sotto",
-                'Clicca "Inserisci" — la delega sarà subito "Attiva" con scadenza 31/12 del 4° anno successivo',
+                "Menu in alto → Il tuo profilo",
+                "Menu laterale blu → Incarichi",
+                "Clicca su 'Gestisci incaricati come gestore'",
+                "Clicca 'Aggiungi incaricato'",
+                f"Inserisci il codice fiscale: {appointee_fiscal_id} e scegli Tipo incarico: 'Incaricato'. Salva.",
+                "Sulla riga appena creata clicca Azioni → 'Gestisci servizi'",
+                "Espandi 'Servizi per' → spunta i servizi indicati sotto",
+                "Salva per terminare la procedura",
             ],
             "services_to_delegate": [
-                "Consultazione e acquisizione delle fatture elettroniche o dei loro duplicati informatici",
-                "Consultazione dei dati rilevanti ai fini IVA",
-                "Registrazione dell'indirizzo telematico",
+                "Consultazione e acquisizione delle fatture elettroniche o dei loro duplicati informatici - Personale",
             ],
         }
