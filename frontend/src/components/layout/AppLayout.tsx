@@ -1,6 +1,6 @@
 import { useState, useEffect, Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
-import { Menu, LogOut, User } from 'lucide-react'
+import { Menu, LogOut, User, Building2 } from 'lucide-react'
 import Sidebar from '../ui/Sidebar'
 import BottomNav from '../ui/BottomNav'
 import ErrorBoundary from '../ui/ErrorBoundary'
@@ -31,7 +31,7 @@ export default function AppLayout() {
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top bar */}
         <header
-          className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 lg:h-16 lg:px-6"
+          className="relative flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 lg:h-16 lg:px-6"
           style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
         >
           <button
@@ -49,7 +49,31 @@ export default function AppLayout() {
             <span className="text-sm font-semibold text-gray-700">AgentFlow</span>
           </div>
 
-          <span className="text-sm font-semibold text-gray-800 lg:hidden">AgentFlow</span>
+          {/* Centered: company info — visible across all pages */}
+          {user?.azienda_nome && (
+            <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 md:flex">
+              <Building2 className="h-4 w-4 text-purple-600" />
+              <div className="leading-tight">
+                <div className="text-sm font-semibold text-gray-900">
+                  {user.azienda_nome}
+                  {user.tipo_azienda && (
+                    <span className="ml-1 text-xs font-normal uppercase text-gray-500">
+                      {user.tipo_azienda}
+                    </span>
+                  )}
+                </div>
+                {user.piva && (
+                  <div className="text-[10px] uppercase tracking-wide text-gray-500">
+                    P.IVA {user.piva}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <span className="text-sm font-semibold text-gray-800 lg:hidden">
+            {user?.azienda_nome || 'AgentFlow'}
+          </span>
 
           <div className="flex items-center gap-3">
             <div className="hidden items-center gap-2 text-sm text-gray-600 sm:flex">
