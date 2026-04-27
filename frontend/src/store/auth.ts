@@ -37,7 +37,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     const { data } = await api.post('/auth/login', { email, password })
     localStorage.setItem('access_token', data.access_token)
     localStorage.setItem('refresh_token', data.refresh_token)
-    set({ token: data.access_token, isAuthenticated: true })
+    if (_queryClient) _queryClient.clear()
+    set({ token: data.access_token, user: null, isAuthenticated: true })
+    const { data: profile } = await api.get('/profile')
+    set({ user: profile })
   },
   register: async (email, password, name, azienda) => {
     const { data } = await api.post('/auth/register', { email, password, name, ...azienda })
