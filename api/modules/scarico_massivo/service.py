@@ -188,11 +188,15 @@ class ScaricoMassivoService:
 
         Reads tenant.piva and tenant.name to populate the config automatically.
         """
-        # Look for existing config (any) for this tenant
+        # Look for existing config (any) for this tenant — tolerant to duplicates
+        # (DB legacy può avere più righe per lo stesso tenant: prendi la più recente)
         existing_res = await self.db.execute(
-            select(ScaricoMassivoConfig).where(ScaricoMassivoConfig.tenant_id == tenant_id)
+            select(ScaricoMassivoConfig)
+            .where(ScaricoMassivoConfig.tenant_id == tenant_id)
+            .order_by(ScaricoMassivoConfig.created_at.desc())
+            .limit(1)
         )
-        existing = existing_res.scalar_one_or_none()
+        existing = existing_res.scalars().first()
         if existing:
             return existing
 
