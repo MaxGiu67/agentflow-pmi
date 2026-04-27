@@ -31,7 +31,7 @@ export default function AppLayout() {
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top bar */}
         <header
-          className="relative flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 lg:h-16 lg:px-6"
+          className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 lg:h-16 lg:px-6"
           style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
         >
           <button
@@ -42,16 +42,9 @@ export default function AppLayout() {
             <Menu className="h-5 w-5" />
           </button>
 
-          <div className="hidden items-center gap-2 lg:flex">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-600 text-xs font-bold text-white">
-              AF
-            </div>
-            <span className="text-sm font-semibold text-gray-700">AgentFlow</span>
-          </div>
-
-          {/* Centered: company info — visible across all pages */}
-          {user?.azienda_nome && (
-            <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 md:flex">
+          {/* Company info — visible across all pages */}
+          {user?.azienda_nome ? (
+            <div className="hidden items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 md:flex">
               <Building2 className="h-4 w-4 text-purple-600" />
               <div className="leading-tight">
                 <div className="text-sm font-semibold text-gray-900">
@@ -69,9 +62,11 @@ export default function AppLayout() {
                 )}
               </div>
             </div>
+          ) : (
+            <span className="text-sm font-semibold text-gray-800">AgentFlow</span>
           )}
 
-          <span className="text-sm font-semibold text-gray-800 lg:hidden">
+          <span className="text-sm font-semibold text-gray-800 md:hidden">
             {user?.azienda_nome || 'AgentFlow'}
           </span>
 
