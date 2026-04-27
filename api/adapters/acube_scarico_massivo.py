@@ -1,18 +1,22 @@
-"""A-Cube Scarico Massivo Cassetto Fiscale — adapter.
+"""A-Cube Scarico Massivo Cassetto Fiscale — adapter REALE.
 
-STATO: SCAFFOLDING — in attesa risposta Ticket 02 A-Cube (inviato 2026-04-24).
+Implementazione basata su risposta Antonio (2026-04-27) + docs A-Cube ufficiali:
+- Modalità: APPOINTEE (incaricato — figura interna NexaData)
+- Docs: https://docs.acubeapi.com/documentation/italy/gov-it/cassettofiscale
+- Massive download: https://docs.acubeapi.com/documentation/italy/gov-it/invoices/massive-download
+- Webhooks: https://docs.acubeapi.com/documentation/italy/gov-it/webhooks
+- Sandbox: https://docs.acubeapi.com/documentation/italy/gov-it/sandbox/introduction
 
-Le firme dei metodi sono stabili, le implementazioni HTTP esatte
-(endpoint path, payload shape) saranno completate quando A-Cube risponde con:
-- Specifica OpenAPI
-- Modalità onboarding consigliata (proxy/direct/appointee)
-- Frequenza polling / webhook disponibilità
-- Formato response (array URL XML / base64 / link firmati)
-
-Il client estende ACubeOpenBankingClient per riusare auth JWT già implementato
-(lo stesso account A-Cube copre AISP + Scarico Massivo sullo stesso token).
-
-Docs pubbliche: https://docs.acubeapi.com/documentation/italy/gov-it/cassettofiscale
+Flusso onboarding cliente (per ogni P.IVA che vogliamo monitorare):
+  1. Tu (incaricato) sei già configurato lato A-Cube via support
+  2. PUT /ade-appointees/{id}/credentials/fisconline → salva password+PIN incaricato
+  3. POST /business-registry-configuration → crea config per P.IVA cliente
+  4. Cliente conferisce incarico sul portale AdE (manuale, +PDF guida)
+  5. PUT /business-registry-configurations/{id}/assign → assegna config a incaricato
+  6. POST /schedule/invoice-download/{fiscal_id} → schedula scarico daily
+  7. (opzionale) POST /jobs/invoice-download → backfill storico (last year)
+  8. Webhook → notifica nuove fatture
+  9. GET /invoices?fiscalId=... → recupera fatture scaricate
 """
 
 from __future__ import annotations
@@ -30,110 +34,208 @@ from api.adapters.acube_ob import (
 
 logger = logging.getLogger(__name__)
 
-ACUBE_PROXY_FISCAL_ID = "10442360961"  # A-Cube P.IVA to delegate on AdE portal (proxy mode)
+# Backward compat: P.IVA A-Cube come delegato proxy (modalità sconsigliata da Antonio
+# 2026-04-27 ma ancora citata nella guida UI). Lasciato per la card guida AdE.
+ACUBE_PROXY_FISCAL_ID = "10442360961"
 
 
 @dataclass
-class InvoiceSummary:
-    codice_univoco_sdi: str
-    numero_fattura: str | None
-    data_fattura: date | None
-    direction: str  # active|passive
-    tipo_documento: str | None
-    importo_totale: float | None
-    controparte_piva: str | None
-    controparte_nome: str | None
-    acube_id: str | None
+class AppointeeCredentials:
+    """Credenziali Fisconline dell'incaricato (da salvare cifrate)."""
+    password: str
+    pin: str
 
 
 @dataclass
-class InvoiceDetail:
-    summary: InvoiceSummary
-    raw_xml: str | None
+class BRConfig:
+    """Risposta creazione business-registry-configuration."""
+    id: str
+    fiscal_id: str  # P.IVA cliente
+    enabled: bool
 
 
 class ACubeScaricoMassivoClient(ACubeOpenBankingClient):
-    """Client for A-Cube Cassetto Fiscale bulk invoice download.
+    """Client per A-Cube Cassetto Fiscale — emissione/ricezione fatture massive download.
 
-    Inherits auth flow from ACubeOpenBankingClient (same credentials).
+    Eredita JWT auth da ACubeOpenBankingClient (stesso account, stesso login).
+    Usa il dominio gov-it API: https://api.acubeapi.com (sandbox: api-sandbox).
     """
 
-    # ── BusinessRegistry Configuration ─────────────────────
+    def __init__(self) -> None:
+        super().__init__()
+        # Override base URL: gov-it API ≠ Open Banking API
+        # Uso lo stesso pattern di acube_einvoicing.py
+        from api.config import settings
+        self.base_url = (
+            settings.acube_einvoicing_base_url_prod
+            if self.env == "production"
+            else settings.acube_einvoicing_base_url_sandbox
+        )
 
-    async def create_configuration(
-        self,
-        fiscal_id: str,
-        mode: str = "proxy",
-        **kwargs: Any,
+    # ── 1. Appointee credentials ──────────────────────────
+
+    async def set_appointee_credentials(
+        self, appointee_id: str, password: str, pin: str
     ) -> dict[str, Any]:
-        """Create BusinessRegistryConfiguration for the client P.IVA.
+        """PUT /ade-appointees/{id}/credentials/fisconline
 
-        TODO: confirm exact path — probable candidates:
-          POST /business-registry-configurations
-          body: {"fiscalId": fiscal_id, "mode": "proxy"}
+        Salva password+PIN Fisconline dell'incaricato su A-Cube (cifrate lato loro).
+        Lo stesso incaricato vale per tutti i clienti gestiti.
         """
-        raise NotImplementedError("Waiting Ticket 02 A-Cube response")
+        return await self._put(
+            f"/ade-appointees/{appointee_id}/credentials/fisconline",
+            {"password": password, "pin": pin},
+        )
 
-    async def get_configuration(self, config_id: str) -> dict[str, Any]:
-        """TODO: GET /business-registry-configurations/{id}"""
-        raise NotImplementedError("Waiting Ticket 02 A-Cube response")
+    # ── 2. BusinessRegistryConfiguration ──────────────────
 
-    async def set_fisconline_credentials(
-        self,
-        config_id: str,
-        cf: str,
-        password: str,
-        pin: str,
+    async def create_br_configuration(
+        self, fiscal_id: str
     ) -> dict[str, Any]:
-        """Direct mode only — store Fisconline credentials.
+        """POST /business-registry-configuration
 
-        TODO: PUT /business-registry-configurations/{id}/credentials/fisconline
+        Crea config per una P.IVA cliente. Step 1 dell'onboarding, prima
+        dell'assignment all'incaricato.
         """
-        raise NotImplementedError("Waiting Ticket 02 A-Cube response")
+        return await self._post(
+            "/business-registry-configuration",
+            {"fiscal_id": fiscal_id},
+        )
 
-    # ── Invoices list / download ───────────────────────────
+    async def get_br_configuration(self, config_id: str) -> dict[str, Any]:
+        """GET /business-registry-configurations/{id}"""
+        return await self._get(f"/business-registry-configurations/{config_id}")
 
-    async def list_invoices(
+    async def assign_to_appointee(
+        self, config_id: str, appointee_fiscal_id: str = "A-CUBE"
+    ) -> dict[str, Any]:
+        """PUT /business-registry-configurations/{id}/assign
+
+        Assegna la config all'incaricato. Per non-reseller usare "A-CUBE",
+        per noi (reseller) il CF dell'incaricato che abbiamo registrato via support.
+        """
+        return await self._put(
+            f"/business-registry-configurations/{config_id}/assign",
+            {"fiscal_id": appointee_fiscal_id},
+        )
+
+    # ── 3. Massive download — schedule ────────────────────
+
+    async def schedule_daily_download(
         self,
         fiscal_id: str,
         *,
-        since: date | None = None,
-        until: date | None = None,
-        direction: str | None = None,  # active|passive|None (both)
+        download_archive: bool = False,
+    ) -> dict[str, Any]:
+        """POST /schedule/invoice-download/{fiscal_id}
+
+        Attiva scarico schedulato daily alle 03:00 UTC.
+        - download_archive=False (default): scarica solo ultimi 3 giorni
+        - download_archive=True: include archivio dal 1 gennaio dell'anno scorso
+
+        Per backfill storico: chiamare PRIMA con download_archive=true.
+        """
+        return await self._post(
+            f"/schedule/invoice-download/{fiscal_id}",
+            {"download_archive": download_archive},
+        )
+
+    async def get_schedule_status(self, fiscal_id: str) -> dict[str, Any]:
+        """GET /schedule/invoice-download/{fiscal_id}
+
+        Ritorna {enabled, valid_until, auto_renew}.
+        """
+        return await self._get(f"/schedule/invoice-download/{fiscal_id}")
+
+    async def disable_auto_renew(self, fiscal_id: str) -> dict[str, Any]:
+        """PUT /schedule/invoice-download/{fiscal_id}"""
+        return await self._put(
+            f"/schedule/invoice-download/{fiscal_id}",
+            {"auto_renew": False},
+        )
+
+    async def delete_schedule(self, fiscal_id: str) -> dict[str, Any]:
+        """DELETE /schedule/invoice-download/{fiscal_id}"""
+        return await self._delete(f"/schedule/invoice-download/{fiscal_id}")
+
+    # ── 4. Single download job (one-shot, custom range) ───
+
+    async def trigger_one_shot_download(
+        self,
+        fiscal_id: str,
+        from_date: date,
+        to_date: date,
+    ) -> dict[str, Any]:
+        """POST /jobs/invoice-download
+
+        Lancia un singolo job di download su un range custom.
+        Utile per backfill storico mirato.
+        Tempo completamento: fino a 72h (Antonio 2026-04-27).
+        """
+        return await self._post(
+            "/jobs/invoice-download",
+            {
+                "fiscal_id": fiscal_id,
+                "from_date": from_date.isoformat(),
+                "to_date": to_date.isoformat(),
+            },
+        )
+
+    # ── 5. Retrieve downloaded invoices ───────────────────
+
+    async def list_invoices(
+        self,
+        *,
+        fiscal_id: str | None = None,
+        direction: str | None = None,  # active|passive
+        from_date: date | None = None,
+        to_date: date | None = None,
+        page: int = 1,
+        items_per_page: int = 100,
     ) -> list[dict[str, Any]]:
-        """List invoices available in the cassetto fiscale.
+        """GET /invoices
 
-        TODO: confirm exact path — probable candidates:
-          GET /business-registry/{fiscalId}/invoices?from=&to=&direction=
-        Returns: list of invoice summaries (Hydra format expected).
+        Lista fatture scaricate. Pagina automaticamente.
         """
-        raise NotImplementedError("Waiting Ticket 02 A-Cube response")
+        params: dict[str, Any] = {
+            "page": page,
+            "itemsPerPage": items_per_page,
+        }
+        if fiscal_id:
+            params["fiscalId"] = fiscal_id
+        if direction:
+            params["direction"] = direction
+        if from_date:
+            params["date[after]"] = from_date.isoformat()
+        if to_date:
+            params["date[before]"] = to_date.isoformat()
+        return await self._paginate("/invoices", params=params)
 
-    async def get_invoice_xml(self, fiscal_id: str, invoice_id: str) -> str:
-        """Download raw FatturaPA XML for a specific invoice.
+    async def get_invoice(self, uuid: str) -> dict[str, Any]:
+        """GET /invoices/{uuid}"""
+        return await self._get(f"/invoices/{uuid}")
 
-        TODO: confirm if API returns:
-          - direct XML string
-          - signed URL that we fetch separately
-          - base64-encoded content inside JSON
-        """
-        raise NotImplementedError("Waiting Ticket 02 A-Cube response")
-
-    # ── Quota monitoring ───────────────────────────────────
-
-    async def get_usage(self) -> dict[str, Any]:
-        """Current consumption — useful to alert at 80% of 5.000 fatture/anno threshold.
-
-        TODO: check if A-Cube exposes this endpoint or we track locally.
-        """
-        raise NotImplementedError("Waiting Ticket 02 A-Cube response")
+    async def get_invoice_xml(self, uuid: str) -> str:
+        """GET /invoices/{uuid} con Accept: application/xml — ritorna FatturaPA raw."""
+        token = await self._get_token()
+        import httpx
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(
+                f"{self.base_url}/invoices/{uuid}",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/xml",
+                },
+            )
+        if resp.status_code != 200:
+            raise ACubeAPIError(resp.status_code, resp.text)
+        return resp.text
 
 
 __all__ = [
-    "ACUBE_PROXY_FISCAL_ID",
     "ACubeScaricoMassivoClient",
+    "AppointeeCredentials",
+    "BRConfig",
     "ACubeAPIError",
     "ACubeAuthError",
-    "InvoiceSummary",
-    "InvoiceDetail",
 ]

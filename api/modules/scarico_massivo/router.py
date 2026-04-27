@@ -38,6 +38,34 @@ def _require_tenant(user: User) -> UUID:
     return user.tenant_id
 
 
+@router.post("/me/onboarding")
+async def onboarding_me(
+    backfill_archive: bool = Query(True, description="Includi archivio storico (1 anno indietro)"),
+    user: User = Depends(get_current_user),
+    service: ScaricoMassivoService = Depends(get_service),
+) -> dict:
+    """Lancia l'onboarding cassetto fiscale per la propria azienda — modalità incaricato.
+
+    Prerequisiti:
+    - Cliente ha conferito incarico sul portale AdE (manuale, fuori da AgentFlow)
+    - ACUBE_APPOINTEE_FISCAL_ID configurato su Railway (default 'A-CUBE' per non-reseller)
+
+    Esegue 3 chiamate A-Cube:
+    1. Crea BusinessRegistryConfiguration per la P.IVA del tenant
+    2. Assegna config all'incaricato
+    3. Attiva schedule giornaliero scarico massivo (+ backfill archive opzionale)
+
+    Primo scarico arriva entro 72h. Polling/webhook fanno il resto.
+    """
+    tenant_id = _require_tenant(user)
+    cfg = await service.ensure_self_config(tenant_id)
+    try:
+        result = await service.setup_client_onboarding(cfg, backfill_archive=backfill_archive)
+    except ScaricoMassivoServiceError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    return result
+
+
 @router.get("/delega-guide", response_model=DelegaGuideResponse)
 async def delega_guide() -> DelegaGuideResponse:
     """Step-by-step procedure to delegate A-Cube on AdE portal (proxy mode)."""

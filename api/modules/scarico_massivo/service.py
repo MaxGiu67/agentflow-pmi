@@ -20,7 +20,10 @@ from api.adapters.acube_einvoicing import (
     ACubeAuthError,
     ACubeEInvoicingClient,
 )
-from api.adapters.acube_scarico_massivo import ACUBE_PROXY_FISCAL_ID
+from api.adapters.acube_scarico_massivo import (
+    ACUBE_PROXY_FISCAL_ID,
+    ACubeScaricoMassivoClient,
+)
 from api.db.models import ScaricoFatturaLog, ScaricoMassivoConfig, Tenant
 
 logger = logging.getLogger(__name__)
@@ -33,6 +36,85 @@ class ScaricoMassivoServiceError(Exception):
 class ScaricoMassivoService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
+        self._cf_client: ACubeScaricoMassivoClient | None = None
+
+    @property
+    def cf_client(self) -> ACubeScaricoMassivoClient:
+        """Client A-Cube gov-it (cassetto fiscale + emissione)."""
+        if self._cf_client is None:
+            self._cf_client = ACubeScaricoMassivoClient()
+        return self._cf_client
+
+    async def setup_client_onboarding(
+        self,
+        cfg: ScaricoMassivoConfig,
+        *,
+        backfill_archive: bool = True,
+    ) -> dict[str, Any]:
+        """Orchestra onboarding cliente A-Cube — appointee mode.
+
+        Sequenza (assume incaricato già configurato lato A-Cube via support):
+          1. POST /business-registry-configuration   (crea config per P.IVA cliente)
+          2. PUT  /business-registry-configurations/{id}/assign  (assegna a incaricato)
+          3. POST /schedule/invoice-download/{piva}  (daily schedule + archive backfill)
+
+        Salva acube_config_id sulla ScaricoMassivoConfig.
+
+        Prerequisiti utente:
+        - Cliente ha conferito incarico sul portale AdE (manuale)
+        - Variabile ACUBE_APPOINTEE_FISCAL_ID configurata su Railway (default 'A-CUBE')
+        """
+        import os
+        appointee_fiscal_id = os.getenv("ACUBE_APPOINTEE_FISCAL_ID", "A-CUBE")
+        client = self.cf_client
+
+        # Step 1: crea config se non già fatto
+        if not cfg.acube_config_id:
+            try:
+                br_cfg = await client.create_br_configuration(cfg.client_fiscal_id)
+                cfg.acube_config_id = br_cfg.get("id") or br_cfg.get("@id", "").split("/")[-1]
+                logger.info("BR config creata: %s for piva=%s", cfg.acube_config_id, cfg.client_fiscal_id)
+            except (ACubeAPIError, ACubeAuthError) as e:
+                cfg.last_sync_error = f"create_br_configuration failed: {e}"
+                await self.db.commit()
+                raise ScaricoMassivoServiceError(f"Creazione configurazione fallita: {e}") from e
+
+        # Step 2: assegna a incaricato
+        try:
+            await client.assign_to_appointee(cfg.acube_config_id, appointee_fiscal_id)
+            logger.info("BR config %s assegnata a incaricato %s", cfg.acube_config_id, appointee_fiscal_id)
+        except (ACubeAPIError, ACubeAuthError) as e:
+            cfg.last_sync_error = f"assign_to_appointee failed: {e}"
+            await self.db.commit()
+            raise ScaricoMassivoServiceError(f"Assegnazione incaricato fallita: {e}") from e
+
+        # Step 3: schedule daily (con archivio se backfill richiesto)
+        try:
+            schedule = await client.schedule_daily_download(
+                cfg.client_fiscal_id, download_archive=backfill_archive,
+            )
+            logger.info("Daily schedule attivato per piva=%s archive=%s", cfg.client_fiscal_id, backfill_archive)
+        except (ACubeAPIError, ACubeAuthError) as e:
+            cfg.last_sync_error = f"schedule_daily_download failed: {e}"
+            await self.db.commit()
+            raise ScaricoMassivoServiceError(f"Schedule download fallito: {e}") from e
+
+        cfg.status = "active"
+        cfg.last_sync_error = None
+        await self.db.commit()
+
+        return {
+            "config_id": str(cfg.id),
+            "acube_config_id": cfg.acube_config_id,
+            "appointee_fiscal_id": appointee_fiscal_id,
+            "client_fiscal_id": cfg.client_fiscal_id,
+            "schedule_enabled": schedule.get("enabled", True),
+            "backfill_archive": backfill_archive,
+            "message": (
+                "Onboarding completato. Primo scarico massivo entro 72h. "
+                "Daily schedule attivo alle 03:00 UTC."
+            ),
+        }
         self._client: ACubeEInvoicingClient | None = None
 
     @property
