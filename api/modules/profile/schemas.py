@@ -62,6 +62,7 @@ class ProfileResponse(BaseModel):
     piva: str | None = None
     codice_ateco: str | None = None
     has_piano_conti: bool = False
+    is_super_admin: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}
