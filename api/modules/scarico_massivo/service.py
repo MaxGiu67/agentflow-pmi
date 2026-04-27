@@ -37,6 +37,7 @@ class ScaricoMassivoService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
         self._cf_client: ACubeScaricoMassivoClient | None = None
+        self._client: ACubeEInvoicingClient | None = None
 
     @property
     def cf_client(self) -> ACubeScaricoMassivoClient:
@@ -152,7 +153,6 @@ class ScaricoMassivoService:
                 "Daily schedule attivo alle 03:00 UTC."
             ),
         }
-        self._client: ACubeEInvoicingClient | None = None
 
     @property
     def client(self) -> ACubeEInvoicingClient:
