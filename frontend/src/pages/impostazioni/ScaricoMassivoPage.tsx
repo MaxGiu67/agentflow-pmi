@@ -18,6 +18,7 @@ import {
   useStartMyOnboarding,
   useSaveAppointeeCredentials,
 } from '../../api/hooks'
+import { useAuthStore } from '../../store/auth'
 import PageHeader from '../../components/ui/PageHeader'
 import Card from '../../components/ui/Card'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -56,6 +57,7 @@ function formatDate(s: string | null): string {
 }
 
 export default function ScaricoMassivoPage() {
+  const isSuperAdmin = useAuthStore((s) => s.user?.is_super_admin ?? false)
   const { data: cfg, isLoading: cfgLoading, error: cfgError } = useMyScaricoConfig()
   const { data: guide } = useDelegaGuide()
   const { data: invoicesData } = useMyDownloadedInvoices()
@@ -145,14 +147,16 @@ export default function ScaricoMassivoPage() {
         subtitle="Scarica automaticamente le tue fatture dal cassetto fiscale via A-Cube"
         actions={
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setCredModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              title="Salva credenziali Fisconline dell'incaricato su A-Cube"
-            >
-              <KeyRound className="h-4 w-4" />
-              Credenziali appointee
-            </button>
+            {isSuperAdmin && (
+              <button
+                onClick={() => setCredModalOpen(true)}
+                className="inline-flex items-center gap-2 rounded-lg border border-purple-200 bg-purple-50 px-4 py-2 text-sm font-medium text-purple-700 hover:bg-purple-100"
+                title="Super admin · Salva credenziali Fisconline dell'incaricato su A-Cube"
+              >
+                <KeyRound className="h-4 w-4" />
+                Credenziali appointee
+              </button>
+            )}
             {!cfg.acube_config_id && (
               <button
                 onClick={handleStartOnboarding}

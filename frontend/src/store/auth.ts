@@ -15,6 +15,7 @@ interface User {
   regime_fiscale: string | null
   piva: string | null
   azienda_nome: string | null
+  is_super_admin?: boolean
 }
 
 interface AuthState {

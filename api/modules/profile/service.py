@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db.models import Tenant, User
+from api.security.super_admin import is_super_admin
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class ProfileService:
             "piva": tenant.piva if tenant else None,
             "codice_ateco": tenant.codice_ateco if tenant else None,
             "has_piano_conti": tenant.odoo_db_name is not None if tenant else False,
+            "is_super_admin": is_super_admin(user),
             "created_at": user.created_at,
         }
 

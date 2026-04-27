@@ -14,6 +14,14 @@ class Settings(BaseSettings):
         return url
     redis_url: str = "redis://localhost:6379/0"
 
+    # Super admin globali (operatori NexaData) — comma-separated email list
+    # Es. SUPER_ADMIN_EMAILS=mgiurelli@nexadata.it,altro@nexadata.it
+    super_admin_emails: str = ""
+
+    @property
+    def super_admin_emails_set(self) -> set[str]:
+        return {e.strip().lower() for e in self.super_admin_emails.split(",") if e.strip()}
+
     jwt_secret_key: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 1440  # 24h
