@@ -217,13 +217,15 @@ class ACubeScaricoMassivoClient(ACubeOpenBankingClient):
         Lancia un singolo job di download su un range custom.
         Utile per backfill storico mirato.
         Tempo completamento: fino a 72h (Antonio 2026-04-27).
+
+        Body camelCase come standard A-Cube gov-it.
         """
         return await self._post(
             "/jobs/invoice-download",
             {
-                "fiscal_id": fiscal_id,
-                "from_date": from_date.isoformat(),
-                "to_date": to_date.isoformat(),
+                "fiscalId": fiscal_id,
+                "fromDate": from_date.isoformat(),
+                "toDate": to_date.isoformat(),
             },
         )
 
