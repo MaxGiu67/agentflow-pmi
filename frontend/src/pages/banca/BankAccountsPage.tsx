@@ -1,7 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Landmark, Plus, RefreshCw, CreditCard } from 'lucide-react'
-import { useBankAccounts, useConnectBank } from '../../api/hooks'
+import {
+  useBankAccounts,
+  useConnectBank,
+  useSyncBankConnection,
+} from '../../api/hooks'
+import api from '../../api/client'
 import { formatCurrency } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
 import Card from '../../components/ui/Card'
@@ -11,12 +16,42 @@ import EmptyState from '../../components/ui/EmptyState'
 
 export default function BankAccountsPage() {
   const navigate = useNavigate()
-  const { data, isLoading } = useBankAccounts()
+  const { data, isLoading, refetch } = useBankAccounts()
   const connectBank = useConnectBank()
+  const syncConn = useSyncBankConnection()
   const [showConnect, setShowConnect] = useState(false)
   const [iban, setIban] = useState('')
   const [bankName, setBankName] = useState('')
   const [connectError, setConnectError] = useState('')
+  const [syncingId, setSyncingId] = useState<string | null>(null)
+  const [syncMsg, setSyncMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const handleSync = async (account: { id: string; acube_connection_id: string | null }) => {
+    if (!account.acube_connection_id) {
+      setSyncMsg({ type: 'error', text: 'Conto non collegato via Open Banking — impossibile aggiornare.' })
+      return
+    }
+    setSyncingId(account.id)
+    setSyncMsg(null)
+    try {
+      const r = await syncConn.mutateAsync({ connectionId: account.acube_connection_id })
+      const newTx = r?.transactions?.new_transactions ?? r?.new_transactions ?? 0
+      setSyncMsg({
+        type: 'success',
+        text: newTx > 0 ? `Aggiornato: ${newTx} nuovi movimenti.` : 'Nessun nuovo movimento.',
+      })
+      // Trigger AI parsing in background — non blocca l'utente
+      api
+        .post(`/banking/connections/${account.acube_connection_id}/parse`, {})
+        .catch(() => {})
+      refetch()
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setSyncMsg({ type: 'error', text: detail ?? 'Sync fallito. Riprova o riconnetti il conto.' })
+    } finally {
+      setSyncingId(null)
+    }
+  }
 
   const handleConnect = async () => {
     setConnectError('')
@@ -66,6 +101,18 @@ export default function BankAccountsPage() {
           </div>
         }
       />
+
+      {syncMsg && (
+        <div
+          className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+            syncMsg.type === 'success'
+              ? 'border-green-200 bg-green-50 text-green-800'
+              : 'border-red-200 bg-red-50 text-red-800'
+          }`}
+        >
+          {syncMsg.text}
+        </div>
+      )}
 
       {showConnect && (
         <Card className="mb-6">
@@ -162,8 +209,19 @@ export default function BankAccountsPage() {
                 >
                   Movimenti
                 </button>
-                <button className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
-                  <RefreshCw className="h-3 w-3" />
+                <button
+                  onClick={() => handleSync(account)}
+                  disabled={syncingId === account.id || !account.acube_connection_id}
+                  title={
+                    account.acube_connection_id
+                      ? "Aggiorna i movimenti via Open Banking"
+                      : "Conto non collegato via Open Banking"
+                  }
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <RefreshCw
+                    className={`h-3 w-3 ${syncingId === account.id ? 'animate-spin' : ''}`}
+                  />
                 </button>
               </div>
             </Card>

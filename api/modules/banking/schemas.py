@@ -32,6 +32,7 @@ class BankAccountResponse(BaseModel):
     status: str
     consent_expires_at: datetime | None = None
     last_sync_at: datetime | None = None
+    acube_connection_id: UUID | None = None
     created_at: datetime | None = None
 
     model_config = {"from_attributes": True}
