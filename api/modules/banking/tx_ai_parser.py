@@ -2,7 +2,7 @@
 
 Pipeline a 3 livelli:
   1. RULES (regex/keyword) — gratis, ~70% delle transazioni IT
-  2. LLM (OpenAI GPT-4o-mini) — fallback per low confidence, ~25%
+  2. LLM (Anthropic Claude Sonnet 4.6) — fallback per low confidence, ~25%
   3. MANUAL — utente corregge in UI, feedback loop, ~5%
 
 Cache: SHA256(description) → output. Hit rate atteso 80% (boilerplate Intesa/Unicredit/etc).
@@ -222,14 +222,18 @@ async def parse_with_llm(
     tenant_name: str | None = None,
     tenant_piva: str | None = None,
 ) -> ParsedTx:
-    """Step 2: chiamata OpenAI GPT-4o-mini per parsing strutturato.
+    """Step 2: chiamata Anthropic Claude Sonnet 4.6 per parsing strutturato.
 
-    Async (httpx). Costo medio: $0.0005/transazione.
+    Async (httpx). Default ANTHROPIC_PARSER_MODEL=claude-sonnet-4-6.
+    Override possibile via env var per A/B test (es. claude-haiku-4-5 per
+    minor costo, claude-opus-4-7 per max qualità).
     """
-    api_key = os.getenv("OPENAI_API_KEY", "")
+    api_key = os.getenv("ANTHROPIC_API_KEY", "")
     if not api_key:
-        logger.warning("OPENAI_API_KEY non configurata — LLM parser disabled")
+        logger.warning("ANTHROPIC_API_KEY non configurata — LLM parser disabled")
         return ParsedTx(category="other", confidence=0.0, method="llm", notes="LLM not configured")
+
+    model = os.getenv("ANTHROPIC_PARSER_MODEL", "claude-sonnet-4-6")
 
     titolare_info = ""
     if tenant_name or tenant_piva:
@@ -242,35 +246,48 @@ async def parse_with_llm(
         titolare_info
         + f"Descrizione: {description}\n"
         f"Direzione: {'ricevuto (credit)' if direction == 'credit' else 'inviato (debit)'}\n"
-        f"Importo: {amount} EUR"
+        f"Importo: {amount} EUR\n\n"
+        "Rispondi SOLO con un oggetto JSON valido (no markdown, no testo prima/dopo)."
     )
 
     import httpx
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=20.0) as client:
             resp = await client.post(
-                "https://api.openai.com/v1/chat/completions",
+                "https://api.anthropic.com/v1/messages",
                 headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
                 },
                 json={
-                    "model": "gpt-4o-mini",
-                    "messages": [
-                        {"role": "system", "content": _LLM_PROMPT_SYSTEM},
-                        {"role": "user", "content": user_msg},
-                    ],
-                    "response_format": {"type": "json_object"},
+                    "model": model,
+                    "max_tokens": 512,
                     "temperature": 0.0,
+                    "system": _LLM_PROMPT_SYSTEM,
+                    "messages": [{"role": "user", "content": user_msg}],
                 },
             )
         if resp.status_code != 200:
-            logger.error("OpenAI %s: %s", resp.status_code, resp.text[:200])
+            logger.error("Anthropic %s: %s", resp.status_code, resp.text[:200])
             return ParsedTx(category="other", confidence=0.0, method="llm", notes="LLM error")
 
         data = resp.json()
-        content = data["choices"][0]["message"]["content"]
+        # Anthropic content è un array di blocchi: prendi il primo blocco text
+        text_blocks = [b for b in data.get("content", []) if b.get("type") == "text"]
+        if not text_blocks:
+            logger.error("Anthropic empty content: %s", data)
+            return ParsedTx(category="other", confidence=0.0, method="llm", notes="LLM empty")
+        content = text_blocks[0]["text"].strip()
+
+        # Strip eventuali code fence che il modello a volte aggiunge
+        if content.startswith("```"):
+            content = content.split("```", 2)[1]
+            if content.startswith("json"):
+                content = content[4:]
+            content = content.strip("` \n")
+
         parsed = json.loads(content)
 
         return ParsedTx(
