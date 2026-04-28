@@ -91,9 +91,19 @@ class AppointeeCredentialsResponse(BaseModel):
 
 
 class DelegaGuideResponse(BaseModel):
-    """Step-by-step guide to shown in UI when registering a new client in proxy mode."""
+    """Step-by-step guide AdE setup. Differente per modalità."""
 
+    mode: str = "appointee"  # appointee | proxy_delega
     acube_fiscal_id: str
     portale_ade_url: str
     steps: list[str]
     services_to_delegate: list[str]
+
+
+class OnboardingRequest(BaseModel):
+    """Body opzionale per /me/onboarding — permette di scegliere modalità."""
+
+    mode: str | None = Field(None, description="appointee | proxy_delega")
+    proxying_fiscal_id: str | None = Field(
+        None, description="CF persona fisica per ditte individuali / lavoratori autonomi"
+    )

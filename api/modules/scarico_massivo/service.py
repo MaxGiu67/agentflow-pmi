@@ -83,22 +83,42 @@ class ScaricoMassivoService:
         cfg: ScaricoMassivoConfig,
         *,
         backfill_archive: bool = True,
+        mode: str | None = None,
+        proxying_fiscal_id: str | None = None,
     ) -> dict[str, Any]:
-        """Orchestra onboarding cliente A-Cube — appointee mode.
+        """Orchestra onboarding cliente A-Cube — appointee o delega proxy.
 
-        Sequenza (assume incaricato già configurato lato A-Cube via support):
-          1. POST /business-registry-configuration   (crea config per P.IVA cliente)
-          2. POST /ade-appointees/{appointee_fid}/assign  (assegna P.IVA cliente all'incaricato)
+        Modalità:
+          - "appointee": assegna a CF persona fisica (operatore Incaricato)
+            registrato sul portale AdE come servizio "Consultazione fatture - Personale".
+            appointee_fiscal_id = ACUBE_APPOINTEE_FISCAL_ID env var.
+
+          - "proxy_delega": assegna ad A-Cube SRL (P.IVA 10442360961) come
+            delegato unificato. Usato per il caso "amministratore unico/gestore"
+            (Antonio 2026-04-28). Cliente da DELEGA UNIFICATA ad A-Cube su AdE.
+
+        Se mode è None, usa cfg.onboarding_mode (default "appointee").
+
+        Sequenza:
+          1. POST /business-registry-configurations   (crea config per P.IVA cliente)
+          2. POST /ade-appointees/{appointee_fid}/assign  (assegna P.IVA cliente)
           3. POST /schedule/invoice-download/{piva}  (daily schedule + archive backfill)
-
-        Salva acube_config_id sulla ScaricoMassivoConfig.
-
-        Prerequisiti utente:
-        - Cliente ha conferito incarico sul portale AdE (manuale)
-        - Variabile ACUBE_APPOINTEE_FISCAL_ID configurata su Railway (default 'A-CUBE')
         """
         import os
-        appointee_fiscal_id = os.getenv("ACUBE_APPOINTEE_FISCAL_ID", "A-CUBE")
+        from api.adapters.acube_scarico_massivo import ACUBE_PROXY_FISCAL_ID
+
+        # Resolve mode
+        effective_mode = (mode or cfg.onboarding_mode or "appointee").lower()
+        if effective_mode in ("proxy", "proxy_delega", "delega"):
+            effective_mode = "proxy_delega"
+            appointee_fiscal_id = ACUBE_PROXY_FISCAL_ID  # 10442360961
+        else:
+            effective_mode = "appointee"
+            appointee_fiscal_id = os.getenv("ACUBE_APPOINTEE_FISCAL_ID", "A-CUBE")
+
+        # Persist the mode chosen so future calls/UI know
+        cfg.onboarding_mode = effective_mode
+
         client = self.cf_client
 
         # Step 1: crea config se non già fatto
@@ -112,19 +132,21 @@ class ScaricoMassivoService:
                 await self.db.commit()
                 raise ScaricoMassivoServiceError(f"Creazione configurazione fallita: {e}") from e
 
-        # Step 2: assegna P.IVA cliente all'incaricato
+        # Step 2: assegna P.IVA cliente
         try:
             await client.assign_to_appointee(
                 appointee_fiscal_id=appointee_fiscal_id,
                 client_fiscal_id=cfg.client_fiscal_id,
+                proxying_fiscal_id=proxying_fiscal_id,
             )
             logger.info(
-                "P.IVA %s assegnata a incaricato %s", cfg.client_fiscal_id, appointee_fiscal_id
+                "P.IVA %s assegnata (mode=%s, appointee=%s)",
+                cfg.client_fiscal_id, effective_mode, appointee_fiscal_id,
             )
         except (ACubeAPIError, ACubeAuthError) as e:
-            cfg.last_sync_error = f"assign_to_appointee failed: {e}"
+            cfg.last_sync_error = f"assign failed (mode={effective_mode}): {e}"
             await self.db.commit()
-            raise ScaricoMassivoServiceError(f"Assegnazione incaricato fallita: {e}") from e
+            raise ScaricoMassivoServiceError(f"Assegnazione fallita: {e}") from e
 
         # Step 3: schedule daily (con archivio se backfill richiesto)
         try:
@@ -146,6 +168,7 @@ class ScaricoMassivoService:
             "acube_config_id": cfg.acube_config_id,
             "appointee_fiscal_id": appointee_fiscal_id,
             "client_fiscal_id": cfg.client_fiscal_id,
+            "mode": effective_mode,
             "schedule_enabled": schedule.get("enabled", True),
             "backfill_archive": backfill_archive,
             "message": (
@@ -453,16 +476,44 @@ class ScaricoMassivoService:
     # ── Delega guide (UI helper, proxy mode) ──────────────
 
     @staticmethod
-    def get_delega_guide() -> dict:
-        """Return the step-by-step procedura di INCARICO sul portale AdE.
+    def get_delega_guide(mode: str = "appointee") -> dict:
+        """Step-by-step AdE setup guide per la modalità richiesta.
 
-        Modalità "incarico" (Appointee) raccomandata da A-Cube (Antonio 2026-04-27):
-        il cliente da incarico al CF dell'incaricato NexaData (configurato via
-        ACUBE_APPOINTEE_FISCAL_ID), non a una P.IVA proxy.
+        - mode="appointee" → procedura INCARICO al CF persona fisica
+          (per chi NON è gestore della società cliente)
+        - mode="proxy_delega" → procedura DELEGA UNIFICATA ad A-Cube SRL
+          (per il caso amministratore unico/gestore — Antonio 2026-04-28)
         """
         import os
+        from api.adapters.acube_scarico_massivo import ACUBE_PROXY_FISCAL_ID
+
+        if mode in ("proxy", "proxy_delega", "delega"):
+            return {
+                "mode": "proxy_delega",
+                "acube_fiscal_id": ACUBE_PROXY_FISCAL_ID,
+                "portale_ade_url": "https://www.agenziaentrate.gov.it/portale/area-riservata",
+                "steps": [
+                    "Accedi al portale AdE con SPID/CIE/CNS",
+                    "In alto a destra verifica che l'utenza di lavoro sia l'azienda (non persona fisica)",
+                    "Menu in alto → Il tuo profilo",
+                    "Menu laterale blu → Deleghe → Intermediari",
+                    "Clicca 'Gestisci deleghe come delegante'",
+                    "Clicca 'Aggiungi delega' → tipologia: 'Delega unica'",
+                    f"Inserisci il codice fiscale del delegato: {ACUBE_PROXY_FISCAL_ID} (A-Cube S.r.l.)",
+                    "Spunta i 3 servizi indicati qui sotto",
+                    "Salva — la delega è subito Attiva con scadenza 31/12 del 4° anno successivo",
+                ],
+                "services_to_delegate": [
+                    "Consultazione e acquisizione delle fatture elettroniche o dei loro duplicati informatici",
+                    "Consultazione dei dati rilevanti ai fini IVA",
+                    "Registrazione dell'indirizzo telematico",
+                ],
+            }
+
+        # Default: appointee mode
         appointee_fiscal_id = os.getenv("ACUBE_APPOINTEE_FISCAL_ID", "GRLMSM67T11H501Z")
         return {
+            "mode": "appointee",
             "acube_fiscal_id": appointee_fiscal_id,
             "portale_ade_url": "https://www.agenziaentrate.gov.it/portale/area-riservata",
             "steps": [

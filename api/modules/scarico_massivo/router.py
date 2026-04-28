@@ -19,6 +19,7 @@ from api.modules.scarico_massivo.schemas import (
     DelegaGuideResponse,
     InvoiceLogListResponse,
     InvoiceLogResponse,
+    OnboardingRequest,
     SyncRequest,
     SyncResponse,
 )
@@ -43,27 +44,36 @@ def _require_tenant(user: User) -> UUID:
 
 @router.post("/me/onboarding")
 async def onboarding_me(
-    backfill_archive: bool = Query(True, description="Includi archivio storico (1 anno indietro)"),
+    backfill_archive: bool = Query(True, description="Includi archivio storico"),
+    body: OnboardingRequest | None = None,
     user: User = Depends(get_current_user),
     service: ScaricoMassivoService = Depends(get_service),
 ) -> dict:
-    """Lancia l'onboarding cassetto fiscale per la propria azienda — modalità incaricato.
+    """Lancia l'onboarding cassetto fiscale per la propria azienda.
 
-    Prerequisiti:
-    - Cliente ha conferito incarico sul portale AdE (manuale, fuori da AgentFlow)
-    - ACUBE_APPOINTEE_FISCAL_ID configurato su Railway (default 'A-CUBE' per non-reseller)
+    Modalità (parametro `mode` nel body):
+    - "appointee" (default): assegna a CF persona fisica registrato come Incaricato
+      su AdE. Usato quando l'utente NON è gestore della società.
+    - "proxy_delega": assegna ad A-Cube SRL come delegato unificato (P.IVA 10442360961).
+      Usato per il caso amministratore unico/gestore (Antonio 2026-04-28).
 
-    Esegue 3 chiamate A-Cube:
-    1. Crea BusinessRegistryConfiguration per la P.IVA del tenant
-    2. Assegna config all'incaricato
-    3. Attiva schedule giornaliero scarico massivo (+ backfill archive opzionale)
+    Prerequisiti utente (su AdE, dipende da mode):
+    - appointee: incarico al CF in ACUBE_APPOINTEE_FISCAL_ID
+    - proxy_delega: delega unificata ad A-Cube SRL
 
-    Primo scarico arriva entro 72h. Polling/webhook fanno il resto.
+    Esegue 3 chiamate A-Cube: create BR config + assign + schedule daily.
+    Primo scarico arriva entro 72h.
     """
     tenant_id = _require_tenant(user)
     cfg = await service.ensure_self_config(tenant_id)
+    body = body or OnboardingRequest()
     try:
-        result = await service.setup_client_onboarding(cfg, backfill_archive=backfill_archive)
+        result = await service.setup_client_onboarding(
+            cfg,
+            backfill_archive=backfill_archive,
+            mode=body.mode,
+            proxying_fiscal_id=body.proxying_fiscal_id,
+        )
     except ScaricoMassivoServiceError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
     return result
@@ -94,9 +104,11 @@ async def save_appointee_credentials(
 
 
 @router.get("/delega-guide", response_model=DelegaGuideResponse)
-async def delega_guide() -> DelegaGuideResponse:
+async def delega_guide(
+    mode: str = Query("appointee", description="appointee | proxy_delega"),
+) -> DelegaGuideResponse:
     """Step-by-step procedure to delegate A-Cube on AdE portal (proxy mode)."""
-    return DelegaGuideResponse(**ScaricoMassivoService.get_delega_guide())
+    return DelegaGuideResponse(**ScaricoMassivoService.get_delega_guide(mode=mode))
 
 
 @router.get("/me", response_model=ConfigResponse)

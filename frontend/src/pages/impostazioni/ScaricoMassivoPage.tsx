@@ -59,7 +59,10 @@ function formatDate(s: string | null): string {
 export default function ScaricoMassivoPage() {
   const isSuperAdmin = useAuthStore((s) => s.user?.is_super_admin ?? false)
   const { data: cfg, isLoading: cfgLoading, error: cfgError } = useMyScaricoConfig()
-  const { data: guide } = useDelegaGuide()
+  const [onboardingMode, setOnboardingMode] = useState<'appointee' | 'proxy_delega'>(
+    'proxy_delega',
+  )
+  const { data: guide } = useDelegaGuide(onboardingMode)
   const { data: invoicesData } = useMyDownloadedInvoices()
   const sync = useSyncMyScarico()
   const startOnboarding = useStartMyOnboarding()
@@ -88,7 +91,10 @@ export default function ScaricoMassivoPage() {
   const handleStartOnboarding = async () => {
     setOnboardingMessage(null)
     try {
-      const r = await startOnboarding.mutateAsync(true)
+      const r = await startOnboarding.mutateAsync({
+        backfillArchive: true,
+        mode: onboardingMode,
+      })
       setOnboardingMessage({
         type: 'success',
         text: r.message || 'Onboarding A-Cube avviato. Primo scarico massivo entro 72h.',
@@ -391,13 +397,59 @@ export default function ScaricoMassivoPage() {
         </div>
       )}
 
-      {/* Delega guide — collapsed by default */}
+      {/* Mode selector + delega guide — visible when not yet active */}
       {guide && cfg.status === 'pending' && (
         <Card className="mt-6">
           <h3 className="mb-3 text-lg font-semibold text-gray-900">Come abilitare lo scarico</h3>
+
+          <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <p className="mb-2 text-sm font-medium text-gray-900">
+              Scegli la modalità in base al tuo ruolo nella società:
+            </p>
+            <div className="space-y-2">
+              <label className="flex cursor-pointer items-start gap-2 rounded p-2 hover:bg-white">
+                <input
+                  type="radio"
+                  name="onboarding_mode"
+                  value="proxy_delega"
+                  checked={onboardingMode === 'proxy_delega'}
+                  onChange={() => setOnboardingMode('proxy_delega')}
+                  className="mt-1"
+                />
+                <div className="text-sm">
+                  <div className="font-medium text-gray-900">
+                    Sono Amministratore / Gestore della società (consigliato)
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    Delega Unificata ad A-Cube SRL — usato per amministratori unici e gestori AdE
+                  </div>
+                </div>
+              </label>
+              <label className="flex cursor-pointer items-start gap-2 rounded p-2 hover:bg-white">
+                <input
+                  type="radio"
+                  name="onboarding_mode"
+                  value="appointee"
+                  checked={onboardingMode === 'appointee'}
+                  onChange={() => setOnboardingMode('appointee')}
+                  className="mt-1"
+                />
+                <div className="text-sm">
+                  <div className="font-medium text-gray-900">
+                    Sono Operatore Incaricato esterno
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    Incarico al CF persona fisica registrato come Incaricato sul cassetto
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
           <p className="mb-3 text-sm text-gray-600">
-            Per consentire ad A-Cube di leggere il tuo cassetto fiscale, devi delegarlo sul portale AdE.
-            La delega è gratuita, vale fino al 31/12 del 4° anno successivo, e può essere revocata in
+            Per consentire ad A-Cube di leggere il tuo cassetto fiscale, devi
+            {onboardingMode === 'proxy_delega' ? ' delegarlo' : ' incaricarlo'} sul portale AdE.
+            È gratuito, vale fino al 31/12 del 4° anno successivo, e può essere revocato in
             qualsiasi momento.
           </p>
           <a
@@ -411,7 +463,9 @@ export default function ScaricoMassivoPage() {
           </a>
           <div className="rounded-lg bg-gray-50 p-3">
             <p className="text-sm font-medium text-gray-900">
-              Codice fiscale da delegare:{' '}
+              {onboardingMode === 'proxy_delega'
+                ? 'Codice fiscale del delegato (A-Cube SRL):'
+                : 'Codice fiscale da incaricare:'}{' '}
               <code className="rounded bg-white px-2 py-0.5">{guide.acube_fiscal_id}</code>
             </p>
           </div>

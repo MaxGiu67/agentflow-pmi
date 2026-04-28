@@ -26,7 +26,10 @@ export interface ScaricoConfigInput {
   onboarding_mode?: string
 }
 
+export type OnboardingMode = 'appointee' | 'proxy_delega'
+
 export interface DelegaGuide {
+  mode: OnboardingMode
   acube_fiscal_id: string
   portale_ade_url: string
   steps: string[]
@@ -101,18 +104,29 @@ export interface OnboardingResult {
   acube_config_id: string
   appointee_fiscal_id: string
   client_fiscal_id: string
+  mode: OnboardingMode
   schedule_enabled: boolean
   backfill_archive: boolean
   message: string
 }
 
+export interface StartOnboardingInput {
+  backfillArchive?: boolean
+  mode?: OnboardingMode
+  proxyingFiscalId?: string
+}
+
 export function useStartMyOnboarding() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (backfillArchive: boolean = true) =>
+    mutationFn: (input: StartOnboardingInput = {}) =>
       api
         .post<OnboardingResult>(
-          `/scarico-massivo/me/onboarding?backfill_archive=${backfillArchive}`,
+          `/scarico-massivo/me/onboarding?backfill_archive=${input.backfillArchive ?? true}`,
+          {
+            mode: input.mode,
+            proxying_fiscal_id: input.proxyingFiscalId,
+          },
         )
         .then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['scarico-massivo'] }),
@@ -127,10 +141,13 @@ export function useMyDownloadedInvoices() {
   })
 }
 
-export function useDelegaGuide() {
+export function useDelegaGuide(mode: OnboardingMode = 'appointee') {
   return useQuery({
-    queryKey: ['scarico-massivo', 'delega-guide'],
-    queryFn: () => api.get<DelegaGuide>('/scarico-massivo/delega-guide').then((r) => r.data),
+    queryKey: ['scarico-massivo', 'delega-guide', mode],
+    queryFn: () =>
+      api
+        .get<DelegaGuide>(`/scarico-massivo/delega-guide?mode=${mode}`)
+        .then((r) => r.data),
     staleTime: Infinity,
   })
 }

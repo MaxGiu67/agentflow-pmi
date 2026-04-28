@@ -125,16 +125,44 @@ class ACubeScaricoMassivoClient(ACubeOpenBankingClient):
     ) -> dict[str, Any]:
         """POST /ade-appointees/{appointee_fiscal_id}/assign
 
-        Assegna una P.IVA cliente all'incaricato (modalità incarico).
-        Per modalità delega/proxy passare anche proxying_fiscal_id (es. CF persona fisica).
-        Conferma Antonio 2026-04-27: per incarico proxying_fiscal_id non serve.
+        Body camelCase come da Antonio 2026-04-28:
+          fiscalId          → P.IVA cliente (obbligatorio)
+          proxyingFiscalId  → CF persona fisica (opzionale, solo lavoratori autonomi
+                              o ditte individuali)
+
+        Modalità INCARICO (operatore): appointee_fiscal_id = CF persona fisica registrata
+        come Incaricato sul portale AdE. proxying_fiscal_id non serve.
+
+        Modalità DELEGA (proxy A-Cube): appointee_fiscal_id = ACUBE_PROXY_FISCAL_ID
+        (10442360961). Per partite IVA standard proxying_fiscal_id non serve.
         """
-        body: dict[str, Any] = {"fiscal_id": client_fiscal_id}
+        body: dict[str, Any] = {"fiscalId": client_fiscal_id}
         if proxying_fiscal_id:
-            body["proxying_fiscal_id"] = proxying_fiscal_id
+            body["proxyingFiscalId"] = proxying_fiscal_id
         return await self._post(
             f"/ade-appointees/{appointee_fiscal_id}/assign",
             body,
+        )
+
+    async def assign_via_proxy_delega(
+        self,
+        client_fiscal_id: str,
+        *,
+        proxying_fiscal_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Scorciatoia: assegna usando A-Cube SRL come delegato unificato.
+
+        Per il caso "amministratore unico/gestore" dove il CF dell'utente è
+        già Gestore della società e AdE non permette di aggiungersi anche
+        come Incaricato. Antonio 2026-04-28: usa Delega Unificata ad A-Cube.
+
+        Prerequisito utente: delega ad A-Cube SRL (P.IVA 10442360961) sul
+        portale AdE → Profilo → Deleghe → Intermediari → Nuova delega.
+        """
+        return await self.assign_to_appointee(
+            appointee_fiscal_id=ACUBE_PROXY_FISCAL_ID,
+            client_fiscal_id=client_fiscal_id,
+            proxying_fiscal_id=proxying_fiscal_id,
         )
 
     # ── 3. Massive download — schedule ────────────────────
