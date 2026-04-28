@@ -493,9 +493,20 @@ class ACubeOpenBankingService:
             }
 
             for tx_data in remote_txs:
-                # A-Cube returns "transactionId" (snake/camel mix); fallback to "id" or "@id"
+                # Skip duplicate flagged da A-Cube (espone ogni movimento 2 volte:
+                # vista raw + vista categorizzata, con transactionId diversi).
+                # I flag possibili sono: top-level 'duplicated' (true sulla raw)
+                # e extra.possibleDuplicate (true sulla categorizzata).
+                _extra = tx_data.get("extra") or {}
+                if tx_data.get("duplicated") or _extra.get("possibleDuplicate"):
+                    continue
+
+                # extra.id è lo stable identifier della transazione bancaria
+                # (es. '08344-03201-000019881939-20260427-000001'). Preferito su
+                # transactionId che cambia per ogni vista A-Cube.
                 acube_tx_id = (
-                    tx_data.get("transactionId")
+                    _extra.get("id")
+                    or tx_data.get("transactionId")
                     or tx_data.get("id")
                     or (tx_data.get("@id") or "").split("/")[-1]
                 )
