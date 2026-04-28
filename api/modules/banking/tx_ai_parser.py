@@ -75,21 +75,41 @@ _INVOICE_RE = re.compile(
 )
 
 # Categorie via keyword
+# IMPORTANT: ordine = priorità. Le commissioni bonifico vanno PRIMA del bonifico
+# generico, altrimenti "COSTO BONIFICO 0,70 EUR" diventerebbe expense_invoice.
 _CATEGORY_KEYWORDS: list[tuple[str, str, list[str]]] = [
     # (category, subcategory, keywords)
+    # ── Commissioni bonifico (priorità alta) ──
+    ("fee", "commissione_bonifico", [
+        "COSTO BONIFICO", "SPESE BONIFICO", "COMMISSIONE BONIFICO",
+        "COMM BONIFICO", "COMM. BONIFICO", "COSTO BON", "SPESE BON",
+        "COMMISSIONE INCASSO", "SPESE OPERAZIONE",
+    ]),
     ("tax_f24", "f24", ["F24", "AGENZIA ENTRATE", "ADDEBITO F24"]),
     ("tax_iva", "iva", ["LIQUIDAZIONE IVA", "VERSAMENTO IVA", "ADDEBITO IVA"]),
-    ("payroll", "stipendio", ["STIPENDIO", "EMOLUMENTI", "BUSTA PAGA", "RETRIBUZIONE"]),
+    # ── Stipendi e compensi ──
+    ("payroll", "stipendio", [
+        "STIPENDIO", "STIPENDI", "EMOLUMENTI", "BUSTA PAGA", "RETRIBUZIONE",
+        "ACCREDITO STIPENDIO", "PAGAMENTO STIPENDIO", "MENSILITA",
+        "PAGA MESE", "ACCONTO STIPENDIO",
+    ]),
+    ("payroll", "compenso", [
+        "COMPENSO", "COMPENSO COLLABORATORE", "COMPENSO AMMINISTRATORE",
+        "COMPENSO CO.CO.CO", "PARCELLA",
+    ]),
     ("payroll", "tfr", ["TFR", "TRATTAMENTO FINE RAPPORTO"]),
     ("payroll", "contributi", ["INPS", "INAIL", "F24 INPS"]),
+    # ── Finanziamenti ──
     ("loan_payment", "rata_mutuo", ["MUTUO", "RATA MUTUO"]),
     ("loan_payment", "rata_prestito", ["PRESTITO", "RATA PRESTITO", "PRESTITALIA", "FINANZIAMENTO"]),
     ("loan_payment", "leasing", ["LEASING", "RATA LEASING"]),
     ("interest", None, ["INTERESSI", "COMPETENZE"]),
+    # ── Commissioni generiche e canoni ──
     ("fee", "commissione", ["COMMISSIONI", "COMMISSIONE", "SPESE TENUTA", "COSTO", "BOLLO"]),
     ("fee", "canone", ["CANONE", "CANONE MENSILE", "CANONE TRIMESTRALE"]),
     ("fee", "polizza", ["POLIZZA", "PREMIO POLIZZA", "ASSICURAZIONE"]),
     ("fee", "imposta_bollo", ["IMPOSTA DI BOLLO"]),
+    # ── Operazioni cash/POS ──
     ("atm", None, ["PRELEVAMENTO ATM", "PRELIEVO ATM", "PRELIEVO BANCOMAT"]),
     ("pos", None, ["POS", "PAGAMENTO POS", "ACQUISTO"]),
     ("sepa_dd", None, ["SEPA DIRECT DEBIT", "ADDEBITO DIRETTO", "RID", "SDD"]),
@@ -98,6 +118,10 @@ _CATEGORY_KEYWORDS: list[tuple[str, str, list[str]]] = [
 ]
 
 _BONIFICO_KEYWORDS = ["BONIFICO", "ACCR BON", "ADDEBITO BON", "BONIFICO IST"]
+
+# Soglia importo: bonifici sotto questa cifra in uscita sono quasi sempre
+# commissioni della banca (mai un pagamento reale a un fornitore).
+_FEE_AMOUNT_THRESHOLD_EUR = 5.0
 
 
 def _hash(s: str) -> str:
@@ -157,10 +181,22 @@ def parse_with_rules(description: str | None, direction: str, amount: float) -> 
 
     # Fallback: se è bonifico ma niente match
     if not matched_cat:
-        if any(re.search(r"\b" + re.escape(b) + r"\b", desc_upper) for b in _BONIFICO_KEYWORDS):
-            result.category = "income_invoice" if direction == "credit" else "expense_invoice"
-            result.subcategory = "bonifico"
-            result.confidence += 0.2
+        is_bonifico = any(
+            re.search(r"\b" + re.escape(b) + r"\b", desc_upper) for b in _BONIFICO_KEYWORDS
+        )
+        if is_bonifico:
+            # Importi piccoli in uscita = quasi sempre commissione bancaria,
+            # MAI un pagamento reale a un cliente/fornitore (Massimi feedback 2026-04-28)
+            abs_amount = abs(amount or 0)
+            if direction == "debit" and abs_amount < _FEE_AMOUNT_THRESHOLD_EUR:
+                result.category = "fee"
+                result.subcategory = "commissione_bonifico"
+                result.counterparty = None  # non è una controparte reale
+                result.confidence = max(result.confidence, 0.85)
+            else:
+                result.category = "income_invoice" if direction == "credit" else "expense_invoice"
+                result.subcategory = "bonifico"
+                result.confidence += 0.2
         else:
             result.category = "other"
 
@@ -202,14 +238,28 @@ Rispondi SOLO in JSON con questa struttura:
 Regole categorizzazione:
 - Bonifico ricevuto da CLIENTE/altra azienda → category='income_invoice'
 - Bonifico inviato a FORNITORE/altra azienda → category='expense_invoice'
-- Stipendio/emolumenti → category='payroll'
+- Stipendio, busta paga, retribuzione, emolumenti, mensilità → category='payroll', subcategory='stipendio'
+- Compenso amministratore, parcella professionista, co.co.co → category='payroll', subcategory='compenso'
+- TFR, fine rapporto → category='payroll', subcategory='tfr'
 - F24/Agenzia Entrate → category='tax_f24'
+- Liquidazione/versamento IVA → category='tax_iva'
 - Commissione/canone/imposta bollo/spese → category='fee'
 - Premio polizza assicurativa → category='fee', subcategory='polizza'
 - Rata mutuo/prestito/finanziamento → category='loan_payment'
 - Interessi attivi/passivi → category='interest'
-- Movimento senza controparte chiara (commissione automatica banca) → counterparty=null, category='fee'
-- IMPORTANTE: codici dispositivi tipo "0126040163715019" NON sono IBAN — IBAN inizia con 'IT' + 25 caratteri
+
+REGOLE CRITICHE — costi banca vs pagamenti reali:
+- Bonifico USCITA con importo < 5 EUR (es. 0,70 EUR, 1,50 EUR, 2 EUR) →
+  è SEMPRE una COMMISSIONE BONIFICO della banca, MAI un pagamento a un cliente/fornitore.
+  Imposta category='fee', subcategory='commissione_bonifico', counterparty=null.
+- "COSTO BONIFICO", "SPESE BONIFICO", "COMMISSIONE BONIFICO", "COMM BONIFICO" →
+  category='fee', subcategory='commissione_bonifico', counterparty=null (è la banca, non un soggetto).
+- Movimento senza controparte chiara e descrizione tipo "spese", "imposta", "bollo" →
+  counterparty=null, category='fee'.
+
+IMPORTANTE — IBAN:
+- IBAN italiano valido = 'IT' + 2 cifre + 1 lettera + 22 caratteri alfanumerici (totale 27)
+- Codici dispositivi tipo "0126040163715019" o "TRN: 0123..." NON sono IBAN, ritorna null
 - confidence: 0.95+ se chiaro, 0.7-0.9 buono, < 0.7 ambiguo
 """
 
