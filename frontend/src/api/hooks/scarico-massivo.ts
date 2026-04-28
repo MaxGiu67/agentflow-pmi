@@ -116,6 +116,30 @@ export interface StartOnboardingInput {
   proxyingFiscalId?: string
 }
 
+export interface BackfillInput {
+  from_date: string  // ISO YYYY-MM-DD
+  to_date: string
+}
+
+export interface BackfillResult {
+  job_id: string | null
+  client_fiscal_id: string
+  from_date: string
+  to_date: string
+  message: string
+}
+
+export function useTriggerBackfill() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: BackfillInput) =>
+      api
+        .post<BackfillResult>('/scarico-massivo/me/backfill', data)
+        .then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['scarico-massivo'] }),
+  })
+}
+
 export function useStartMyOnboarding() {
   const qc = useQueryClient()
   return useMutation({

@@ -46,6 +46,41 @@ class ScaricoMassivoService:
             self._cf_client = ACubeScaricoMassivoClient()
         return self._cf_client
 
+    async def trigger_backfill(
+        self,
+        cfg: ScaricoMassivoConfig,
+        from_date: date,
+        to_date: date,
+    ) -> dict[str, Any]:
+        """One-shot scarico storico: POST /jobs/invoice-download.
+
+        Antonio 2026-04-27: tempo completamento fino a 72h. Le fatture
+        vengono pubblicate su /invoices?fiscalId=... man mano che A-Cube
+        le scarica dal cassetto.
+        """
+        if from_date > to_date:
+            raise ScaricoMassivoServiceError("from_date deve essere <= to_date")
+        try:
+            result = await self.cf_client.trigger_one_shot_download(
+                cfg.client_fiscal_id, from_date, to_date,
+            )
+        except (ACubeAPIError, ACubeAuthError) as e:
+            logger.warning("trigger_backfill failed: %s", e)
+            raise ScaricoMassivoServiceError(f"Backfill fallito: {e}") from e
+        job_id = result.get("id") or result.get("@id", "").split("/")[-1] or None
+        return {
+            "job_id": job_id,
+            "client_fiscal_id": cfg.client_fiscal_id,
+            "from_date": from_date,
+            "to_date": to_date,
+            "message": (
+                f"Job di scarico storico avviato per il range "
+                f"{from_date.isoformat()} → {to_date.isoformat()}. "
+                "Tempo di completamento fino a 72h. Le fatture appariranno "
+                "qui mano a mano che A-Cube le scarica dal cassetto fiscale."
+            ),
+        }
+
     async def save_appointee_credentials(
         self,
         *,

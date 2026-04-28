@@ -13,6 +13,8 @@ from api.middleware.auth import get_current_user
 from api.modules.scarico_massivo.schemas import (
     AppointeeCredentialsRequest,
     AppointeeCredentialsResponse,
+    BackfillRequest,
+    BackfillResponse,
     ClientRegisterRequest,
     ConfigListResponse,
     ConfigResponse,
@@ -77,6 +79,31 @@ async def onboarding_me(
     except ScaricoMassivoServiceError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
     return result
+
+
+@router.post("/me/backfill", response_model=BackfillResponse)
+async def backfill_my_archive(
+    body: BackfillRequest,
+    user: User = Depends(get_current_user),
+    service: ScaricoMassivoService = Depends(get_service),
+) -> BackfillResponse:
+    """Lancia uno scarico massivo one-shot su un range custom.
+
+    Per recuperare fatture vecchie oltre l'archivio automatico (1 gennaio
+    dell'anno precedente). Tempo di completamento fino a 72h.
+    """
+    tenant_id = _require_tenant(user)
+    cfg = await service.ensure_self_config(tenant_id)
+    if not cfg.acube_config_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Devi prima completare l'onboarding A-Cube prima di richiedere uno scarico storico",
+        )
+    try:
+        result = await service.trigger_backfill(cfg, body.from_date, body.to_date)
+    except ScaricoMassivoServiceError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    return BackfillResponse(**result)
 
 
 @router.post("/admin/appointee-credentials", response_model=AppointeeCredentialsResponse)

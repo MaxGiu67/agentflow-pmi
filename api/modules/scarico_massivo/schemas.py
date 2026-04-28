@@ -107,3 +107,18 @@ class OnboardingRequest(BaseModel):
     proxying_fiscal_id: str | None = Field(
         None, description="CF persona fisica per ditte individuali / lavoratori autonomi"
     )
+
+
+class BackfillRequest(BaseModel):
+    """One-shot scarico storico fatture A-Cube — POST /jobs/invoice-download."""
+
+    from_date: date = Field(..., description="Data inizio range (inclusiva)")
+    to_date: date = Field(..., description="Data fine range (inclusiva)")
+
+
+class BackfillResponse(BaseModel):
+    job_id: str | None = None
+    client_fiscal_id: str
+    from_date: date
+    to_date: date
+    message: str

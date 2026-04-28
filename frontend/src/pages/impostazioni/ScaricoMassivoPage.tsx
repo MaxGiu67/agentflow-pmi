@@ -9,6 +9,8 @@ import {
   Rocket,
   KeyRound,
   X,
+  History,
+  Info,
 } from 'lucide-react'
 import {
   useDelegaGuide,
@@ -17,6 +19,7 @@ import {
   useMyDownloadedInvoices,
   useStartMyOnboarding,
   useSaveAppointeeCredentials,
+  useTriggerBackfill,
 } from '../../api/hooks'
 import { useAuthStore } from '../../store/auth'
 import PageHeader from '../../components/ui/PageHeader'
@@ -67,12 +70,35 @@ export default function ScaricoMassivoPage() {
   const sync = useSyncMyScarico()
   const startOnboarding = useStartMyOnboarding()
   const saveCredentials = useSaveAppointeeCredentials()
+  const backfill = useTriggerBackfill()
 
   const [syncMessage, setSyncMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [onboardingMessage, setOnboardingMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [credModalOpen, setCredModalOpen] = useState(false)
   const [credForm, setCredForm] = useState({ appointee_fiscal_id: '', password: '', pin: '' })
   const [credMessage, setCredMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  // Backfill modal state
+  const [backfillModalOpen, setBackfillModalOpen] = useState(false)
+  const todayIso = new Date().toISOString().slice(0, 10)
+  const [backfillForm, setBackfillForm] = useState({
+    from_date: '2024-01-01',
+    to_date: '2024-12-31',
+  })
+  const [backfillMessage, setBackfillMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const handleBackfill = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBackfillMessage(null)
+    try {
+      const r = await backfill.mutateAsync(backfillForm)
+      setBackfillMessage({ type: 'success', text: r.message })
+      setTimeout(() => setBackfillModalOpen(false), 2500)
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setBackfillMessage({ type: 'error', text: detail ?? 'Errore avvio scarico storico' })
+    }
+  }
 
   const handleSaveCredentials = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -182,6 +208,16 @@ export default function ScaricoMassivoPage() {
               <RefreshCw className={`h-4 w-4 ${sync.isPending ? 'animate-spin' : ''}`} />
               {sync.isPending ? 'Sync in corso…' : 'Sync ora'}
             </button>
+            {cfg.acube_config_id && (
+              <button
+                onClick={() => setBackfillModalOpen(true)}
+                className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
+                title="Scarica fatture storiche su un range custom (es. 2024)"
+              >
+                <History className="h-4 w-4" />
+                Scarica archivio storico
+              </button>
+            )}
           </div>
         }
       />
@@ -232,6 +268,28 @@ export default function ScaricoMassivoPage() {
           }`}
         >
           {onboardingMessage.text}
+        </div>
+      )}
+
+      {/* Info banner — primo collegamento A-Cube */}
+      {cfg.acube_config_id && (cfg.invoices_downloaded_total ?? 0) === 0 && (
+        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+          <div className="flex items-start gap-3">
+            <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+            <div className="space-y-1">
+              <p className="font-medium">Primo collegamento in corso</p>
+              <p className="text-blue-800">
+                A-Cube sta accedendo per la prima volta al cassetto fiscale. Standard A-Cube:
+                il <strong>primo scarico massivo arriva entro 72 ore</strong> dall'attivazione
+                della delega/incarico. L'archivio dal <strong>1° gennaio dell'anno scorso</strong>{' '}
+                viene incluso automaticamente.
+              </p>
+              <p className="text-blue-800">
+                Per fatture più vecchie usa <strong>"Scarica archivio storico"</strong> e indica
+                il range desiderato (anche più anni indietro). Anche quel job impiega fino a 72h.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -390,6 +448,91 @@ export default function ScaricoMassivoPage() {
                   className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
                 >
                   {saveCredentials.isPending ? 'Salvataggio…' : 'Salva su A-Cube'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {backfillModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Scarica archivio storico</h3>
+                <p className="mt-1 text-xs text-gray-500">
+                  Lancia un job one-shot su un range di date custom. Tempo completamento fino a 72h
+                  (standard A-Cube).
+                </p>
+              </div>
+              <button
+                onClick={() => setBackfillModalOpen(false)}
+                className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                aria-label="Chiudi"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleBackfill} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">Da</label>
+                  <input
+                    type="date"
+                    required
+                    value={backfillForm.from_date}
+                    max={todayIso}
+                    onChange={(e) => setBackfillForm({ ...backfillForm, from_date: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">A</label>
+                  <input
+                    type="date"
+                    required
+                    value={backfillForm.to_date}
+                    max={todayIso}
+                    onChange={(e) => setBackfillForm({ ...backfillForm, to_date: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-lg bg-blue-50 p-3 text-xs text-blue-800">
+                <strong>Suggerimento</strong>: il range "1° gennaio anno scorso → oggi" è già incluso nello
+                scarico automatico. Usa questa funzione per fatture più vecchie (es. 2024, 2023).
+              </div>
+
+              {backfillMessage && (
+                <div
+                  className={`rounded border px-3 py-2 text-sm ${
+                    backfillMessage.type === 'success'
+                      ? 'border-green-200 bg-green-50 text-green-800'
+                      : 'border-red-200 bg-red-50 text-red-800'
+                  }`}
+                >
+                  {backfillMessage.text}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setBackfillModalOpen(false)}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="submit"
+                  disabled={backfill.isPending}
+                  className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+                >
+                  <History className="h-4 w-4" />
+                  {backfill.isPending ? 'Avvio job…' : 'Avvia scarico'}
                 </button>
               </div>
             </form>
