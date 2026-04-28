@@ -743,21 +743,41 @@ class ACubeOpenBankingService:
         """
         acc_result = await self.sync_accounts(connection_id, tenant_id)
 
-        # Smart default for `since`: delta from last sync of any account on this connection,
-        # or None (which falls back to 30 days inside sync_transactions) if first sync
+        # Smart default for `since`: parte dall'ULTIMA TRANSAZIONE REALMENTE
+        # ARRIVATA (MAX(date) in bank_transactions), non da last_sync_at.
+        # Motivazione: A-Cube ha ritardo PSD2 di 1-5 giorni sul cassetto, quindi
+        # last_sync_at avanza ogni giorno ma le transazioni recenti non sono
+        # ancora visibili. Se usassimo last_sync_at-1gg come since, ad ogni
+        # sync chiederemmo solo gli ultimi 2 giorni e perderemmo per sempre
+        # la finestra "tx_fresh ↔ tx_late_posted_by_acube".
+        # Overlap di 7gg per cattura sicura delle transazioni late-posted.
         if since is None:
             conn = await self.get_connection(connection_id, tenant_id)
-            last_sync_row = (
+            account_ids_q = select(BankAccount.id).where(
+                BankAccount.acube_connection_id == conn.id
+            )
+            last_tx_date = (
                 await self.db.execute(
-                    select(BankAccount.last_sync_at)
-                    .where(BankAccount.acube_connection_id == conn.id)
-                    .order_by(BankAccount.last_sync_at.desc())
+                    select(BankTransaction.date)
+                    .where(BankTransaction.bank_account_id.in_(account_ids_q))
+                    .order_by(BankTransaction.date.desc())
                     .limit(1)
                 )
             ).scalar_one_or_none()
-            if last_sync_row:
-                # Delta sync with 1-day overlap to catch late-posted transactions
-                since = (last_sync_row - timedelta(days=1)).date()
+            if last_tx_date:
+                since = last_tx_date - timedelta(days=7)
+            else:
+                # Nessuna tx in DB ma è già la N-esima sync → fallback last_sync_at-30gg
+                last_sync_row = (
+                    await self.db.execute(
+                        select(BankAccount.last_sync_at)
+                        .where(BankAccount.acube_connection_id == conn.id)
+                        .order_by(BankAccount.last_sync_at.desc())
+                        .limit(1)
+                    )
+                ).scalar_one_or_none()
+                if last_sync_row:
+                    since = (last_sync_row - timedelta(days=30)).date()
 
         tx_result = await self.sync_transactions(
             connection_id, tenant_id, since=since, until=until
