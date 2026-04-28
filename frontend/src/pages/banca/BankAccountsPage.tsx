@@ -26,24 +26,26 @@ export default function BankAccountsPage() {
   const [syncingId, setSyncingId] = useState<string | null>(null)
   const [syncMsg, setSyncMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  const handleSync = async (account: { id: string; acube_connection_id: string | null }) => {
-    if (!account.acube_connection_id) {
+  const handleSync = async (account: Record<string, unknown>) => {
+    const accountId = account.id as string
+    const connectionId = (account.acube_connection_id as string | null) ?? null
+    if (!connectionId) {
       setSyncMsg({ type: 'error', text: 'Conto non collegato via Open Banking — impossibile aggiornare.' })
       return
     }
-    setSyncingId(account.id)
+    setSyncingId(accountId)
     setSyncMsg(null)
     try {
-      const r = await syncConn.mutateAsync({ connectionId: account.acube_connection_id })
+      const r = (await syncConn.mutateAsync({ connectionId })) as
+        | { new_transactions?: number; transactions?: { new_transactions?: number } }
+        | undefined
       const newTx = r?.transactions?.new_transactions ?? r?.new_transactions ?? 0
       setSyncMsg({
         type: 'success',
         text: newTx > 0 ? `Aggiornato: ${newTx} nuovi movimenti.` : 'Nessun nuovo movimento.',
       })
       // Trigger AI parsing in background — non blocca l'utente
-      api
-        .post(`/banking/connections/${account.acube_connection_id}/parse`, {})
-        .catch(() => {})
+      api.post(`/banking/connections/${connectionId}/parse`, {}).catch(() => {})
       refetch()
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail

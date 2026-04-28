@@ -35,7 +35,42 @@ const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
   other: { label: 'Altro', color: 'bg-gray-100 text-gray-600' },
 }
 
-function CategoryBadge({ category }: { category: string | null }) {
+// Subcategorie che meritano un badge più specifico (override del parent)
+const SUBCATEGORY_LABELS: Record<string, { label: string; color: string }> = {
+  compenso: { label: 'Compenso', color: 'bg-violet-100 text-violet-800' },
+  stipendio: { label: 'Stipendio', color: 'bg-purple-100 text-purple-800' },
+  tfr: { label: 'TFR', color: 'bg-fuchsia-100 text-fuchsia-800' },
+  contributi: { label: 'INPS/INAIL', color: 'bg-pink-100 text-pink-800' },
+  commissione_bonifico: { label: 'Comm. bonifico', color: 'bg-gray-100 text-gray-700' },
+  commissione: { label: 'Commissione', color: 'bg-gray-100 text-gray-700' },
+  canone: { label: 'Canone', color: 'bg-slate-100 text-slate-700' },
+  polizza: { label: 'Polizza', color: 'bg-cyan-100 text-cyan-800' },
+  imposta_bollo: { label: 'Bollo', color: 'bg-rose-100 text-rose-800' },
+  rata_mutuo: { label: 'Rata mutuo', color: 'bg-amber-100 text-amber-800' },
+  rata_prestito: { label: 'Rata prestito', color: 'bg-amber-100 text-amber-800' },
+  leasing: { label: 'Leasing', color: 'bg-amber-100 text-amber-800' },
+  giroconto: { label: 'Giroconto', color: 'bg-blue-100 text-blue-800' },
+  bonifico: { label: 'Bonifico', color: 'bg-sky-100 text-sky-800' },
+  f24: { label: 'F24', color: 'bg-red-100 text-red-800' },
+  iva: { label: 'IVA', color: 'bg-red-100 text-red-800' },
+}
+
+function CategoryBadge({
+  category,
+  subcategory,
+}: {
+  category: string | null
+  subcategory?: string | null
+}) {
+  // Subcategory ha priorità: distingue "compenso" da "stipendio" in payroll, ecc.
+  if (subcategory && SUBCATEGORY_LABELS[subcategory]) {
+    const cfg = SUBCATEGORY_LABELS[subcategory]
+    return (
+      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${cfg.color}`}>
+        {cfg.label}
+      </span>
+    )
+  }
   const cfg = (category && CATEGORY_LABELS[category]) || CATEGORY_LABELS.other
   return (
     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${cfg.color}`}>
@@ -391,12 +426,10 @@ export default function MovimentiPage() {
                       )}
                     </td>
                     <td className="px-3 py-3 text-sm">
-                      <CategoryBadge category={(tx.parsed_category as string) ?? null} />
-                      {tx.parsed_subcategory ? (
-                        <div className="mt-0.5 text-[10px] text-gray-500">
-                          {String(tx.parsed_subcategory)}
-                        </div>
-                      ) : null}
+                      <CategoryBadge
+                        category={(tx.parsed_category as string) ?? null}
+                        subcategory={(tx.parsed_subcategory as string) ?? null}
+                      />
                     </td>
                     <td className="px-3 py-3 text-sm text-gray-700">
                       {(tx.parsed_invoice_ref as string) || '—'}
