@@ -309,7 +309,7 @@ class ScaricoMassivoService:
         if not cfg:
             raise ScaricoMassivoServiceError("Configurazione non trovata")
 
-        if not self.client.enabled:
+        if not self.cf_client.enabled:
             cfg.last_sync_error = "Client A-Cube non configurato"
             await self.db.commit()
             raise ScaricoMassivoServiceError("Client A-Cube non configurato")
@@ -321,11 +321,11 @@ class ScaricoMassivoService:
 
         for d in directions:
             try:
-                items = await self.client.list_invoices(
+                items = await self.cf_client.list_invoices(
                     direction=d,
                     fiscal_id=cfg.client_fiscal_id,
-                    since=since,
-                    until=until,
+                    from_date=since,
+                    to_date=until,
                 )
             except (ACubeAPIError, ACubeAuthError) as e:
                 logger.warning(
