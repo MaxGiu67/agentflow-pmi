@@ -418,6 +418,27 @@ async def parse_transaction(
     if result.counterparty_iban and not re.match(r"^IT[0-9A-Z]{25}$", result.counterparty_iban.upper().strip()):
         result.counterparty_iban = None
 
+    # ── Safety guard finale: importi piccoli in uscita = sempre commissione ──
+    # Nessuno paga uno stipendio o un fornitore con €0,80. Override hard se
+    # rules o LLM hanno classificato male (es. "compenso a Maria Carcioppolo").
+    abs_amount = abs(amount or 0)
+    if direction == "debit" and abs_amount < _FEE_AMOUNT_THRESHOLD_EUR:
+        if result.category in ("payroll", "expense_invoice", "income_invoice", "other"):
+            logger.info(
+                "Safety guard: tx €%.2f classificata '%s' → forzata a fee/commissione_bonifico",
+                amount, result.category,
+            )
+            result = ParsedTx(
+                counterparty=None,
+                counterparty_iban=None,
+                invoice_ref=None,
+                category="fee",
+                subcategory="commissione_bonifico",
+                confidence=0.95,
+                method=result.method,
+                notes=f"Auto-override: importo {amount:.2f}€ troppo basso per essere {result.category}",
+            )
+
     if use_cache:
         _PARSE_CACHE[cache_key] = result
 
