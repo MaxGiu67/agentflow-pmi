@@ -386,8 +386,13 @@ async def parse_transaction(
     if not description:
         return ParsedTx(category="other", confidence=0.0, method="rules")
 
-    # Cache key include tenant per evitare cross-contamination
-    cache_key = _hash(f"{description}|{direction}|{tenant_piva or ''}")
+    # Cache key include tenant + flag "small_debit" per evitare che una tx
+    # €2000 STIPENDIO cachi il risultato e venga riusato per una tx €0,80
+    # con la stessa descrizione (commissione bonifico).
+    is_small_debit = direction == "debit" and abs(amount or 0) < _FEE_AMOUNT_THRESHOLD_EUR
+    cache_key = _hash(
+        f"{description}|{direction}|{tenant_piva or ''}|{'S' if is_small_debit else 'L'}"
+    )
     if use_cache and cache_key in _PARSE_CACHE:
         cached = _PARSE_CACHE[cache_key]
         return ParsedTx(**cached.__dict__)
