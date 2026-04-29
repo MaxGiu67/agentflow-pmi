@@ -21,7 +21,7 @@ from api.adapters.acube_einvoicing import (
     ACubeEInvoicingClient,
 )
 from api.adapters.acube_scarico_massivo import (
-    ACUBE_PROXY_FISCAL_ID,
+    ACUBE_PROXY_FISCAL_ID,  # noqa: F401 - retrocompat
     ACubeScaricoMassivoClient,
 )
 from api.db.models import ScaricoFatturaLog, ScaricoMassivoConfig, Tenant
@@ -140,13 +140,15 @@ class ScaricoMassivoService:
           3. POST /schedule/invoice-download/{piva}  (daily schedule + archive backfill)
         """
         import os
-        from api.adapters.acube_scarico_massivo import ACUBE_PROXY_FISCAL_ID
+        from api.adapters.acube_scarico_massivo import ACUBE_PROXY_APPOINTEE_ID
 
         # Resolve mode
         effective_mode = (mode or cfg.onboarding_mode or "appointee").lower()
         if effective_mode in ("proxy", "proxy_delega", "delega"):
             effective_mode = "proxy_delega"
-            appointee_fiscal_id = ACUBE_PROXY_FISCAL_ID  # 10442360961
+            # Federico A-Cube 2026-04-29: il path-param è la stringa "A-CUBE",
+            # non la P.IVA 10442360961 (quella è solo per il form AdE).
+            appointee_fiscal_id = ACUBE_PROXY_APPOINTEE_ID
         else:
             effective_mode = "appointee"
             appointee_fiscal_id = os.getenv("ACUBE_APPOINTEE_FISCAL_ID", "A-CUBE")
@@ -520,12 +522,14 @@ class ScaricoMassivoService:
           (per il caso amministratore unico/gestore — Antonio 2026-04-28)
         """
         import os
-        from api.adapters.acube_scarico_massivo import ACUBE_PROXY_FISCAL_ID
+        from api.adapters.acube_scarico_massivo import ACUBE_PROXY_PIVA_ON_ADE
 
         if mode in ("proxy", "proxy_delega", "delega"):
             return {
                 "mode": "proxy_delega",
-                "acube_fiscal_id": ACUBE_PROXY_FISCAL_ID,
+                # Sul portale AdE il cliente inserisce la P.IVA reale di A-Cube
+                # SRL, non la stringa "A-CUBE" (quella vale solo lato API)
+                "acube_fiscal_id": ACUBE_PROXY_PIVA_ON_ADE,
                 "portale_ade_url": "https://www.agenziaentrate.gov.it/portale/area-riservata",
                 "steps": [
                     "Accedi al portale AdE con SPID/CIE/CNS",
@@ -534,7 +538,7 @@ class ScaricoMassivoService:
                     "Menu laterale blu → Deleghe → Intermediari",
                     "Clicca 'Gestisci deleghe come delegante'",
                     "Clicca 'Aggiungi delega' → tipologia: 'Delega unica'",
-                    f"Inserisci il codice fiscale del delegato: {ACUBE_PROXY_FISCAL_ID} (A-Cube S.r.l.)",
+                    f"Inserisci il codice fiscale del delegato: {ACUBE_PROXY_PIVA_ON_ADE} (A-Cube S.r.l.)",
                     "Spunta i 3 servizi indicati qui sotto",
                     "Salva — la delega è subito Attiva con scadenza 31/12 del 4° anno successivo",
                 ],

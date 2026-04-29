@@ -34,9 +34,18 @@ from api.adapters.acube_ob import (
 
 logger = logging.getLogger(__name__)
 
-# Backward compat: P.IVA A-Cube come delegato proxy (modalità sconsigliata da Antonio
-# 2026-04-27 ma ancora citata nella guida UI). Lasciato per la card guida AdE.
-ACUBE_PROXY_FISCAL_ID = "10442360961"
+# Pseudo-fiscal-id dell'incaricato proxy A-Cube nelle chiamate API
+# (literal "A-CUBE" come da feedback Federico A-Cube 2026-04-29):
+#   POST /ade-appointees/A-CUBE/assign  ← path usa LA STRINGA, non la P.IVA
+ACUBE_PROXY_APPOINTEE_ID = "A-CUBE"
+
+# P.IVA reale di A-Cube SRL — usata SOLO nella guida UI per il form AdE
+# dove il cliente inserisce il delegato sul portale Agenzia Entrate
+ACUBE_PROXY_PIVA_ON_ADE = "10442360961"
+
+# Alias retrocompat per import esistenti (deprecated, rimuovere quando
+# tutti i callers sono migrati a una delle due costanti sopra)
+ACUBE_PROXY_FISCAL_ID = ACUBE_PROXY_APPOINTEE_ID
 
 
 @dataclass
@@ -154,13 +163,16 @@ class ACubeScaricoMassivoClient(ACubeOpenBankingClient):
 
         Per il caso "amministratore unico/gestore" dove il CF dell'utente è
         già Gestore della società e AdE non permette di aggiungersi anche
-        come Incaricato. Antonio 2026-04-28: usa Delega Unificata ad A-Cube.
+        come Incaricato. Alessandro A-Cube 2026-04-28: usa Delega Unificata.
 
         Prerequisito utente: delega ad A-Cube SRL (P.IVA 10442360961) sul
         portale AdE → Profilo → Deleghe → Intermediari → Nuova delega.
+
+        Federico A-Cube 2026-04-29: l'API usa la stringa LETTERALE 'A-CUBE'
+        come appointee path-param, non la P.IVA 10442360961.
         """
         return await self.assign_to_appointee(
-            appointee_fiscal_id=ACUBE_PROXY_FISCAL_ID,
+            appointee_fiscal_id=ACUBE_PROXY_APPOINTEE_ID,
             client_fiscal_id=client_fiscal_id,
             proxying_fiscal_id=proxying_fiscal_id,
         )
