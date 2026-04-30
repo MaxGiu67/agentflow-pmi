@@ -203,15 +203,18 @@ class ActiveInvoiceService:
             tenant_piva=tenant.piva if tenant else "",
         )
 
+        if send_result.status == "error":
+            raise ValueError(send_result.message)
+
         invoice.sdi_id = send_result.sdi_id
-        invoice.sdi_status = "sent"
+        invoice.sdi_status = send_result.status
         invoice.sdi_reject_reason = None
         await self.db.flush()
 
         return {
             "invoice_id": str(invoice.id),
             "sdi_id": send_result.sdi_id,
-            "sdi_status": "sent",
+            "sdi_status": send_result.status,
             "message": send_result.message,
         }
 

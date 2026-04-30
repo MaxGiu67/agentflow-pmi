@@ -10,9 +10,11 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  Download,
   X as XIcon,
 } from 'lucide-react'
 import { useInvoices } from '../../api/hooks'
+import api from '../../api/client'
 import { formatCurrency, formatDate } from '../../lib/utils'
 import PageHeader from '../../components/ui/PageHeader'
 import StatusBadge from '../../components/ui/StatusBadge'
@@ -44,6 +46,30 @@ export default function FattureListPage() {
   const [searchInput, setSearchInput] = useState('')
   const [searchApplied, setSearchApplied] = useState('')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleDownloadPdf = async (
+    e: React.MouseEvent,
+    invoiceId: string,
+    numeroFattura: string,
+  ) => {
+    e.stopPropagation()
+    try {
+      const resp = await api.get(`/invoices/active/${invoiceId}/pdf`, {
+        responseType: 'blob',
+      })
+      const url = URL.createObjectURL(new Blob([resp.data], { type: 'application/pdf' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Fattura_${numeroFattura.replace(/\//g, '-')}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Download copia cortesia failed:', err)
+      alert('Errore nel download della copia cortesia')
+    }
+  }
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -352,6 +378,7 @@ export default function FattureListPage() {
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Fonte</th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Stato</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium uppercase text-gray-500">PDF</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -392,6 +419,28 @@ export default function FattureListPage() {
                       <td className="px-4 py-3 text-xs text-gray-500">{(inv.source as string) || '-'}</td>
                       <td className="px-4 py-3">
                         <StatusBadge status={inv.processing_status as string} />
+                      </td>
+                      <td
+                        className="px-4 py-3 text-center"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {inv.type === 'attiva' ? (
+                          <button
+                            onClick={(e) =>
+                              handleDownloadPdf(
+                                e,
+                                inv.id as string,
+                                (inv.numero_fattura as string) || 'fattura',
+                              )
+                            }
+                            title="Scarica copia cortesia PDF"
+                            className="inline-flex items-center justify-center rounded p-1 text-gray-400 hover:bg-blue-50 hover:text-blue-600"
+                          >
+                            <Download className="h-4 w-4" />
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
                       </td>
                     </tr>
                   )

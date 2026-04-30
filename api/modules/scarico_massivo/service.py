@@ -169,6 +169,19 @@ class ScaricoMassivoService:
                 await self.db.commit()
                 raise ScaricoMassivoServiceError(f"Creazione configurazione fallita: {e}") from e
 
+        # Step 1b: abilita emissione fatture attive sulla BRC.
+        # Giacomo A-Cube 2026-04-30: l'account globale è abilitato all'invio,
+        # ma serve anche flag per-P.IVA prima del primo POST /invoices.
+        # Idempotente — non fallisce se già true.
+        try:
+            await client.enable_customer_invoices(cfg.client_fiscal_id)
+            logger.info("customer_invoice_enabled=true per piva=%s", cfg.client_fiscal_id)
+        except (ACubeAPIError, ACubeAuthError) as e:
+            logger.warning(
+                "enable_customer_invoices fallita per %s: %s — proseguo, non è bloccante per cassetto fiscale",
+                cfg.client_fiscal_id, e,
+            )
+
         # Step 2: assegna P.IVA cliente
         try:
             await client.assign_to_appointee(

@@ -125,6 +125,20 @@ class ACubeScaricoMassivoClient(ACubeOpenBankingClient):
         """GET /business-registry-configurations/{id}"""
         return await self._get(f"/business-registry-configurations/{config_id}")
 
+    async def enable_customer_invoices(self, fiscal_id: str) -> dict[str, Any]:
+        """PUT /business-registry-configurations/{fiscal_id}
+
+        Abilita emissione fatture attive (customer_invoice_enabled=true).
+        Step richiesto da Giacomo A-Cube 2026-04-30: oltre all'abilitazione
+        dell'account globale serve flag esplicito per ogni P.IVA da cui si
+        vuole inviare. Senza, A-Cube rifiuta POST /invoices con 4xx.
+        Idempotente: chiamabile anche se già true.
+        """
+        return await self._put(
+            f"/business-registry-configurations/{fiscal_id}",
+            {"customer_invoice_enabled": True},
+        )
+
     async def assign_to_appointee(
         self,
         appointee_fiscal_id: str,
