@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir fastapi uvicorn[standard] sqlalchemy[asyncio] asy
     boto3 python-docx
 
 COPY api/ ./api/
+COPY monitoring/ ./monitoring/
 COPY pyproject.toml ./
 
 ENV PORT=8000
