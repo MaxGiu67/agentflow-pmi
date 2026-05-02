@@ -74,10 +74,13 @@ from contextlib import asynccontextmanager
 
 from api.db.models import Base
 from api.db.session import engine
+from monitoring.error_middleware import ErrorTrackingMiddleware
+from monitoring.heartbeat_client import HeartbeatClient
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    HeartbeatClient.start_web()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
@@ -317,6 +320,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(ErrorTrackingMiddleware)
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(profile_router, prefix="/api/v1")
